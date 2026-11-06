@@ -78,3 +78,45 @@ test('history line diff reconstructs both source texts without treating content 
   assert.ok(diff.some(l => l.type === 'add' && l.text === '<script>literal</script>'));
   assert.ok(diff.some(l => l.type === 'remove' && l.text === 'Old'));
 });
+
+const { subtreeMarkdown, markdownHeadings } = await import('../web/core.js');
+
+test('authored Markdown overrides generated prefixes without rewriting lists or fenced content', () => {
+  const nodes=[heading('h',2,'# 原始标题'),item('m','1. 原始列表<br>2. 第二条<br><br>```md<br># 代码中的标题<br>```'),heading('peer',2,'后续标题')];
+  const original=structuredClone(nodes), text=toMarkdown(nodes);
+  assert.match(text,/^# 原始标题\n/);
+  assert.ok(text.includes('1. 原始列表\n2. 第二条\n\n```md\n# 代码中的标题\n```'));
+  assert.match(text,/\n## 后续标题\n$/);
+  assert.deepEqual(nodes,original);
+  assert.deepEqual(markdownHeadings('```md\n# 代码\n```\n## 真实'),[2]);
+});
+
+test('explicit heading level affects only structural descendants and conflicting headings both survive', () => {
+  const nodes=[heading('a',2,'# 自定义'),heading('b',3,'下级'),item('x','正文'),heading('c',2,'同级'),heading('d',3,'正常下级'),heading('e',1,'顶级')];
+  const text=toMarkdown(nodes);
+  assert.equal(text,'# 自定义\n\n## 下级\n1. 正文\n\n## 同级\n\n### 正常下级\n\n# 顶级\n');
+  const duplicates=[heading('a',2,'# 重复'),heading('b',3,'# 重复'),item('c','保留正文'),heading('d',2,'重复')];
+  const before=structuredClone(duplicates);
+  assert.equal((toMarkdown(duplicates).match(/# 重复/g)||[]).length,3);
+  assert.deepEqual(duplicates,before);
+});
+
+test('scoped copy retains inherited Markdown hierarchy and never includes siblings', () => {
+  const nodes=[heading('a',2,'# 根'),heading('b',3,'子级'),item('c','子内容'),heading('d',3,'同级'),item('e','其他内容')];
+  assert.equal(subtreeMarkdown(nodes,'b'),'## 子级\n1. 子内容\n');
+  assert.equal(subtreeMarkdown(nodes,'c'),'1. 子内容\n');
+  assert.equal(subtreeMarkdown(nodes,'missing'),'');
+});
+
+test('Markdown in a body item does not change later structural headings', () => {
+  const nodes=[heading('a',2,'标题'),item('b','# 内容标题<br>## 内容子级'),heading('c',3,'编辑器子级'),heading('d',2,'同级')];
+  const text=toMarkdown(nodes);
+  assert.ok(text.includes('# 内容标题\n## 内容子级'));
+  assert.ok(text.includes('### 编辑器子级'));
+  assert.match(text,/\n## 同级\n$/);
+});
+
+test('authored heading Markdown wins over display emphasis and setext levels stay local', () => {
+  const nodes=[heading('a',3,'<b># 原始标题</b>'),heading('b',4,'子级'),heading('c',3,'另一个标题<br>==='),heading('d',4,'其子级'),heading('e',3,'恢复')];
+  assert.equal(toMarkdown(nodes),'# 原始标题\n\n## 子级\n\n另一个标题\n===\n\n## 其子级\n\n### 恢复\n');
+});

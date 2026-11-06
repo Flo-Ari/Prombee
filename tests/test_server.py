@@ -77,6 +77,16 @@ class WorkspaceTests(unittest.TestCase):
         state['template']='invalid'
         self.assertFalse(valid(state))
 
+    def test_common_prompts_round_trip_and_validation(self):
+        state=self.read()['state']
+        state['common']={'id':'common','name':'常用提示词','nodes':[{'id':'c1','kind':'heading','level':1,'html':'常用'}]}
+        self.assertEqual(self.put(dict(state=state,baseRevision=0))[0],200)
+        self.assertEqual(self.read()['state']['common'],state['common'])
+        state['common']['nodes'][0]['html']=None
+        self.assertFalse(valid(state))
+        state['common']=[]
+        self.assertFalse(valid(state))
+
     def test_private_files_not_served(self):
         for path in ['/seed.json','/data/workspace.json','/../desktop.py','/%2e%2e/seed.json']:
             with self.assertRaises(HTTPError) as failure:urlopen(self.url+path)

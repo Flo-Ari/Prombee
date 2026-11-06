@@ -95,20 +95,98 @@ export function nextRoundName(documents) {
   );
   return `第${Math.max(0, ...numbers) + 1}轮`;
 }
-export function toMarkdown(nodes) {
+// Inspect authored Markdown, ignoring headings inside fenced code blocks.
+export function markdownHeadings(text) {
+  const result = [];
+  let fence = null,
+    previous = "";
+  for (const line of text.split("\n")) {
+    const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      previous = "";
+      if (
+        match &&
+        match[1][0] === fence[0] &&
+        match[1].length >= fence.length &&
+        !match[2].trim()
+      )
+        fence = null;
+      continue;
+    }
+    if (match) {
+      previous = "";
+      fence = match[1];
+      continue;
+    }
+    const heading = /^ {0,3}(#{1,6})(?:[ \t]+|$)/.exec(line);
+    if (heading) {
+      result.push(heading[1].length);
+      previous = "";
+      continue;
+    }
+    const underline = /^ {0,3}(=+|-+)[ \t]*$/.exec(line);
+    if (
+      underline &&
+      previous.trim() &&
+      !/^ {0,3}(?:[-+*]|\d+[.)])[ \t]/.test(previous)
+    ) {
+      result.push(underline[1][0] === "=" ? 1 : 2);
+      previous = "";
+    } else previous = line;
+  }
+  return result;
+}
+export function containsMarkdown(text) {
+  return (
+    /^ {0,3}(?:#{1,6}(?:[ \t]+|$)|(?:[-+*]|\d+[.)])[ \t]+|>|`{3,}|~{3,}|(?:[-*_][ \t]*){3,}$)/m.test(
+      text,
+    ) ||
+    /(?:\*\*[^\n]+?\*\*|__[^\n]+?__|\*[^*\n]+?\*|_[^_\n]+?_|`[^`\n]+`|!?\[[^\]\n]+\]\([^)\n]+\))/.test(
+      text,
+    ) ||
+    /\n {0,3}(?:=+|-+)[ \t]*(?:\n|$)/.test(text) ||
+    /^.*\|.*\n[ \t]*\|?[ \t]*:?-{3,}/m.test(text)
+  );
+}
+export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
   let count = 0;
-  const lines = [];
+  const lines = [],
+    stack = [];
   const states = visibility(nodes);
-  for (const n of nodes) {
-    if (states.get(n.id).excluded) continue;
-    const text = inlineMarkdown(n.html);
+  const blank = () => {
+    if (lines.length && lines.at(-1) !== "") lines.push("");
+  };
+  // Walk ancestors even for a subtree copy so local heading overrides remain intact.
+  for (let index = 0; index < end; index++) {
+    const n = nodes[index];
     if (n.kind === "heading") {
+      while (stack.length && stack.at(-1).level >= n.level) stack.pop();
+    }
+    if (states.get(n.id).excluded) continue;
+    const source = plain(n.html);
+    const authored = containsMarkdown(source);
+    const text = authored ? source : inlineMarkdown(n.html);
+    const headings = markdownHeadings(source);
+    const inheritedDelta = stack.at(-1)?.delta || 0;
+    const level = Math.max(1, Math.min(6, n.level + inheritedDelta));
+    if (n.kind === "heading") {
+      stack.push({
+        level: n.level,
+        delta: headings.length ? headings.at(-1) - n.level : inheritedDelta,
+      });
       count = 0;
-      if (plain(n.html).trim()) {
-        if (lines.length) lines.push("");
-        lines.push("#".repeat(n.level) + " " + text);
-      }
-    } else if (plain(n.html).trim()) {
+    }
+    if (index < start || !source.trim()) continue;
+    if (authored) {
+      blank();
+      lines.push(text);
+      // A Markdown block owns its own list numbering and hierarchy.
+      lines.push("");
+      count = 0;
+    } else if (n.kind === "heading") {
+      blank();
+      lines.push("#".repeat(level) + " " + text);
+    } else {
       count++;
       const parts = text.split("\n");
       lines.push(
@@ -117,7 +195,14 @@ export function toMarkdown(nodes) {
       );
     }
   }
+  while (lines.at(-1) === "") lines.pop();
   return lines.length ? lines.join("\n") + "\n" : "";
+}
+export function subtreeMarkdown(nodes, id) {
+  const start = nodes.findIndex((n) => n.id === id);
+  return start < 0
+    ? ""
+    : toMarkdown(nodes, { start, end: scopeEnd(nodes, start) });
 }
 export function makeNode(kind = "item", level = 1, html = "") {
   return { id: uid(), kind, level, html };

@@ -116,6 +116,42 @@ test("tabs, historical template import, new round, raw preview and undo work tog
   assert.equal(source.documents[0].nodes[1].html, "新正文");
 });
 
+test("common prompts have independent editing, scoped copy, full copy and matching preview", async () => {
+  const copied = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (text) => copied.push(text) },
+  });
+  $("commonTab").click();
+  assert.equal($("copyAll").hidden, false);
+  assert.equal($("paper").getAttribute("aria-label"), "常用提示词编辑区");
+  const title = document.querySelector(".content");
+  title.textContent = "## 常用约束";
+  title.dispatchEvent(new window.Event("input"));
+  const body = document.querySelectorAll(".content")[1];
+  body.textContent = "- 保留全部内容";
+  body.dispatchEvent(new window.Event("input"));
+  document.querySelector(".copy-branch").click();
+  await Promise.resolve();
+  assert.equal(copied.at(-1), "## 常用约束\n\n- 保留全部内容\n");
+  $("copyAll").click();
+  await Promise.resolve();
+  assert.equal(copied.at(-1), "## 常用约束\n\n- 保留全部内容\n");
+  $("preview").click();
+  assert.equal($("rawMarkdown").textContent, copied.at(-1));
+  $("copy").click();
+  await Promise.resolve();
+  assert.equal(copied.at(-1), $("rawMarkdown").textContent);
+  $("editorTab").click();
+  assert.equal(document.querySelector(".content").textContent, "约束");
+  assert.equal(document.querySelector(".copy-branch"), null);
+  assert.equal($("copyAll").hidden, true);
+  $("commonTab").click();
+  assert.equal(document.querySelector(".content").textContent, "## 常用约束");
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.equal(saved.state.common.nodes[0].html, "## 常用约束");
+});
+
 test("split diff aligns left/right rows and reconstructs exact original texts", () => {
   const target = document.createElement("div");
   const left = "# A\n旧行\n共同",

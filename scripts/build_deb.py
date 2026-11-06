@@ -40,7 +40,7 @@ def ar_member(name, content, timestamp):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', default='0.4.0')
+    parser.add_argument('--version', default='0.5.0')
     parser.add_argument('--output', type=Path, default=ROOT / 'dist')
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9][0-9A-Za-z.+~:-]*', args.version):
@@ -51,6 +51,8 @@ def main():
     def add(source, destination, mode=0o644):
         files[destination] = (source.read_bytes(), mode)
 
+    add(ROOT / 'LICENSE', 'usr/share/doc/prombee/copyright')
+    add(ROOT / 'NOTICE', 'usr/share/doc/prombee/NOTICE')
     add(ROOT / 'desktop.py', 'usr/share/prombee/desktop.py')
     add(ROOT / 'seed.json', 'usr/share/prombee/seed.json')
     for directory in ('src', 'web'):

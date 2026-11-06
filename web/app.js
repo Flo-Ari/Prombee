@@ -8,6 +8,7 @@ import {
   scopeEnd,
   nextRoundName,
   hierarchyNodes,
+  subtreeMarkdown,
 } from "./core.js";
 import { renderMarkdown, renderComparison } from "./review.js";
 const $ = (id) => document.getElementById(id);
@@ -23,12 +24,20 @@ let state,
   history = [],
   future = [],
   toastTimer;
-let page = "editor";
+let page = "editor",
+  previewSource = null;
 const histories = new Map();
 const currentDoc = () =>
   state.documents.find((d) => d.id === state.current) || state.documents[0];
-const doc = () => (page === "template" ? state.template : currentDoc());
-const editing = () => page === "editor" || page === "template";
+const doc = () =>
+  page === "preview"
+    ? previewSource || currentDoc()
+    : page === "template"
+      ? state.template
+      : page === "common"
+        ? state.common
+        : currentDoc();
+const editing = () => ["editor", "template", "common"].includes(page);
 function toast(text) {
   $("toast").textContent = text;
   $("toast").classList.add("show");
@@ -49,6 +58,7 @@ function buttons() {
 }
 function restore(snapshot) {
   if (page === "template") state.template = JSON.parse(snapshot);
+  else if (page === "common") state.common = JSON.parse(snapshot);
   else
     state.documents[state.documents.indexOf(currentDoc())] =
       JSON.parse(snapshot);
@@ -183,6 +193,13 @@ function render() {
     );
     remove.title = "删除，可用 Ctrl+Z 撤销";
     remove.onclick = () => deleteNode(n.id);
+    if (page === "common") {
+      const copyBranch = element("button", "row-action copy-branch", "复制");
+      copyBranch.title = "复制当前条目及其子层级（含 Markdown 标题）";
+      copyBranch.setAttribute("aria-label", "复制此条目及其子层级");
+      copyBranch.onclick = () => copyText(subtreeMarkdown(doc().nodes, n.id));
+      controls.append(copyBranch);
+    }
     controls.append(plus, eye, remove);
     row.append(mark, content, controls);
     $("paper").append(row);
@@ -486,8 +503,7 @@ function deleteEmpty() {
   changed();
   toast(`已清理本轮 ${count} 个空项，可撤销`);
 }
-async function copy() {
-  const text = toMarkdown(doc().nodes);
+async function copyText(text) {
   try {
     if (window.webkit?.messageHandlers?.clipboard) {
       window.webkit.messageHandlers.clipboard.postMessage(text);
@@ -505,7 +521,11 @@ async function copy() {
     toast(ok ? "已复制提示词" : "复制失败，请选中文字后按 Ctrl+C");
   }
 }
+function copy() {
+  return copyText(toMarkdown(doc().nodes));
+}
 function switchPage(next, roundId) {
+  if (next === "preview") previewSource = doc();
   histories.set(doc().id, { history, future });
   if (roundId) state.current = roundId;
   page = next;
@@ -534,6 +554,7 @@ function updatePages() {
     ["editorTab", "editor"],
     ["preview", "preview"],
     ["compare", "compare"],
+    ["commonTab", "common"],
   ]) {
     $(id).classList.toggle("selected-tab", page === target);
     $(id).setAttribute("aria-selected", String(page === target));
@@ -545,10 +566,15 @@ function updatePages() {
   $("compareToolbar").hidden = page !== "compare";
   $("comparePanel").hidden = page !== "compare";
   $("hierarchyControls").hidden = page !== "template";
+  $("copyAll").hidden = page !== "common";
   document.querySelector(".keys").hidden = !editing();
   $("paper").setAttribute(
     "aria-label",
-    page === "template" ? "模板编辑区" : "提示词编辑区",
+    page === "template"
+      ? "模板编辑区"
+      : page === "common"
+        ? "常用提示词编辑区"
+        : "提示词编辑区",
   );
   fillRounds($("hierarchyRound"), currentDoc().id);
   fillRounds(
@@ -561,7 +587,7 @@ function updatePages() {
   if (page === "compare") updateComparison();
 }
 function updatePreview() {
-  const text = toMarkdown(currentDoc().nodes);
+  const text = toMarkdown(doc().nodes);
   const raw = $("previewMode").value === "raw";
   $("rawMarkdown").hidden = !raw;
   $("previewContent").hidden = raw;
@@ -599,6 +625,8 @@ $("template").onclick = () => switchPage("template");
 $("editorTab").onclick = () => switchPage("editor");
 $("preview").onclick = () => switchPage("preview");
 $("compare").onclick = () => switchPage("compare");
+$("commonTab").onclick = () => switchPage("common");
+$("copyAll").onclick = copy;
 $("previewMode").onchange = updatePreview;
 $("compareLeft").onchange = updateComparison;
 $("compareRight").onchange = updateComparison;
@@ -739,6 +767,14 @@ try {
       id: "template",
       name: "模板",
       nodes: hierarchyNodes(currentDoc().nodes),
+    };
+    dirty = true;
+  }
+  if (!state.common) {
+    state.common = {
+      id: "common",
+      name: "常用提示词",
+      nodes: [makeNode("heading", 1, "常用提示词"), makeNode()],
     };
     dirty = true;
   }

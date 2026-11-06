@@ -16,13 +16,17 @@
       </div>
       <button id="template" role="tab" aria-controls="editorPanel">模板</button>
       <button id="newDoc" title="新建文档 Ctrl+N">＋ 新建</button
-      ><button id="editorTab" role="tab" aria-controls="editorPanel">
-        编写</button
       ><select id="documents" aria-label="切换文档"></select>
+      <button id="editorTab" role="tab" aria-controls="editorPanel">
+        编写
+      </button>
       <button id="compare" role="tab" aria-controls="comparePanel">
         历史对比</button
       ><button id="preview" role="tab" aria-controls="previewPanel">
         预览
+      </button>
+      <button id="commonTab" role="tab" aria-controls="editorPanel">
+        常用提示词
       </button>
       <div class="spacer"></div>
       <button id="theme" aria-label="切换深色主题" title="切换黑纸白字主题">
@@ -71,6 +75,7 @@
       ><button id="addItem">＋ 条目</button
       ><button id="undo" title="撤销 Ctrl+Z">↶</button
       ><button id="redo" title="重做 Ctrl+Shift+Z">↷</button>
+      <button id="copyAll" hidden>全部复制</button>
       <div class="spacer"></div>
       <div id="hierarchyControls" hidden>
         <label

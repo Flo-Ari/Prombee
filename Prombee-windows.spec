@@ -5,7 +5,7 @@ root = Path(SPECPATH)
 datas, binaries, hiddenimports = collect_all('webview')
 a = Analysis([str(root / 'desktop_windows.py')], pathex=[str(root / 'src')],
     binaries=binaries,
-    datas=datas + [(str(root / 'web'), 'web'), (str(root / 'seed.json'), '.')],
+    datas=datas + [(str(root / 'web'), 'web'), (str(root / 'seed.json'), '.'), (str(root / 'LICENSE'), '.'), (str(root / 'NOTICE'), '.')],
     hiddenimports=hiddenimports,
     excludes=['tkinter', 'matplotlib', 'numpy', 'gi', 'PyQt5', 'PyQt6', 'PySide6', 'cefpython3'],
     noarchive=False)

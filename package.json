@@ -1,13 +1,13 @@
 {
   "name": "prombee",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "test": "node --test tests/core.test.mjs tests/pages.test.mjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"
-  }
+  },
+  "license": "Apache-2.0"
 }
-

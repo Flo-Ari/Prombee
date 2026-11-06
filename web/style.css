@@ -724,3 +724,37 @@ header .selected-tab {
     height: 0;
   }
 }
+
+/* Keep the color letter centered over its underline; toolbar labels also use flex. */
+.toolbar .color-control {
+  display: block;
+  padding: 3px 0 9px;
+  line-height: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.color-control > span {
+  display: block;
+  width: 100%;
+}
+.row-controls .copy-branch {
+  width: auto;
+  min-width: 38px;
+  font-size: 11px;
+  padding: 5px;
+}
+@media (min-width: 761px) and (max-width: 1190px) {
+  header {
+    gap: 6px;
+    padding: 12px 16px;
+  }
+  .brand {
+    margin-right: 8px;
+  }
+  header button {
+    padding: 7px 8px;
+  }
+  #documents {
+    max-width: 110px;
+  }
+}
