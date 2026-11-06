@@ -32,10 +32,13 @@ jobs:
       - name: Ensure WebView2 runtime
         shell: pwsh
         run: |
+          $runtime = Get-ChildItem "${env:ProgramFiles(x86)}/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe" -ErrorAction SilentlyContinue
+          if ($runtime) { Write-Host "WebView2 is already installed."; exit 0 }
           $installer = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
-          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $installer
-          $process = Start-Process $installer -ArgumentList '/silent', '/install' -Wait -PassThru
-          if ($process.ExitCode -ne 0) { Write-Host "WebView2 installer returned $($process.ExitCode); renderer smoke test will verify the installed runtime." }
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $installer -TimeoutSec 60
+          $process = Start-Process $installer -ArgumentList '/silent', '/install' -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill(); Write-Host 'Bootstrapper timed out; native smoke will verify runtime availability.' }
+          else { Write-Host "WebView2 installer exit $($process.ExitCode)." }
       - name: Build standalone executable
         run: python -m PyInstaller Prombee-windows.spec --noconfirm --workpath work/pyinstaller-windows --distpath dist/windows
       - name: Packaged native window, Unicode clipboard and close-save smoke test
