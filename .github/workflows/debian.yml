@@ -1,0 +1,39 @@
+name: Debian package
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debian:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build distribution-native package
+        run: python3 scripts/build_deb.py --version 0.3.0
+      - name: Install and smoke test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb dbus-x11 desktop-file-utils ./dist/prombee_0.3.0_all.deb
+          desktop-file-validate /usr/share/applications/prombee.desktop
+          timeout 90s dbus-run-session -- xvfb-run -a env XDG_DATA_HOME="$RUNNER_TEMP/prombee-smoke" WEBKIT_DISABLE_COMPOSITING_MODE=1 prombee --smoke-test
+          test -d "$RUNNER_TEMP/prombee-smoke/prombee"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Prombee-Debian
+          path: dist/*.deb
+      - name: Publish release package
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --title "Prombee $GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" dist/*.deb --clobber

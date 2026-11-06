@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Prombee · 提示蜂</title>
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="logo.svg" alt="AI 蜜蜂标志" /><strong
+          >Prombee<span>提示蜂</span></strong
+        >
+      </div>
+      <button id="newDoc" title="新建文档 Ctrl+N">＋ 新建</button
+      ><select id="documents" aria-label="切换文档"></select>
+      <div class="spacer"></div>
+      <button id="compare">历史对比</button
+      ><button id="preview">复制预览</button>
+      <button id="theme" aria-label="切换深色主题" title="切换黑纸白字主题">
+        ☾</button
+      ><button id="copy" class="primary">复制文字</button>
+    </header>
+    <div class="toolbar" role="toolbar" aria-label="文字格式">
+      <select id="font" aria-label="字体">
+        <option value="Noto Sans CJK SC">思源黑体</option>
+        <option value="Noto Serif CJK SC">思源宋体</option>
+        <option value="Noto Sans Mono CJK SC">思源等宽</option>
+        <option value="sans-serif">无衬线</option>
+        <option value="serif">衬线</option>
+        <option value="monospace">等宽</option></select
+      ><input
+        id="size"
+        type="number"
+        min="9"
+        max="96"
+        value="14"
+        aria-label="字号"
+      /><span class="separator"></span
+      ><button id="bold" title="粗体 Ctrl+B"><b>B</b></button
+      ><button id="italic" title="斜体 Ctrl+I"><i>I</i></button
+      ><label class="color-control" title="文字颜色"
+        ><span>A</span
+        ><input
+          id="color"
+          type="color"
+          value="#2563eb"
+          aria-label="文字颜色" /></label
+      ><button id="clear">清除格式</button><span class="separator"></span
+      ><select id="headingLevel" aria-label="当前标题等级">
+        <option value="0">标题等级</option>
+        <option value="1">H1 一级标题</option>
+        <option value="2">H2 二级标题</option>
+        <option value="3">H3 三级标题</option>
+        <option value="4">H4 四级标题</option>
+        <option value="5">H5 五级标题</option>
+        <option value="6">H6 六级标题</option></select
+      ><button id="addItem">＋ 条目</button
+      ><button id="undo" title="撤销 Ctrl+Z">↶</button
+      ><button id="redo" title="重做 Ctrl+Shift+Z">↷</button>
+      <div class="spacer"></div>
+      <button id="deleteEmpty" title="清理整份提示词的空标题和空条目">
+        删除空项
+      </button>
+    </div>
+    <main><article id="paper" aria-label="提示词编辑区"></article></main>
+    <footer>
+      <span id="status" role="status">正在载入…</span
+      ><span class="keys">Enter 下一条 · Shift+Enter 换行</span
+      ><span class="spacer"></span><span id="stats"></span>
+    </footer>
+    <div
+      id="headingMenu"
+      class="menu"
+      role="menu"
+      aria-label="添加 Markdown 标题"
+      hidden
+    >
+      <span class="menu-caption">添加标题</span
+      ><button data-level="1" role="menuitem">
+        H1 <span>一级标题</span><small>#</small></button
+      ><button data-level="2" role="menuitem">
+        H2 <span>二级标题</span><small>##</small></button
+      ><button data-level="3" role="menuitem">
+        H3 <span>三级标题</span><small>###</small></button
+      ><button data-level="4" role="menuitem">
+        H4 <span>四级标题</span><small>####</small></button
+      ><button data-level="5" role="menuitem">
+        H5 <span>五级标题</span><small>#####</small></button
+      ><button data-level="6" role="menuitem">
+        H6 <span>六级标题</span><small>######</small>
+      </button>
+    </div>
+    <dialog id="reviewDialog" class="review-dialog">
+      <div class="review-header">
+        <h2 id="reviewTitle">复制预览</h2>
+        <button id="closeReview" aria-label="关闭预览">×</button>
+      </div>
+      <div id="compareControls" hidden>
+        <label
+          >参考轮次
+          <select id="compareRound" aria-label="参考轮次"></select></label
+        ><span>比较参与复制的 Markdown 文字</span>
+      </div>
+      <div id="reviewContent"></div>
+    </dialog>
+    <div id="toast" role="status"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

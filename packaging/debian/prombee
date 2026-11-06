@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+data_dir=${PROMBEE_DATA_DIR:-${XDG_DATA_HOME:-"$HOME/.local/share"}/prombee}
+exec /usr/bin/python3 /usr/share/prombee/desktop.py --data-dir "$data_dir" "$@"

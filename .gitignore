@@ -1,0 +1,9 @@
+work/
+build/
+dist/
+data/
+__pycache__/
+*.pyc
+.venv/
+.venv-windows/
+node_modules/

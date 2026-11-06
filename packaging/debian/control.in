@@ -1,0 +1,14 @@
+Package: prombee
+Version: @VERSION@
+Section: editors
+Priority: optional
+Architecture: all
+Maintainer: Flo-Ari <Flo-Ari@users.noreply.github.com>
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, gir1.2-webkit-6.0
+Recommends: fonts-noto-cjk
+Installed-Size: @SIZE@
+Homepage: https://github.com/Flo-Ari/Prombee
+Description: Prombee prompt editor
+ A lightweight desktop prompt editor with hierarchical Markdown headings,
+ numbered items, clipboard sharing, history comparison and copy preview.
+ Uses the distribution's GTK 4 and WebKitGTK 6 runtime libraries.

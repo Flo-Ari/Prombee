@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "documents": [
+    {
+      "id": "first-round",
+      "name": "第1轮",
+      "nodes": [
+        {
+          "id": "overall",
+          "kind": "heading",
+          "level": 1,
+          "html": "整体"
+        },
+        {
+          "id": "first-item",
+          "kind": "item",
+          "level": 1,
+          "html": ""
+        }
+      ]
+    }
+  ],
+  "current": "first-round",
+  "dark": false,
+  "font": "Noto Sans CJK SC",
+  "size": 14
+}

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Prombee
+Name[zh_CN]=Prombee · 提示蜂
+Comment=Lightweight prompt editor
+Comment[zh_CN]=轻量提示词编辑器
+Exec=prombee
+Icon=prombee
+Terminal=false
+Categories=Utility;TextEditor;
+StartupWMClass=app.prombee.Prombee
+StartupNotify=true
