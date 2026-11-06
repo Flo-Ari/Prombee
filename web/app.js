@@ -7,8 +7,9 @@ import {
   visibility,
   scopeEnd,
   nextRoundName,
+  hierarchyNodes,
 } from "./core.js";
-import { openReview } from "./review.js";
+import { renderMarkdown, renderComparison } from "./review.js";
 const $ = (id) => document.getElementById(id);
 let state,
   revision = 0,
@@ -22,8 +23,12 @@ let state,
   history = [],
   future = [],
   toastTimer;
-const doc = () =>
+let page = "editor";
+const histories = new Map();
+const currentDoc = () =>
   state.documents.find((d) => d.id === state.current) || state.documents[0];
+const doc = () => (page === "template" ? state.template : currentDoc());
+const editing = () => page === "editor" || page === "template";
 function toast(text) {
   $("toast").textContent = text;
   $("toast").classList.add("show");
@@ -43,9 +48,10 @@ function buttons() {
   $("redo").disabled = !future.length;
 }
 function restore(snapshot) {
-  const old = doc(),
-    index = state.documents.indexOf(old);
-  state.documents[index] = JSON.parse(snapshot);
+  if (page === "template") state.template = JSON.parse(snapshot);
+  else
+    state.documents[state.documents.indexOf(currentDoc())] =
+      JSON.parse(snapshot);
   active = null;
   selection = null;
   render();
@@ -92,7 +98,8 @@ function render() {
     o.value = d.id;
     $("documents").append(o);
   }
-  $("documents").value = doc().id;
+  $("documents").value = currentDoc().id;
+  updatePages();
   $("paper").replaceChildren();
   const visibilityStates = visibility(doc().nodes);
   for (const n of doc().nodes) {
@@ -487,7 +494,7 @@ async function copy() {
     } else {
       await navigator.clipboard.writeText(text);
     }
-    toast("已复制 Markdown 文字");
+    toast("已复制提示词");
   } catch {
     const t = element("textarea");
     t.value = text;
@@ -495,37 +502,118 @@ async function copy() {
     t.select();
     const ok = document.execCommand("copy");
     t.remove();
-    toast(ok ? "已复制 Markdown 文字" : "复制失败，请选中文字后按 Ctrl+C");
+    toast(ok ? "已复制提示词" : "复制失败，请选中文字后按 Ctrl+C");
   }
+}
+function switchPage(next, roundId) {
+  histories.set(doc().id, { history, future });
+  if (roundId) state.current = roundId;
+  page = next;
+  ({ history, future } = histories.get(doc().id) || {
+    history: [],
+    future: [],
+  });
+  active = null;
+  selection = null;
+  closeMenu();
+  render();
+}
+function fillRounds(select, fallback) {
+  const value = select.value;
+  select.replaceChildren();
+  for (const d of state.documents) {
+    const option = element("option", "", d.name);
+    option.value = d.id;
+    select.append(option);
+  }
+  select.value = state.documents.some((d) => d.id === value) ? value : fallback;
+}
+function updatePages() {
+  for (const [id, target] of [
+    ["template", "template"],
+    ["editorTab", "editor"],
+    ["preview", "preview"],
+    ["compare", "compare"],
+  ]) {
+    $(id).classList.toggle("selected-tab", page === target);
+    $(id).setAttribute("aria-selected", String(page === target));
+  }
+  $("editorToolbar").hidden = !editing();
+  $("editorPanel").hidden = !editing();
+  $("previewToolbar").hidden = page !== "preview";
+  $("previewPanel").hidden = page !== "preview";
+  $("compareToolbar").hidden = page !== "compare";
+  $("comparePanel").hidden = page !== "compare";
+  $("hierarchyControls").hidden = page !== "template";
+  document.querySelector(".keys").hidden = !editing();
+  $("paper").setAttribute(
+    "aria-label",
+    page === "template" ? "模板编辑区" : "提示词编辑区",
+  );
+  fillRounds($("hierarchyRound"), currentDoc().id);
+  fillRounds(
+    $("compareLeft"),
+    state.documents[state.documents.indexOf(currentDoc()) + 1]?.id ||
+      currentDoc().id,
+  );
+  fillRounds($("compareRight"), currentDoc().id);
+  if (page === "preview") updatePreview();
+  if (page === "compare") updateComparison();
+}
+function updatePreview() {
+  const text = toMarkdown(currentDoc().nodes);
+  const raw = $("previewMode").value === "raw";
+  $("rawMarkdown").hidden = !raw;
+  $("previewContent").hidden = raw;
+  $("rawMarkdown").textContent = text;
+  if (text) renderMarkdown(text, $("previewContent"));
+  else $("previewContent").textContent = "没有参与复制的内容。";
+}
+function updateComparison() {
+  const left = state.documents.find((d) => d.id === $("compareLeft").value);
+  const right = state.documents.find((d) => d.id === $("compareRight").value);
+  $("leftTitle").textContent = left.name;
+  $("rightTitle").textContent = right.name;
+  renderComparison(
+    toMarkdown(left.nodes),
+    toMarkdown(right.nodes),
+    $("diffRows"),
+  );
 }
 $("newDoc").onclick = () => {
   const d = {
     id: uid(),
     name: nextRoundName(state.documents),
-    nodes: [makeNode("heading", 1, "整体"), makeNode()],
+    nodes: hierarchyNodes(state.template.nodes),
   };
   state.documents.unshift(d);
-  state.current = d.id;
-  history = [];
-  future = [];
-  active = null;
-  selection = null;
-  render();
-  focus(d.nodes[1].id);
+  switchPage("editor", d.id);
+  if (d.nodes.length) focus((d.nodes[1] || d.nodes[0]).id);
   changed();
 };
 $("documents").onchange = () => {
-  state.current = $("documents").value;
-  history = [];
-  future = [];
+  switchPage("editor", $("documents").value);
+  changed();
+};
+$("template").onclick = () => switchPage("template");
+$("editorTab").onclick = () => switchPage("editor");
+$("preview").onclick = () => switchPage("preview");
+$("compare").onclick = () => switchPage("compare");
+$("previewMode").onchange = updatePreview;
+$("compareLeft").onchange = updateComparison;
+$("compareRight").onchange = updateComparison;
+$("copyHierarchy").onclick = () => {
+  const source = state.documents.find(
+    (d) => d.id === $("hierarchyRound").value,
+  );
+  remember();
+  state.template.nodes = hierarchyNodes(source.nodes);
   active = null;
   selection = null;
   render();
   changed();
+  toast(`已复制${source.name}的标题层级，可撤销`);
 };
-$("closeReview").onclick = () => $("reviewDialog").close();
-$("preview").onclick = () => openReview(state, doc(), "preview");
-$("compare").onclick = () => openReview(state, doc(), "compare");
 $("copy").onclick = copy;
 $("theme").onclick = () => {
   state.dark = !state.dark;
@@ -597,7 +685,7 @@ $("undo").onclick = undo;
 $("redo").onclick = redo;
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeMenu();
-  if (!(e.ctrlKey || e.metaKey) || $("reviewDialog").open) return;
+  if (!(e.ctrlKey || e.metaKey)) return;
   const k = e.key.toLowerCase();
   if (k === "s") {
     e.preventDefault();
@@ -607,7 +695,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     $("newDoc").click();
   }
-  if (k === "b" || k === "i") {
+  if (editing() && (k === "b" || k === "i")) {
     e.preventDefault();
     format(k === "b" ? "bold" : "italic");
   }
@@ -615,11 +703,11 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     copy();
   }
-  if (k === "z") {
+  if (editing() && k === "z") {
     e.preventDefault();
     e.shiftKey ? redo() : undo();
   }
-  if (k === "y") {
+  if (editing() && k === "y") {
     e.preventDefault();
     redo();
   }
@@ -646,6 +734,14 @@ try {
     dirty = true;
     toast("已恢复上次未完成保存的编辑");
   }
+  if (!state.template) {
+    state.template = {
+      id: "template",
+      name: "模板",
+      nodes: hierarchyNodes(currentDoc().nodes),
+    };
+    dirty = true;
+  }
   render();
   $("status").textContent = "已保存到本机";
   if (dirty) changed();
@@ -660,13 +756,7 @@ setInterval(async () => {
     const response = await fetch("/api/dev");
     const value = await response.json();
     if (!value.enabled) return;
-    if (
-      devStamp &&
-      devStamp !== value.stamp &&
-      !dirty &&
-      !saveRunning &&
-      !$("reviewDialog").open
-    )
+    if (devStamp && devStamp !== value.stamp && !dirty && !saveRunning)
       location.reload();
     else if (!devStamp) devStamp = value.stamp;
   } catch {}

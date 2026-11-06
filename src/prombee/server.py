@@ -15,7 +15,10 @@ def valid(state):
         return False
     if len(state['documents']) > 1000:
         return False
-    for doc in state['documents']:
+    template = state.get('template')
+    if template is not None and not isinstance(template, dict):
+        return False
+    for doc in state['documents'] + ([template] if template is not None else []):
         if not isinstance(doc, dict) or not isinstance(doc.get('id'), str) or not isinstance(doc.get('name'), str) or not isinstance(doc.get('nodes'), list):
             return False
         for n in doc['nodes']:

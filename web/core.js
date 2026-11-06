@@ -122,3 +122,13 @@ export function toMarkdown(nodes) {
 export function makeNode(kind = "item", level = 1, html = "") {
   return { id: uid(), kind, level, html };
 }
+
+// A template copies hierarchy, never prior-round body text or copy exclusions.
+export function hierarchyNodes(nodes) {
+  return nodes
+    .filter((n) => n.kind === "heading")
+    .flatMap((n) => [
+      makeNode("heading", n.level, cleanHTML(n.html)),
+      makeNode(),
+    ]);
+}

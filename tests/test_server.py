@@ -67,6 +67,16 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(self.put(dict(state=state,baseRevision=0))[0],200)
         self.assertEqual(self.read()['state']['documents'][0]['nodes'],[])
 
+    def test_template_round_trip_and_validation(self):
+        state=self.read()['state']
+        state['template']={'id':'template','name':'模板','nodes':[{'id':'t1','kind':'heading','level':2,'html':'新层级'}]}
+        self.assertEqual(self.put(dict(state=state,baseRevision=0))[0],200)
+        self.assertEqual(self.read()['state']['template'],state['template'])
+        state['template']['nodes'][0]['level']=7
+        self.assertFalse(valid(state))
+        state['template']='invalid'
+        self.assertFalse(valid(state))
+
     def test_private_files_not_served(self):
         for path in ['/seed.json','/data/workspace.json','/../desktop.py','/%2e%2e/seed.json']:
             with self.assertRaises(HTTPError) as failure:urlopen(self.url+path)

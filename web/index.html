@@ -14,16 +14,27 @@
           >Prombee<span>提示蜂</span></strong
         >
       </div>
+      <button id="template" role="tab" aria-controls="editorPanel">模板</button>
       <button id="newDoc" title="新建文档 Ctrl+N">＋ 新建</button
+      ><button id="editorTab" role="tab" aria-controls="editorPanel">
+        编写</button
       ><select id="documents" aria-label="切换文档"></select>
+      <button id="compare" role="tab" aria-controls="comparePanel">
+        历史对比</button
+      ><button id="preview" role="tab" aria-controls="previewPanel">
+        预览
+      </button>
       <div class="spacer"></div>
-      <button id="compare">历史对比</button
-      ><button id="preview">复制预览</button>
       <button id="theme" aria-label="切换深色主题" title="切换黑纸白字主题">
         ☾</button
-      ><button id="copy" class="primary">复制文字</button>
+      ><button id="copy" class="primary">复制提示词</button>
     </header>
-    <div class="toolbar" role="toolbar" aria-label="文字格式">
+    <div
+      id="editorToolbar"
+      class="toolbar"
+      role="toolbar"
+      aria-label="文字格式"
+    >
       <select id="font" aria-label="字体">
         <option value="Noto Sans CJK SC">思源黑体</option>
         <option value="Noto Serif CJK SC">思源宋体</option>
@@ -61,11 +72,61 @@
       ><button id="undo" title="撤销 Ctrl+Z">↶</button
       ><button id="redo" title="重做 Ctrl+Shift+Z">↷</button>
       <div class="spacer"></div>
+      <div id="hierarchyControls" hidden>
+        <label
+          >历史层级
+          <select id="hierarchyRound" aria-label="历史层级轮次"></select></label
+        ><button id="copyHierarchy">复制层级</button>
+      </div>
       <button id="deleteEmpty" title="清理整份提示词的空标题和空条目">
         删除空项
       </button>
     </div>
-    <main><article id="paper" aria-label="提示词编辑区"></article></main>
+    <div
+      id="previewToolbar"
+      class="toolbar"
+      role="toolbar"
+      aria-label="预览设置"
+      hidden
+    >
+      <label
+        >查看
+        <select id="previewMode">
+          <option value="rendered">Markdown 预览</option>
+          <option value="raw">原始 Markdown</option>
+        </select></label
+      ><span class="toolbar-note">仅显示参与复制的内容</span>
+    </div>
+    <div
+      id="compareToolbar"
+      class="toolbar"
+      role="toolbar"
+      aria-label="历史对比设置"
+      hidden
+    >
+      <label
+        >左侧轮次
+        <select id="compareLeft"></select></label
+      ><label
+        >右侧轮次
+        <select id="compareRight"></select></label
+      ><span class="toolbar-note">红色为删除 · 绿色为新增</span>
+    </div>
+    <main>
+      <section id="editorPanel" role="tabpanel">
+        <article id="paper" aria-label="提示词编辑区"></article>
+      </section>
+      <section id="previewPanel" role="tabpanel" hidden>
+        <article id="previewContent" class="markdown-preview"></article>
+        <pre id="rawMarkdown" hidden></pre>
+      </section>
+      <section id="comparePanel" role="tabpanel" hidden>
+        <div class="comparison-head">
+          <strong id="leftTitle"></strong><strong id="rightTitle"></strong>
+        </div>
+        <div id="diffScroll"><div id="diffRows"></div></div>
+      </section>
+    </main>
     <footer>
       <span id="status" role="status">正在载入…</span
       ><span class="keys">Enter 下一条 · Shift+Enter 换行</span
@@ -93,19 +154,6 @@
         H6 <span>六级标题</span><small>######</small>
       </button>
     </div>
-    <dialog id="reviewDialog" class="review-dialog">
-      <div class="review-header">
-        <h2 id="reviewTitle">复制预览</h2>
-        <button id="closeReview" aria-label="关闭预览">×</button>
-      </div>
-      <div id="compareControls" hidden>
-        <label
-          >参考轮次
-          <select id="compareRound" aria-label="参考轮次"></select></label
-        ><span>比较参与复制的 Markdown 文字</span>
-      </div>
-      <div id="reviewContent"></div>
-    </dialog>
     <div id="toast" role="status"></div>
     <script src="diagnostics.js"></script>
     <script type="module" src="app.js"></script>

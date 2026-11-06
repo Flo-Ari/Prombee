@@ -1,6 +1,5 @@
 import { marked } from "./vendor/marked.esm.js";
 import DOMPurify from "./vendor/purify.es.mjs";
-import { toMarkdown } from "./core.js";
 
 export function renderMarkdown(text, target) {
   target.innerHTML = DOMPurify.sanitize(marked.parse(text), {
@@ -46,50 +45,43 @@ export function lineDiff(before, after) {
   return result;
 }
 
-export function openReview(state, current, mode) {
-  const dialog = document.getElementById("reviewDialog");
-  const output = document.getElementById("reviewContent");
-  const controls = document.getElementById("compareControls");
-  document.getElementById("reviewTitle").textContent =
-    mode === "preview" ? "复制预览" : "历史对比";
-  const text = toMarkdown(current.nodes);
-  controls.hidden = mode !== "compare";
-  output.className = mode === "preview" ? "markdown-preview" : "diff-preview";
-  if (mode === "preview") {
-    if (text) renderMarkdown(text, output);
-    else output.textContent = "没有参与复制的内容。";
-  } else {
-    const select = document.getElementById("compareRound");
-    select.replaceChildren();
-    for (const doc of state.documents.filter((doc) => doc.id !== current.id)) {
-      const option = document.createElement("option");
-      option.value = doc.id;
-      option.textContent = doc.name;
-      select.append(option);
+export function renderComparison(before, after, target) {
+  target.replaceChildren();
+  const diff = lineDiff(before, after);
+  const pairs = [];
+  for (let i = 0; i < diff.length; ) {
+    if (diff[i].type === "same") {
+      pairs.push([diff[i], diff[i]]);
+      i++;
+      continue;
     }
-    const index = state.documents.indexOf(current);
-    const previous =
-      state.documents[index + 1] ||
-      state.documents.find((doc) => doc.id !== current.id);
-    if (previous) select.value = previous.id;
-    const compare = () => {
-      output.replaceChildren();
-      if (!select.options.length) {
-        output.textContent = "再新建一轮后，可以在这里比较两轮提示词。";
-        return;
-      }
-      const reference = state.documents.find((doc) => doc.id === select.value);
-      for (const line of lineDiff(toMarkdown(reference.nodes), text)) {
-        const row = document.createElement("div");
-        row.className = "diff-" + line.type;
-        row.textContent =
-          (line.type === "add" ? "+ " : line.type === "remove" ? "− " : "  ") +
-          line.text;
-        output.append(row);
-      }
-    };
-    select.onchange = compare;
-    compare();
+    const removed = [],
+      added = [];
+    while (i < diff.length && diff[i].type !== "same") {
+      (diff[i].type === "remove" ? removed : added).push(diff[i++]);
+    }
+    for (let j = 0; j < Math.max(removed.length, added.length); j++)
+      pairs.push([removed[j], added[j]]);
   }
-  dialog.showModal();
+  let left = 0,
+    right = 0;
+  for (const pair of pairs) {
+    const row = document.createElement("div");
+    row.className = "diff-row";
+    for (let side = 0; side < 2; side++) {
+      const line = pair[side];
+      const cell = document.createElement("div");
+      cell.className =
+        "diff-cell " + (line ? "diff-" + line.type : "diff-blank");
+      const number = document.createElement("span");
+      number.className = "line-number";
+      number.textContent = line ? String(side === 0 ? ++left : ++right) : "";
+      const text = document.createElement("span");
+      text.className = "diff-text";
+      text.textContent = line?.text || "";
+      cell.append(number, text);
+      row.append(cell);
+    }
+    target.append(row);
+  }
 }
