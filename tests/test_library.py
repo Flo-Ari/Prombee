@@ -33,10 +33,10 @@ class LibraryTests(unittest.TestCase):
     def test_legacy_migration_preserves_json_backup(self):
         data=Path(self.temp.name)/'legacy';data.mkdir()
         package={'revision':4,'state':self.library.seed};raw=json.dumps(package,ensure_ascii=False)
-        (data/'workspace.json').write_text(raw)
+        (data/'workspace.json').write_text(raw,encoding='utf-8')
         lib=Library(ROOT,data,valid)
         self.assertEqual(lib.load()['revision'],4)
-        self.assertEqual((data/'workspace.json').read_text(),raw)
+        self.assertEqual((data/'workspace.json').read_text(encoding='utf-8'),raw)
         self.assertTrue((data/'当前词集.txt').exists())
 
     def test_create_requires_location_and_never_overwrites(self):
@@ -66,9 +66,9 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(self.library.load(before['set']['id'])['state']['size'],20)
         self.assertEqual(self.library.load()['state']['size'],14)
         package=self.library.load()
-        path=Path(package['set']['path']);path.write_text(path.read_text().replace('| 整体','| 外部修改'))
+        path=Path(package['set']['path']);path.write_text(path.read_text(encoding='utf-8').replace('| 整体','| 外部修改'),encoding='utf-8')
         with self.assertRaises(ConflictError):self.library.save({'setId':package['set']['id'],'state':package['state'],'baseRevision':package['revision'],'baseFingerprint':package['fingerprint']})
-        self.assertIn('外部修改',path.read_text())
+        self.assertIn('外部修改',path.read_text(encoding='utf-8'))
 
     def test_open_plain_txt_and_existing_project_without_altering_source(self):
         text='# 已有标题\n1. 保留正文\n'
@@ -76,12 +76,12 @@ class LibraryTests(unittest.TestCase):
         self.library.action({'action':'openProject','folder':str(self.folder)})
         self.library.action({'action':'openSet','path':str(path)})
         self.assertIn('已有标题',self.library.load()['state']['documents'][0]['nodes'][0]['html'])
-        self.assertEqual(path.read_text(),text)
+        self.assertEqual(path.read_text(encoding='utf-8'),text)
         self.assertTrue(any(e['name']=='已有.txt' for e in self.library.browse(str(self.folder))['entries']))
 
     def test_invalid_txt_is_never_silently_overwritten(self):
-        path=self.folder/'损坏.txt';text='Prombee TXT 1\n@node {broken}\n';path.write_text(text)
+        path=self.folder/'损坏.txt';text='Prombee TXT 1\n@node {broken}\n';path.write_text(text,encoding='utf-8')
         with self.assertRaises(ValueError):self.library.action({'action':'openSet','path':str(path)})
-        self.assertEqual(path.read_text(),text)
+        self.assertEqual(path.read_text(encoding='utf-8'),text)
 
 if __name__=='__main__':unittest.main()
