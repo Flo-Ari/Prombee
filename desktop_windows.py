@@ -127,7 +127,9 @@ def main():
                 if state and state['ready'] and state['bridge']:
                     break
                 time.sleep(0.25)
-            assert state['ready'] and state['bridge'] and state['rows'] > 0, state
+            if not (state['ready'] and state['bridge'] and state['rows'] > 0):
+                result['diagnostics'] = json.loads(window.run_js("JSON.stringify({status:document.getElementById('status')?.textContent,errors:window.prombeeErrors,userAgent:navigator.userAgent,resources:performance.getEntriesByType('resource').map(e=>({name:e.name,type:e.initiatorType,size:e.transferSize}))})"))
+                raise AssertionError(state)
             assert state['title'] == 'Prombee · 提示蜂', state
             marker = 'Prombee Windows 测试 🐝'
             clipboard_text(marker)

@@ -73,5 +73,13 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(failure.exception.code,404)
             failure.exception.close()
 
+    def test_script_mime_types_ignore_windows_registry(self):
+        import mimetypes
+        from unittest.mock import patch
+        with patch.object(mimetypes, 'guess_type', return_value=('text/plain',None)):
+            for path in ['/app.js','/review.js','/vendor/marked.esm.js','/vendor/purify.es.mjs']:
+                with urlopen(self.url+path) as response:
+                    self.assertEqual(response.headers.get_content_type(),'text/javascript')
+
 
 if __name__=='__main__':unittest.main()
