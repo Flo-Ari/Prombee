@@ -120,3 +120,38 @@ test('authored heading Markdown wins over display emphasis and setext levels sta
   const nodes=[heading('a',3,'<b># 原始标题</b>'),heading('b',4,'子级'),heading('c',3,'另一个标题<br>==='),heading('d',4,'其子级'),heading('e',3,'恢复')];
   assert.equal(toMarkdown(nodes),'# 原始标题\n\n## 子级\n\n另一个标题\n===\n\n## 其子级\n\n### 恢复\n');
 });
+
+const { integrateMarkdown, foldedNodes, selectionScope, contextLevel } = await import('../web/core.js');
+test('Markdown integration creates editable headings and retains code, conflicting peers and unaffected siblings', () => {
+  const source=[heading('root',2,'# 自定义<br>正文<br>## 冲突<br>```md<br># 代码<br>```'),heading('child',3,'原子级'),heading('peer',2,'冲突')];
+  const result=integrateMarkdown(source,'root');
+  assert.ok(result.some(n=>n.kind==='heading'&&n.level===1&&n.html==='自定义'));
+  assert.ok(result.some(n=>n.raw&&n.html.includes('# 代码')));
+  assert.equal(result.find(n=>n.id==='peer').level,2);
+  assert.equal(result.filter(n=>n.html==='冲突').length,2);
+  assert.ok(toMarkdown(result).includes('```md\n# 代码\n```'));
+  assert.equal(source.length,3);
+  assert.equal(contextLevel(result,'child'),3);
+});
+
+test('folded descendants and overlapping batch scopes do not remove or exclude content', () => {
+  const nodes=[{...heading('a',1,'A'),collapsed:true},heading('b',2,'B'),item('c','C'),heading('d',1,'D')];
+  assert.deepEqual([...foldedNodes(nodes)],['b','c']);
+  assert.deepEqual([...selectionScope(nodes,new Set(['a','b']))],['a','b','c']);
+  assert.equal(toMarkdown(nodes),'# A\n\n## B\n1. C\n\n# D\n');
+});
+
+test('inline Markdown in a title keeps its structural heading marker', () => {
+  assert.equal(toMarkdown([heading('a',2,'**强调标题**')]),'## **强调标题**\n');
+});
+
+test('contenteditable multiline paste preserves the first block boundary and Markdown list items', () => {
+  const browserHTML='## 实现要求<div>- 保留所有原有内容</div><div>- 完成后运行检查</div><div>### 输出格式</div><div>```md</div><div># 代码块里的标题</div><div>```</div>';
+  const cleaned=cleanHTML(browserHTML);
+  const nodes=[item('paste',cleaned)];
+  const normalized=integrateMarkdown(nodes,'paste');
+  assert.equal(normalized[0].html,'实现要求');
+  assert.equal(normalized[0].level,2);
+  assert.equal(toMarkdown(normalized),'## 实现要求\n\n- 保留所有原有内容\n- 完成后运行检查\n\n### 输出格式\n\n```md\n# 代码块里的标题\n```\n');
+  assert.equal(cleanHTML(cleaned),cleaned);
+});

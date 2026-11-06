@@ -1,9 +1,26 @@
+import { marked } from "./vendor/marked.esm.js";
 export const uid = () =>
   globalThis.crypto?.randomUUID?.() ||
   `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 export function cleanHTML(html) {
   const t = document.createElement("template");
   t.innerHTML = html;
+  const endsBreak = (parent) => {
+    let last = parent.lastChild;
+    while (last?.lastChild) last = last.lastChild;
+    return last?.nodeName === "BR" || last?.textContent?.endsWith("\n");
+  };
+  const appendClean = (parent, child) => {
+    const cleaned = clean(child);
+    if (cleaned.nodeType === 3 && !cleaned.textContent) return;
+    if (
+      ["DIV", "P"].includes(child.nodeName) &&
+      parent.childNodes.length &&
+      !endsBreak(parent)
+    )
+      parent.append(document.createElement("br"));
+    parent.append(cleaned);
+  };
   const clean = (node) => {
     if (node.nodeType === 3) return document.createTextNode(node.textContent);
     if (node.nodeType !== 1) return document.createTextNode("");
@@ -29,14 +46,15 @@ export function cleanHTML(html) {
       if (val && !/url\s*\(|expression|javascript:/i.test(val))
         out.style[attr] = val;
     }
-    for (const child of node.childNodes) out.append(clean(child));
-    if (["div", "p"].includes(tag)) out.append(document.createElement("br"));
+    for (const child of node.childNodes) appendClean(out, child);
+    if (["div", "p"].includes(tag) && !endsBreak(out))
+      out.append(document.createElement("br"));
     if (!out.textContent && !out.querySelector("br"))
       return document.createTextNode("");
     return out;
   };
   const box = document.createElement("div");
-  for (const child of t.content.childNodes) box.append(clean(child));
+  for (const child of t.content.childNodes) appendClean(box, child);
   return box.innerHTML;
 }
 export function plain(html) {
@@ -177,7 +195,11 @@ export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
       count = 0;
     }
     if (index < start || !source.trim()) continue;
-    if (authored) {
+    if (
+      n.raw ||
+      (authored &&
+        (headings.length || (n.kind !== "heading" && hasBlockMarkdown(source))))
+    ) {
       blank();
       lines.push(text);
       // A Markdown block owns its own list numbering and hierarchy.
@@ -216,4 +238,85 @@ export function hierarchyNodes(nodes) {
       makeNode("heading", n.level, cleanHTML(n.html)),
       makeNode(),
     ]);
+}
+
+export function selectionScope(nodes, ids) {
+  const selected = new Set(ids),
+    result = new Set();
+  nodes.forEach((node, index) => {
+    if (selected.has(node.id))
+      for (let i = index; i < scopeEnd(nodes, index); i++)
+        result.add(nodes[i].id);
+  });
+  return result;
+}
+export function foldedNodes(nodes) {
+  const hidden = new Set(),
+    stack = [];
+  for (const node of nodes) {
+    if (node.kind === "heading")
+      while (stack.length && stack.at(-1).level >= node.level) stack.pop();
+    if (stack.some((n) => n.collapsed)) hidden.add(node.id);
+    if (node.kind === "heading") stack.push(node);
+  }
+  return hidden;
+}
+export function contextLevel(nodes, id) {
+  let level = 0;
+  for (const node of nodes) {
+    if (node.kind === "heading") level = node.level;
+    if (node.id === id) return level;
+  }
+  return level;
+}
+
+export function hasBlockMarkdown(text) {
+  return marked
+    .lexer(text)
+    .some((token) => !["paragraph", "space", "text"].includes(token.type));
+}
+const htmlText = (text) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+// Convert authored blocks to actual editor rows. Never deduplicate conflicting titles.
+export function integrateMarkdown(nodes, id) {
+  const index = nodes.findIndex((n) => n.id === id),
+    source = nodes[index];
+  if (!source || source.raw) return null;
+  const text = plain(source.html);
+  if (!hasBlockMarkdown(text)) return null;
+  const tokens = marked.lexer(text),
+    replacements = [];
+  for (const token of tokens) {
+    if (token.type === "space") continue;
+    const heading = token.type === "heading";
+    const node = makeNode(
+      heading ? "heading" : "item",
+      heading ? token.depth : 1,
+      htmlText(heading ? token.text : token.raw.replace(/\n+$/, "")),
+    );
+    if (!heading) node.raw = true;
+    if (source.excluded) node.excluded = true;
+    replacements.push(node);
+  }
+  if (!replacements.length) return null;
+  replacements[0].id = source.id;
+  if (source.collapsed && replacements[0].kind === "heading")
+    replacements[0].collapsed = true;
+  const result = nodes.map((node) => ({ ...node }));
+  const finalHeading = replacements.findLast((node) => node.kind === "heading");
+  if (source.kind === "heading" && finalHeading) {
+    const delta = finalHeading.level - source.level;
+    for (let i = index + 1; i < scopeEnd(nodes, index); i++)
+      if (
+        result[i].kind === "heading" &&
+        !markdownHeadings(plain(result[i].html)).length
+      )
+        result[i].level = Math.max(1, Math.min(6, result[i].level + delta));
+  }
+  result.splice(index, 1, ...replacements);
+  return result;
 }

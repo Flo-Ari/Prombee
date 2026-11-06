@@ -15,6 +15,7 @@ for (const key of ["window", "document", "localStorage", "navigator"])
     configurable: true,
   });
 globalThis.setInterval = () => 0;
+globalThis.requestAnimationFrame = (callback) => callback();
 dom.window.HTMLElement.prototype.scrollIntoView = () => {};
 const node = (id, kind, level, html) => ({ id, kind, level, html });
 const source = {
@@ -147,9 +148,9 @@ test("common prompts have independent editing, scoped copy, full copy and matchi
   assert.equal(document.querySelector(".copy-branch"), null);
   assert.equal($("copyAll").hidden, true);
   $("commonTab").click();
-  assert.equal(document.querySelector(".content").textContent, "## 常用约束");
+  assert.equal(document.querySelector(".content").textContent, "常用约束");
   await new Promise((resolve) => setTimeout(resolve, 350));
-  assert.equal(saved.state.common.nodes[0].html, "## 常用约束");
+  assert.equal(saved.state.common.nodes[0].html, "常用约束");
 });
 
 test("split diff aligns left/right rows and reconstructs exact original texts", () => {
@@ -174,4 +175,132 @@ test("split diff aligns left/right rows and reconstructs exact original texts", 
       lines.map((_, i) => String(i + 1)),
     );
   }
+});
+
+test("batch selection cycles, exclusion and subtree deletion can be undone", () => {
+  $("editorTab").click();
+  $("multiSelect").click();
+  assert.equal($("multiSelect").textContent, "全选");
+  assert.equal(
+    document.querySelectorAll(".row-leading input[type=checkbox]").length,
+    2,
+  );
+  $("multiSelect").click();
+  assert.equal($("multiSelect").textContent, "取消全选");
+  $("batchExclude").click();
+  assert.equal(document.querySelectorAll(".row.excluded").length, 2);
+  $("undo").click();
+  assert.equal(document.querySelectorAll(".row.excluded").length, 0);
+  $("batchDelete").click();
+  assert.equal(document.querySelectorAll(".row").length, 0);
+  assert.ok(document.querySelector(".empty-document button"));
+  $("undo").click();
+  assert.equal(document.querySelectorAll(".row").length, 2);
+  $("multiSelect").click();
+  assert.equal($("multiSelect").textContent, "取消全选");
+  $("multiSelect").click();
+  assert.equal($("multiSelect").textContent, "多选");
+});
+
+test("folding changes visibility only; contextual add has item first and keeps ancestor levels enabled", () => {
+  $("editorTab").click();
+  const fold = document.querySelector(".fold");
+  fold.click();
+  assert.equal(document.querySelectorAll(".row")[1].hidden, true);
+  assert.equal(
+    document.querySelector(".fold").getAttribute("aria-expanded"),
+    "false",
+  );
+  document.querySelector(".fold").click();
+  document.querySelectorAll(".add-heading")[1].click();
+  assert.equal($("headingMenu").querySelector("button").id, "menuAddItem");
+  const current = $("headingMenu").querySelector(".current-level");
+  assert.equal(current.dataset.level, "1");
+  assert.equal(current.disabled, false);
+  $("menuAddItem").click();
+  assert.equal(document.querySelectorAll(".row").length, 3);
+  assert.equal($("headingMenu").hidden, true);
+  assert.equal(document.querySelector("#editorToolbar #addItem"), null);
+  assert.equal($("editorToolbar").querySelector("button").id, "undo");
+  $("preview").click();
+  assert.equal($("previewToolbar").querySelector("select"), null);
+  $("previewRaw").click();
+  assert.equal($("rawMarkdown").hidden, false);
+  $("previewRendered").click();
+  assert.equal($("previewContent").hidden, false);
+});
+
+test("new prompt set requires a selected directory and recent selector follows the loaded set", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  let registry = {
+    active: "old",
+    sets: [
+      { id: "old", name: "原词集", path: "/chosen/原词集.txt", lastOpened: 1 },
+    ],
+    projects: [],
+    trash: [],
+  };
+  globalThis.fetch = async (url, options) => {
+    if (url === "/api/library" && options) {
+      const data = JSON.parse(options.body);
+      if (data.action === "createSet") {
+        assert.equal(data.folder, "/chosen");
+        registry = {
+          ...registry,
+          active: "new",
+          sets: [
+            ...registry.sets,
+            {
+              id: "new",
+              name: data.name,
+              path: "/chosen/" + data.name + ".txt",
+              lastOpened: 2,
+            },
+          ],
+        };
+      }
+      return { ok: true, json: async () => registry };
+    }
+    if (url === "/api/library") return { ok: true, json: async () => registry };
+    if (url.startsWith("/api/fs"))
+      return {
+        ok: true,
+        json: async () => ({
+          path: "/chosen",
+          parent: "/",
+          entries: [],
+          shortcuts: [],
+        }),
+      };
+    if (url.startsWith("/api/state?"))
+      return {
+        ok: true,
+        json: async () => ({
+          state: structuredClone(source),
+          revision: 0,
+          fingerprint: "new-file",
+          set: registry.sets.find((s) => s.id === registry.active),
+        }),
+      };
+    if (options)
+      return {
+        ok: true,
+        json: async () => ({ revision: 5, fingerprint: "saved" }),
+      };
+    throw Error("Unexpected URL " + url);
+  };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+  $("libraryTab").click();
+  await settle();
+  $("libraryName").value = "新词集";
+  assert.equal($("libraryCreate").disabled, true);
+  $("chooseLocation").click();
+  await settle();
+  $("folderUse").click();
+  assert.equal($("libraryCreate").disabled, false);
+  $("libraryCreate").click();
+  await settle();
+  assert.equal($("recentSets").value, "new");
+  assert.equal($("editorTab").getAttribute("aria-selected"), "true");
+  assert.equal(document.body.inert, false);
 });

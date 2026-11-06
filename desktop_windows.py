@@ -148,7 +148,8 @@ def main():
         webview.start(smoke if args.smoke_test else None, gui='edgechromium',
                       private_mode=False, storage_path=str(data / 'webview'))
         if args.smoke_test and result['ok']:
-            saved = (data / 'workspace.json').read_text(encoding='utf-8')
+            registry = json.loads((data / 'library.json').read_text(encoding='utf-8'))
+            saved = Path(next(entry['path'] for entry in registry['sets'] if entry['id'] == registry['active'])).read_text(encoding='utf-8')
             assert 'Windows close-save 测试' in saved, 'Close did not flush changes'
             result['closeSave'] = True
     except Exception as error:

@@ -9,8 +9,14 @@ import {
   nextRoundName,
   hierarchyNodes,
   subtreeMarkdown,
+  hasBlockMarkdown,
+  selectionScope,
+  foldedNodes,
+  contextLevel,
+  integrateMarkdown,
 } from "./core.js";
 import { renderMarkdown, renderComparison } from "./review.js";
+import { createLibraryUI } from "./library.js";
 const $ = (id) => document.getElementById(id);
 let state,
   revision = 0,
@@ -24,6 +30,12 @@ let state,
   history = [],
   future = [],
   toastTimer;
+let setId = null,
+  fingerprint = null,
+  noSet = false,
+  libraryUI;
+let multi = false,
+  selected = new Set();
 let page = "editor",
   previewSource = null;
 const histories = new Map();
@@ -112,12 +124,43 @@ function render() {
   updatePages();
   $("paper").replaceChildren();
   const visibilityStates = visibility(doc().nodes);
+  const folded = foldedNodes(doc().nodes);
   for (const n of doc().nodes) {
     const row = element(
       "section",
       `row ${n.kind === "heading" ? "heading h" + n.level : "item"}`,
     );
     row.dataset.id = n.id;
+    row.hidden = folded.has(n.id);
+    row.classList.toggle("batch-selected", selected.has(n.id));
+    const leading = element("div", "row-leading");
+    if (multi) {
+      const checkbox = element("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selected.has(n.id);
+      checkbox.setAttribute("aria-label", "选择此条目");
+      checkbox.onchange = () => {
+        if (checkbox.checked) selected.add(n.id);
+        else selected.delete(n.id);
+        row.classList.toggle("batch-selected", checkbox.checked);
+        updateBatch();
+      };
+      leading.append(checkbox);
+    }
+    if (n.kind === "heading") {
+      const fold = element("button", "fold", n.collapsed ? "▸" : "▾");
+      fold.setAttribute(
+        "aria-label",
+        n.collapsed ? "展开此层级" : "折叠此层级",
+      );
+      fold.setAttribute("aria-expanded", String(!n.collapsed));
+      fold.onclick = () => {
+        n.collapsed = !n.collapsed;
+        render();
+        changed();
+      };
+      leading.append(fold);
+    } else leading.append(element("span", "fold-spacer"));
     row.classList.toggle("excluded", visibilityStates.get(n.id).excluded);
     const mark = element("span", "marker");
     mark.setAttribute("aria-hidden", "true");
@@ -155,11 +198,28 @@ function render() {
         e.clipboardData.getData("text/plain"),
       );
       n.html = cleanHTML(content.innerHTML);
+      const nextId = doc().nodes[doc().nodes.indexOf(n) + 1]?.id;
+      if (mergeMarkdown(n.id)) {
+        const end = nextId
+          ? doc().nodes.findIndex((node) => node.id === nextId)
+          : doc().nodes.length;
+        const last = doc().nodes[Math.max(0, end - 1)];
+        if (last) focus(last.id, true);
+      }
       changed();
     });
+    content.addEventListener("blur", () => {
+      setTimeout(() => {
+        const target = document.activeElement?.closest(".content");
+        if (target && target.dataset.id !== n.id && doc().nodes.includes(n)) {
+          const targetId = target.dataset.id;
+          if (mergeMarkdown(n.id)) focus(targetId);
+        }
+      }, 0);
+    });
     const plus = element("button", "add-heading", "＋");
-    plus.title = "添加 Markdown 标题";
-    plus.setAttribute("aria-label", "在此处添加标题");
+    plus.title = "添加条目或 Markdown 标题";
+    plus.setAttribute("aria-label", "在此处添加标题或条目");
     plus.onclick = (e) => openMenu(n.id, e.currentTarget);
     const controls = element("div", "row-controls");
     const visibilityState = visibilityStates.get(n.id);
@@ -201,13 +261,21 @@ function render() {
       controls.append(copyBranch);
     }
     controls.append(plus, eye, remove);
-    row.append(mark, content, controls);
+    leading.append(mark);
+    row.append(leading, content, controls);
     $("paper").append(row);
   }
-  if (!doc().nodes.length)
-    $("paper").append(
-      element("p", "empty-document", "点击工具栏「＋ 条目」开始编写"),
-    );
+  if (!doc().nodes.length) {
+    const empty = element("div", "empty-document");
+    const start = element("button", "", "＋ 添加条目");
+    start.onclick = () => {
+      active = null;
+      addItem();
+    };
+    empty.append(start);
+    $("paper").append(empty);
+  }
+  updateBatch();
   renumber();
   buttons();
 }
@@ -219,6 +287,9 @@ function renumber() {
     if (n.kind === "heading") {
       number = 0;
       row.querySelector(".marker").textContent = "H" + n.level;
+    } else if (n.raw || hasBlockMarkdown(plain(n.html))) {
+      row.querySelector(".marker").textContent = "MD";
+      number = 0;
     } else
       row.querySelector(".marker").textContent = plain(n.html).trim()
         ? `${++number}.`
@@ -339,16 +410,24 @@ function changed() {
   dirty = true;
   $("status").textContent = "正在保存…";
   try {
-    localStorage.setItem("prombee-draft", JSON.stringify({ state, revision }));
+    localStorage.setItem(
+      "prombee-draft",
+      JSON.stringify({ state, revision, setId, fingerprint }),
+    );
   } catch {}
   clearTimeout(saveTimer);
   saveTimer = setTimeout(save, 250);
 }
 async function save() {
-  if (!dirty || saveRunning || conflict) return;
+  if (!dirty || saveRunning || conflict || noSet) return;
   saveRunning = true;
   dirty = false;
-  const payload = JSON.stringify({ state, baseRevision: revision });
+  const payload = JSON.stringify({
+    state,
+    baseRevision: revision,
+    setId,
+    baseFingerprint: fingerprint,
+  });
   try {
     const r = await fetch("/api/state", {
       method: "PUT",
@@ -366,12 +445,13 @@ async function save() {
     if (!r.ok) throw Error();
     const result = await r.json();
     revision = result.revision;
+    fingerprint = result.fingerprint || fingerprint;
     $("status").textContent = "已保存到本机";
     if (!dirty) localStorage.removeItem("prombee-draft");
     else
       localStorage.setItem(
         "prombee-draft",
-        JSON.stringify({ state, revision }),
+        JSON.stringify({ state, revision, setId, fingerprint }),
       );
   } catch {
     dirty = true;
@@ -392,6 +472,7 @@ function addItem() {
   nodes.splice(index < 0 ? nodes.length : index + 1, 0, n);
   render();
   focus(n.id);
+  closeMenu();
   changed();
 }
 function addHeading(level) {
@@ -415,6 +496,20 @@ function openMenu(id, anchor) {
   menuAnchor = id;
   const menu = $("headingMenu");
   menu.hidden = false;
+  const level = contextLevel(doc().nodes, id);
+  $("menuContext").textContent = level
+    ? `当前 H${level} · 可选择任意等级`
+    : "当前为顶层";
+  for (const button of menu.querySelectorAll("[data-level]")) {
+    button.classList.toggle(
+      "ancestor-level",
+      Number(button.dataset.level) <= level,
+    );
+    button.classList.toggle(
+      "current-level",
+      Number(button.dataset.level) === level,
+    );
+  }
   const r = anchor.getBoundingClientRect();
   menu.style.left =
     Math.max(8, Math.min(r.right - 205, window.innerWidth - 213)) + "px";
@@ -430,12 +525,23 @@ function closeMenu() {
 document.addEventListener("click", (e) => {
   if (!e.target.closest("#headingMenu,.add-heading")) closeMenu();
 });
-for (const b of $("headingMenu").querySelectorAll("button"))
+$("menuAddItem").onclick = () => {
+  active = menuAnchor;
+  addItem();
+};
+for (const b of $("headingMenu").querySelectorAll("[data-level]"))
   b.onclick = () => addHeading(Number(b.dataset.level));
 function editKey(e, n, el) {
   if (e.isComposing) return;
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
+    if (mergeMarkdown(n.id)) {
+      const nodes = doc().nodes,
+        index = nodes.findIndex((node) => node.id === n.id);
+      const next = nodes[index + 1] || nodes[index];
+      focus(next.id, true);
+      return;
+    }
     const nodes = doc().nodes,
       index = nodes.indexOf(n);
     if (
@@ -473,6 +579,72 @@ function editKey(e, n, el) {
     deleteNode(n.id);
   }
 }
+function mergeMarkdown(id) {
+  const nodes = integrateMarkdown(doc().nodes, id);
+  if (!nodes) return false;
+  remember();
+  doc().nodes = nodes;
+  selection = null;
+  render();
+  changed();
+  return true;
+}
+function integrateCurrent() {
+  if (!editing() || noSet) return false;
+  let modified = false;
+  for (const id of doc().nodes.map((node) => node.id)) {
+    const result = integrateMarkdown(doc().nodes, id);
+    if (result) {
+      remember();
+      doc().nodes = result;
+      modified = true;
+      changed();
+    }
+  }
+  return modified;
+}
+function updateBatch() {
+  $("multiSelect").textContent = !multi
+    ? "多选"
+    : selected.size && selected.size === doc().nodes.length
+      ? "取消全选"
+      : "全选";
+  $("multiSelect").setAttribute("aria-pressed", String(multi));
+  $("batchControls").hidden = !multi;
+  $("selectedCount").textContent = `已选 ${selected.size} 项`;
+  $("batchDelete").disabled = $("batchExclude").disabled = !selected.size;
+}
+$("multiSelect").onclick = () => {
+  if (!multi) {
+    multi = true;
+    selected.clear();
+  } else if (selected.size === doc().nodes.length && selected.size) {
+    multi = false;
+    selected.clear();
+  } else selected = new Set(doc().nodes.map((node) => node.id));
+  render();
+};
+$("batchExclude").onclick = () => {
+  if (!selected.size) return;
+  remember();
+  for (const node of doc().nodes)
+    if (selected.has(node.id)) node.excluded = true;
+  render();
+  changed();
+  toast("已排除所选条目及下级，可撤销");
+};
+$("batchDelete").onclick = () => {
+  const ids = selectionScope(doc().nodes, selected);
+  if (!ids.size) return;
+  remember();
+  doc().nodes = doc().nodes.filter((node) => !ids.has(node.id));
+  selected.clear();
+  active = null;
+  selection = null;
+  render();
+  changed();
+  toast(`已删除 ${ids.size} 项，可撤销`);
+};
 function deleteNode(id) {
   const nodes = doc().nodes,
     index = nodes.findIndex((n) => n.id === id);
@@ -522,12 +694,20 @@ async function copyText(text) {
   }
 }
 function copy() {
+  if (integrateCurrent()) render();
   return copyText(toMarkdown(doc().nodes));
 }
 function switchPage(next, roundId) {
+  integrateCurrent();
+  multi = false;
+  selected.clear();
   if (next === "preview") previewSource = doc();
   histories.set(doc().id, { history, future });
-  if (roundId) state.current = roundId;
+  if (roundId) {
+    state.current = roundId;
+    $("compareLeft").value = "";
+    $("compareRight").value = "";
+  }
   page = next;
   ({ history, future } = histories.get(doc().id) || {
     history: [],
@@ -555,10 +735,25 @@ function updatePages() {
     ["preview", "preview"],
     ["compare", "compare"],
     ["commonTab", "common"],
+    ["libraryTab", "library"],
   ]) {
     $(id).classList.toggle("selected-tab", page === target);
     $(id).setAttribute("aria-selected", String(page === target));
   }
+  document.body.dataset.page = page;
+  $("libraryPanel").hidden = page !== "library";
+  for (const id of [
+    "template",
+    "editorTab",
+    "compare",
+    "preview",
+    "commonTab",
+    "newDoc",
+    "documents",
+    "copy",
+  ])
+    $(id).disabled = noSet;
+  $("copy").hidden = page === "library";
   $("editorToolbar").hidden = !editing();
   $("editorPanel").hidden = !editing();
   $("previewToolbar").hidden = page !== "preview";
@@ -589,6 +784,10 @@ function updatePages() {
 function updatePreview() {
   const text = toMarkdown(doc().nodes);
   const raw = $("previewMode").value === "raw";
+  $("previewRendered").classList.toggle("active", !raw);
+  $("previewRaw").classList.toggle("active", raw);
+  $("previewRendered").setAttribute("aria-pressed", String(!raw));
+  $("previewRaw").setAttribute("aria-pressed", String(raw));
   $("rawMarkdown").hidden = !raw;
   $("previewContent").hidden = raw;
   $("rawMarkdown").textContent = text;
@@ -605,6 +804,13 @@ function updateComparison() {
     toMarkdown(right.nodes),
     $("diffRows"),
   );
+  requestAnimationFrame(() => {
+    const scroll = $("diffScroll");
+    document.documentElement.style.setProperty(
+      "--compare-scrollbar",
+      scroll.offsetWidth - scroll.clientWidth + "px",
+    );
+  });
 }
 $("newDoc").onclick = () => {
   const d = {
@@ -628,6 +834,14 @@ $("compare").onclick = () => switchPage("compare");
 $("commonTab").onclick = () => switchPage("common");
 $("copyAll").onclick = copy;
 $("previewMode").onchange = updatePreview;
+$("previewRendered").onclick = () => {
+  $("previewMode").value = "rendered";
+  updatePreview();
+};
+$("previewRaw").onclick = () => {
+  $("previewMode").value = "raw";
+  updatePreview();
+};
 $("compareLeft").onchange = updateComparison;
 $("compareRight").onchange = updateComparison;
 $("copyHierarchy").onclick = () => {
@@ -707,7 +921,6 @@ $("headingLevel").onchange = () => {
   } else if (level) toast("请先选择一个标题");
   $("headingLevel").value = "0";
 };
-$("addItem").onclick = addItem;
 $("deleteEmpty").onclick = deleteEmpty;
 $("undo").onclick = undo;
 $("redo").onclick = redo;
@@ -744,31 +957,45 @@ window.addEventListener("pagehide", () => {
   if (dirty && !conflict)
     navigator.sendBeacon(
       "/api/state",
-      JSON.stringify({ state, baseRevision: revision }),
+      JSON.stringify({
+        state,
+        baseRevision: revision,
+        setId,
+        baseFingerprint: fingerprint,
+      }),
     );
 });
-try {
-  const r = await fetch("/api/state");
-  if (!r.ok) throw Error("无法载入文档");
-  const data = await r.json();
+async function flushWorkspace() {
+  clearTimeout(saveTimer);
+  if (!saveRunning) await save();
+  let attempts = 0;
+  while (saveRunning && attempts++ < 300)
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  if (dirty && !conflict && !saveRunning) await save();
+  if (dirty || conflict || saveRunning)
+    throw new Error("当前内容尚未保存，请先复制内容并检查保存状态");
+}
+function acceptWorkspace(data) {
   state = data.state;
   revision = data.revision;
-  let draft;
-  try {
-    draft = JSON.parse(localStorage.getItem("prombee-draft"));
-  } catch {}
-  if (draft?.state && draft.revision === revision) {
-    state = draft.state;
-    dirty = true;
-    toast("已恢复上次未完成保存的编辑");
-  }
+  setId = data.set?.id || null;
+  fingerprint = data.fingerprint || null;
+  noSet = false;
+  dirty = false;
+  conflict = false;
+  active = null;
+  selection = null;
+  history = [];
+  future = [];
+  histories.clear();
+  selected.clear();
+  multi = false;
   if (!state.template) {
     state.template = {
       id: "template",
       name: "模板",
       nodes: hierarchyNodes(currentDoc().nodes),
     };
-    dirty = true;
   }
   if (!state.common) {
     state.common = {
@@ -776,11 +1003,96 @@ try {
       name: "常用提示词",
       nodes: [makeNode("heading", 1, "常用提示词"), makeNode()],
     };
-    dirty = true;
   }
+  for (const collection of state.documents) {
+    if (collection.fromText) {
+      const original = collection.nodes;
+      for (const node of original) {
+        const candidate = collection.nodes.map((n) =>
+          n.id === node.id ? { ...n, raw: false } : n,
+        );
+        const integrated = integrateMarkdown(candidate, node.id);
+        if (integrated) collection.nodes = integrated;
+      }
+      delete collection.fromText;
+    }
+  }
+  page = "editor";
+  previewSource = null;
+  $("compareLeft").value = "";
+  $("compareRight").value = "";
   render();
-  $("status").textContent = "已保存到本机";
+  $("status").textContent = data.set
+    ? "已保存 · " + data.set.name + ".txt"
+    : "已保存到本机";
+  $("status").title = data.set?.path || "";
   if (dirty) changed();
+}
+try {
+  const r = await fetch("/api/state");
+  const data = await r.json();
+  if (!r.ok) {
+    acceptWorkspace({
+      revision: 0,
+      state: {
+        documents: [{ id: "empty", name: "第1轮", nodes: [] }],
+        current: "empty",
+        dark: false,
+        font: "sans-serif",
+        size: 14,
+      },
+    });
+    noSet = true;
+    setId = null;
+    page = "library";
+    render();
+    $("status").textContent = "请选择或新建词集";
+  } else acceptWorkspace(data);
+  let draft;
+  try {
+    draft = JSON.parse(localStorage.getItem("prombee-draft"));
+  } catch {}
+  if (
+    !noSet &&
+    draft?.state &&
+    draft.revision === revision &&
+    (draft.setId
+      ? draft.setId === setId
+      : !data.set || data.set.name === "当前词集") &&
+    (!draft.fingerprint || draft.fingerprint === fingerprint)
+  ) {
+    state = draft.state;
+    dirty = true;
+    render();
+    changed();
+    toast("已恢复上次未完成保存的编辑");
+  }
+  libraryUI = createLibraryUI({
+    beforeAction: flushWorkspace,
+    onOpen: acceptWorkspace,
+    getSetId: () => setId,
+    onLocation: (entry) => {
+      if (!entry) return;
+      $("status").title = entry.path;
+      if (!dirty && !conflict && !saveRunning)
+        $("status").textContent = "已保存 · " + entry.name + ".txt";
+    },
+    notify: toast,
+    showEditor: () => switchPage("editor"),
+    onEmpty: () => {
+      noSet = true;
+      dirty = false;
+      setId = null;
+      switchPage("library");
+      $("status").textContent = "请新建或打开词集";
+    },
+  });
+  $("libraryTab").onclick = () => {
+    switchPage("library");
+    libraryUI.begin();
+    libraryUI.refresh();
+  };
+  await libraryUI.refresh();
   window.prombeeReady = true;
 } catch (err) {
   $("status").textContent = err.message;

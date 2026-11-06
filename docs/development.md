@@ -4,7 +4,7 @@
 
 ## 浏览器预览
 
-运行 `python3 dev.py`，访问 http://127.0.0.1:8765/ 。修改 `web/` 后自动刷新，修改 Python 服务后重新启动。浏览器版的工作区位于项目 `data/workspace.json`，不会提交到仓库。
+运行 `python3 dev.py`，访问 http://127.0.0.1:8765/ 。修改 `web/` 后自动刷新，修改 Python 服务后重新启动。浏览器版首次将 `data/workspace.json` 迁移为 `data/当前词集.txt`，原文件保留。`data/library.json` 只保存项目路径、最近词集与回收站索引；每个 TXT 自含词集内容，均不提交到仓库。
 
 ## 检查
 

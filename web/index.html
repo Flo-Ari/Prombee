@@ -14,6 +14,10 @@
           >Prombee<span>提示蜂</span></strong
         >
       </div>
+      <button id="libraryTab" role="tab" aria-controls="libraryPanel">
+        新建词集
+      </button>
+      <select id="recentSets" aria-label="最近使用的提示词集"></select>
       <button id="template" role="tab" aria-controls="editorPanel">模板</button>
       <button id="newDoc" title="新建文档 Ctrl+N">＋ 新建</button
       ><select id="documents" aria-label="切换文档"></select>
@@ -39,6 +43,9 @@
       role="toolbar"
       aria-label="文字格式"
     >
+      <button id="undo" title="撤销 Ctrl+Z" aria-label="撤销">↶</button>
+      <button id="redo" title="重做 Ctrl+Shift+Z" aria-label="重做">↷</button>
+      <span class="separator"></span>
       <select id="font" aria-label="字体">
         <option value="Noto Sans CJK SC">思源黑体</option>
         <option value="Noto Serif CJK SC">思源宋体</option>
@@ -71,10 +78,13 @@
         <option value="3">H3 三级标题</option>
         <option value="4">H4 四级标题</option>
         <option value="5">H5 五级标题</option>
-        <option value="6">H6 六级标题</option></select
-      ><button id="addItem">＋ 条目</button
-      ><button id="undo" title="撤销 Ctrl+Z">↶</button
-      ><button id="redo" title="重做 Ctrl+Shift+Z">↷</button>
+        <option value="6">H6 六级标题</option>
+      </select>
+      <button id="multiSelect">多选</button>
+      <div id="batchControls" hidden>
+        <span id="selectedCount"></span><button id="batchExclude">排除</button
+        ><button id="batchDelete">删除</button>
+      </div>
       <button id="copyAll" hidden>全部复制</button>
       <div class="spacer"></div>
       <div id="hierarchyControls" hidden>
@@ -94,12 +104,9 @@
       aria-label="预览设置"
       hidden
     >
-      <label
-        >查看
-        <select id="previewMode">
-          <option value="rendered">Markdown 预览</option>
-          <option value="raw">原始 Markdown</option>
-        </select></label
+      <input id="previewMode" type="hidden" value="rendered" />
+      <button id="previewRendered" aria-pressed="true">Markdown 预览</button
+      ><button id="previewRaw" aria-pressed="false">原始 Markdown</button
       ><span class="toolbar-note">仅显示参与复制的内容</span>
     </div>
     <div
@@ -118,6 +125,57 @@
       ><span class="toolbar-note">红色为删除 · 绿色为新增</span>
     </div>
     <main>
+      <section id="libraryPanel" role="tabpanel" hidden>
+        <div class="library-toolbar">
+          <button data-library-mode="createSet">新建词集</button
+          ><button data-library-mode="createProject">新建项目</button
+          ><button data-library-mode="openSet">打开 TXT</button
+          ><button data-library-mode="openProject">打开项目文件夹</button
+          ><span id="libraryStatus" role="status"></span>
+        </div>
+        <div id="libraryForm" class="library-card">
+          <h2 id="libraryFormTitle">新建词集</h2>
+          <label id="libraryNameLabel"
+            >名称
+            <input id="libraryName" placeholder="词集名称" maxlength="100"
+          /></label>
+          <div class="location-control">
+            <span id="chosenLocation">尚未选择保存位置</span
+            ><button id="chooseLocation">选择保存位置</button>
+          </div>
+          <button id="libraryCreate" class="primary" disabled>创建词集</button>
+        </div>
+        <div id="folderPicker" class="library-card" hidden>
+          <div class="folder-address">
+            <button id="folderUp" aria-label="上一级文件夹">↑</button
+            ><input id="folderAddress" aria-label="文件夹路径" /><button
+              id="folderGo"
+            >
+              前往
+            </button>
+          </div>
+          <div id="folderShortcuts"></div>
+          <div id="folderEntries"></div>
+          <div class="folder-actions">
+            <button id="folderCancel">取消选择</button
+            ><button id="folderUse" class="primary">使用此文件夹</button>
+          </div>
+        </div>
+        <div class="library-columns">
+          <aside class="library-card">
+            <h2>项目</h2>
+            <div id="projectsList"></div>
+          </aside>
+          <div class="library-card">
+            <h2>提示词集</h2>
+            <div id="setsList"></div>
+            <details id="trashSection">
+              <summary>词集回收站</summary>
+              <div id="trashList"></div>
+            </details>
+          </div>
+        </div>
+      </section>
       <section id="editorPanel" role="tabpanel">
         <article id="paper" aria-label="提示词编辑区"></article>
       </section>
@@ -144,7 +202,9 @@
       aria-label="添加 Markdown 标题"
       hidden
     >
-      <span class="menu-caption">添加标题</span
+      <button id="menuAddItem" role="menuitem">＋ <span>添加条目</span></button
+      ><span id="menuContext" class="menu-caption"></span
+      ><span class="menu-caption">添加标题</span
       ><button data-level="1" role="menuitem">
         H1 <span>一级标题</span><small>#</small></button
       ><button data-level="2" role="menuitem">

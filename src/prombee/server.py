@@ -2,12 +2,9 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
-from threading import RLock, Thread
+from threading import Thread
 import json
-import mimetypes
-import os
-from .filelock import exclusive_file_lock
-from contextlib import contextmanager
+from .library import Library, ConflictError
 
 
 def valid(state):
@@ -22,7 +19,7 @@ def valid(state):
         if not isinstance(doc, dict) or not isinstance(doc.get('id'), str) or not isinstance(doc.get('name'), str) or not isinstance(doc.get('nodes'), list):
             return False
         for n in doc['nodes']:
-            if not isinstance(n, dict) or n.get('kind') not in ('heading','item') or not isinstance(n.get('id'),str) or not isinstance(n.get('html'),str) or not isinstance(n.get('level'),int) or not 1 <= n['level'] <= 6 or ('excluded' in n and not isinstance(n['excluded'], bool)):
+            if not isinstance(n, dict) or n.get('kind') not in ('heading','item') or not isinstance(n.get('id'),str) or not isinstance(n.get('html'),str) or not isinstance(n.get('level'),int) or not 1 <= n['level'] <= 6 or any(key in n and not isinstance(n[key], bool) for key in ('excluded', 'collapsed', 'raw')):
                 return False
     return state.get('current') in [d['id'] for d in state['documents']] and isinstance(state.get('dark'),bool) and isinstance(state.get('font'),str) and isinstance(state.get('size'),(int,float)) and 9 <= state['size'] <= 96
 
@@ -30,16 +27,7 @@ def valid(state):
 def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
     root, data_dir = Path(root), Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
-    store = data_dir/'workspace.json'
-    lock = RLock()
-    @contextmanager
-    def transaction():
-        with lock, exclusive_file_lock(data_dir/'.workspace.lock'):
-            yield
-    def load():
-        if store.exists():
-            return json.loads(store.read_text(encoding='utf-8'))
-        return dict(revision=0,state=json.loads((root/'seed.json').read_text(encoding='utf-8')))
+    library = Library(root, data_dir, valid)
 
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
@@ -58,13 +46,19 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
         def do_GET(self):
             path=unquote(urlsplit(self.path).path)
-            if path=='/api/state':
-                with transaction():
-                    self.json(200,load())
+            if path in ('/api/state', '/api/library', '/api/fs'):
+                try:
+                    from urllib.parse import parse_qs
+                    query = parse_qs(urlsplit(self.path).query)
+                    if path == '/api/state': self.json(200, library.load(query.get('setId', [None])[0]))
+                    elif path == '/api/library': self.json(200, library.snapshot())
+                    else: self.json(200, library.browse(query.get('path', [None])[0]))
+                except (ValueError, OSError, KeyError) as error:
+                    self.json(400, {'error': str(error)})
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -72,7 +66,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path!='/api/state':
+            if self.path not in ('/api/state', '/api/library'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -82,22 +76,14 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                state=payload.get('state')
-                if not valid(state):
-                    self.json(400,dict(error='Invalid workspace'));return
-                with transaction():
-                    old=load()
-                    if payload.get('baseRevision')!=old['revision']:
-                        self.json(409,dict(error='Workspace changed',revision=old['revision']));return
-                    result=dict(state=state,revision=old['revision']+1)
-                    temp=store.with_suffix('.tmp')
-                    temp.write_text(json.dumps(result,ensure_ascii=False),encoding='utf-8')
-                    os.replace(temp,store)
-                self.json(200,dict(revision=result['revision']))
-            except (ValueError,AttributeError,TypeError):
-                self.json(400,dict(error='Invalid request'))
-            except OSError:
-                self.json(500,dict(error='Unable to save workspace'))
+                result = library.save(payload) if self.path == '/api/state' else library.action(payload)
+                self.json(200,result)
+            except ConflictError as error:
+                self.json(409,dict(error=str(error)))
+            except (ValueError,AttributeError,TypeError,KeyError) as error:
+                self.json(400,dict(error=str(error) or 'Invalid request'))
+            except OSError as error:
+                self.json(400,dict(error='文件操作失败：' + str(error)))
 
         do_POST=do_PUT
 
