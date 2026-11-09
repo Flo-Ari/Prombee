@@ -7,6 +7,7 @@ import struct
 import threading
 import time
 import zlib
+from .branding import app_name, ui_language
 from .floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT, morph_layout
 
 
@@ -51,7 +52,7 @@ class WindowsFloating:
         owner=self
         class Api:
             def mascot(self,msg):owner.command(msg)
-        self.orb=webview.create_window('提示蜂 · 桌面悬浮球',url+'mascot.html',js_api=Api(),
+        self.orb=webview.create_window(app_name(),url+'mascot.html?host=windows&lang='+ui_language(),js_api=Api(),
             width=ORB_WIDTH,height=ORB_HEIGHT,min_size=(100,100),hidden=True,
             frameless=True,easy_drag=False,transparent=True,on_top=True,shadow=False,text_select=False)
         self.orb.events.loaded+=self.loaded

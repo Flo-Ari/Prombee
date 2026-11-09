@@ -10,10 +10,11 @@ ROOT=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT/'src'))
 from prombee.server import start_server
 from prombee.floating import MORPH_MS
+from prombee.branding import app_name, ui_language
 
 
 def main():
-    parser=argparse.ArgumentParser(description='Prombee · 提示蜂')
+    parser=argparse.ArgumentParser(description=app_name())
     parser.add_argument('--data-dir',type=Path)
     parser.add_argument('--smoke-test',action='store_true',help=argparse.SUPPRESS)
     parser.add_argument('--screenshot',type=Path,help=argparse.SUPPRESS)
@@ -36,6 +37,7 @@ def main():
     gi.require_version('WebKit','6.0')
     gi.require_version('GdkX11','4.0')
     from gi.repository import Gtk,Gdk,Gio,GLib,WebKit,GdkX11
+    GLib.set_application_name(app_name())
     server=start_server(ROOT,data)
     url=f'http://127.0.0.1:{server.server_port}/'
     result=[0]
@@ -51,13 +53,13 @@ def main():
                 if hasattr(self,'floating') and self.floating.mode=='orb':self.floating.open()
                 else:self.window.present()
                 return
-            self.window=Gtk.ApplicationWindow(application=self,title='Prombee · 提示蜂')
+            self.window=Gtk.ApplicationWindow(application=self,title=app_name())
             self.window.set_default_size(1080,800)
             self.window.set_size_request(640,450)
             header=Gtk.HeaderBar()
             header.set_show_title_buttons(True)
             header.set_decoration_layout(":minimize,maximize,close")
-            header.set_title_widget(Gtk.Label(label='Prombee · 提示蜂'))
+            header.set_title_widget(Gtk.Label(label=app_name()))
             float_button=Gtk.Button()
             float_icon=Gtk.Image.new_from_file(str(ROOT/'web/logo.svg'));float_icon.set_pixel_size(18)
             float_button.set_child(float_icon)
@@ -81,7 +83,7 @@ def main():
             self.window.set_child(self.web)
             manager.register_script_message_handler('mascot',None)
             manager.connect('script-message-received::mascot',lambda m,value:self.floating.command(json.loads(value.to_string())))
-            self.web.load_uri(url+'?desktop=gtk')
+            self.web.load_uri(url+'?desktop=gtk&lang='+ui_language())
             self.window.present()
             from prombee.floating_gtk import GtkFloating
             self.floating=GtkFloating(self,self.window,self.web,url,data)
@@ -124,7 +126,7 @@ def main():
                 value=json.loads(view.evaluate_javascript_finish(async_result).to_string())
                 if not value['ready']:
                     GLib.timeout_add(500,self.check);return
-                assert value['title']=='Prombee · 提示蜂' and value['rows']>0 and value['clipped']==0,value
+                assert value['title']==app_name() and value['rows']>0 and value['clipped']==0,value
                 print('DESKTOP_OK '+json.dumps(value,ensure_ascii=False),flush=True)
                 if args.floating_smoke_test:
                     self.floating_stage=0;self.floating_tries=0

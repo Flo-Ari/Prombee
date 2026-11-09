@@ -221,3 +221,30 @@ test("flight direction is selected in the context menu, mirrored and saved", () 
   api.destroy();
   delete ctx.scale;
 });
+
+test("native GTK drag suppresses pointer capture, bridge move packets and accidental clicks", () => {
+  const { api, messages } = start();
+  api.receive("settings", { enabled: true, nativeDrag: true });
+  let captures = 0;
+  canvas.setPointerCapture = () => captures++;
+  canvas.dispatchEvent(
+    new window.MouseEvent("pointerdown", {
+      button: 0,
+      screenX: 200,
+      screenY: 100,
+    }),
+  );
+  canvas.dispatchEvent(
+    new window.MouseEvent("pointermove", { screenX: 260, screenY: 140 }),
+  );
+  canvas.dispatchEvent(new window.Event("pointercancel"));
+  canvas.dispatchEvent(new window.MouseEvent("click"));
+  assert.equal(captures, 0);
+  assert.ok(!messages.some((m) => m.action === "drag" || m.action === "open"));
+  tick(50_000);
+  api.receive("interaction");
+  tick(70_000);
+  assert.equal(api.state().scene, -1);
+  api.destroy();
+  delete canvas.setPointerCapture;
+});

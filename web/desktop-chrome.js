@@ -1,3 +1,4 @@
+import { productName } from "./brand.js";
 import { mountMascot } from "./mascot.js";
 const platform = new URLSearchParams(location.search).get("desktop");
 const native = platform === "windows" || platform === "gtk";
@@ -23,7 +24,8 @@ if (platform !== "gtk") {
   const chrome = document.createElement("div");
   chrome.className = "window-chrome";
   chrome.innerHTML =
-    '<div class="window-drag pywebview-drag-region">Prombee · 提示蜂</div><button id="floatWindow" title="桌面悬浮球" aria-label="收起为蜜蜂悬浮球"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="8" cy="7" rx="4" ry="3"/><ellipse cx="16" cy="7" rx="4" ry="3"/><path d="M7 11h10v6l-5 4-5-4zM8 14h8M9 17h6"/></svg></button><button id="minimizeWindow" title="最小化" aria-label="最小化">−</button><button id="maximizeWindow" title="最大化 / 还原" aria-label="最大化或还原">□</button><button id="closeWindow" title="关闭" aria-label="关闭">×</button>';
+    '<div class="window-drag pywebview-drag-region"></div><button id="floatWindow" title="桌面悬浮球" aria-label="收起为蜜蜂悬浮球"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="8" cy="7" rx="4" ry="3"/><ellipse cx="16" cy="7" rx="4" ry="3"/><path d="M7 11h10v6l-5 4-5-4zM8 14h8M9 17h6"/></svg></button><button id="minimizeWindow" title="最小化" aria-label="最小化">−</button><button id="maximizeWindow" title="最大化 / 还原" aria-label="最大化或还原">□</button><button id="closeWindow" title="关闭" aria-label="关闭">×</button>';
+  chrome.querySelector(".window-drag").textContent = productName;
   document.body.prepend(chrome);
   chrome.querySelector("#floatWindow").onclick = () =>
     post("collapse", { logo: logoTarget() });

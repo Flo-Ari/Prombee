@@ -46,3 +46,39 @@ class FloatingTests(unittest.TestCase):
         _,right=morph_layout(editor,orb,logo,'right');_,left=morph_layout(editor,orb,logo,'left')
         self.assertEqual(right['from']['x']-left['from']['x'],52)
         self.assertEqual(right['to'],left['to'])
+
+    def test_fedora_drag_is_one_native_grab_with_no_resize_loop_or_click(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        control=GtkFloating.__new__(GtkFloating)
+        grabs=[];opened=[];messages=[];states=[]
+        device=object()
+        control.mode='orb';control.menu_open=False;control.drag_press=None;control.drag_started=False
+        control.Gtk=SimpleNamespace(EventSequenceState=SimpleNamespace(CLAIMED='claimed',DENIED='denied'))
+        control.view=SimpleNamespace(grab_focus=lambda:None)
+        control.orb=SimpleNamespace(get_surface=lambda:SimpleNamespace(begin_move=lambda *args:grabs.append(args)))
+        control.emit=lambda *args:messages.append(args)
+        control.open=lambda:opened.append(True)
+        gesture=SimpleNamespace(set_state=states.append,get_current_event_device=lambda:device,get_current_event_time=lambda:123)
+        control.drag_begin(gesture,260,210)
+        control.drag_update(gesture,2,2);self.assertEqual(grabs,[])
+        for dx in range(6,100):control.drag_update(gesture,dx,20)
+        control.drag_end(gesture,99,20)
+        self.assertEqual(grabs,[(device,1,260,210,123)])
+        self.assertEqual(opened,[]);self.assertIn(('interaction',),messages)
+        # Legacy JS drag packets never adjust the GTK window while the WM owns movement.
+        for dx in range(10):control.command({'action':'drag','dx':dx,'dy':1})
+        self.assertEqual(grabs,[(device,1,260,210,123)])
+        control.drag_begin(gesture,260,210);control.drag_end(gesture,1,1)
+        self.assertEqual(opened,[True])
+        control.menu_open=True;control.drag_begin(gesture,260,210)
+        self.assertEqual(states[-1],'denied')
+
+    def test_cancelled_native_drag_never_opens_the_editor(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        control=GtkFloating.__new__(GtkFloating)
+        control.drag_press=('pointer',123,0,0);control.drag_started=True
+        control.open=lambda:self.fail('Cancelled drag became a click')
+        control.drag_cancel(None,None);control.drag_end(None,0,0)
+        self.assertIsNone(control.drag_press)

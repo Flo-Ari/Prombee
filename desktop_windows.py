@@ -12,6 +12,7 @@ import time
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'src'))
 from prombee.server import start_server
+from prombee.branding import app_name, ui_language
 
 
 def clipboard_text(text=None):
@@ -74,7 +75,7 @@ window.webkit = {messageHandlers: {
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Prombee · 提示蜂')
+    parser = argparse.ArgumentParser(description=app_name())
     parser.add_argument('--data-dir', type=Path)
     parser.add_argument('--smoke-test', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--smoke-result', type=Path, help=argparse.SUPPRESS)
@@ -112,7 +113,7 @@ def main():
                 closing.clear()
                 window.run_js("document.getElementById('status').textContent='暂时无法保存，请先复制文字保留内容'")
 
-    window = webview.create_window('Prombee · 提示蜂', f'http://127.0.0.1:{server.server_port}/?desktop=windows',
+    window = webview.create_window(app_name(), f'http://127.0.0.1:{server.server_port}/?desktop=windows&lang={ui_language()}',
                                    js_api=Api(), width=1080, height=800, min_size=(640, 450), text_select=True,
                                    frameless=True, easy_drag=False)
 
@@ -141,7 +142,7 @@ def main():
             if not (state['ready'] and state['bridge'] and state['rows'] > 0):
                 result['diagnostics'] = json.loads(window.run_js("JSON.stringify({status:document.getElementById('status')?.textContent,errors:window.prombeeErrors,userAgent:navigator.userAgent,resources:performance.getEntriesByType('resource').map(e=>({name:e.name,type:e.initiatorType,size:e.transferSize}))})"))
                 raise AssertionError(state)
-            assert state['title'] == 'Prombee · 提示蜂', state
+            assert state['title'] == app_name(), state
             deadline=time.monotonic()+10
             while not floating.ready and time.monotonic()<deadline:time.sleep(.05)
             assert floating.ready,'Floating window did not load'
@@ -183,8 +184,8 @@ def main():
         result.update(ok=False, error=str(error))
         if not args.smoke_test:
             ctypes.windll.user32.MessageBoxW(None,
-                '无法启动 Prombee。请安装 Microsoft Edge WebView2 Runtime 后重试。\n\n' + str(error),
-                'Prombee · 提示蜂', 0x10)
+                f'无法启动 {app_name()}。请安装 Microsoft Edge WebView2 Runtime 后重试。\n\n' + str(error),
+                app_name(), 0x10)
     finally:
         server.shutdown()
         server.server_close()

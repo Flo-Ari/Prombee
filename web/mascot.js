@@ -1,3 +1,4 @@
+import "./brand.js";
 // Code-drawn mascot: transparent at every scale, independent of editor content.
 export const IDLE_DELAY = 60_000;
 export const MORPH_DURATION = 300;
@@ -97,7 +98,8 @@ export function mountMascot(canvas, menu, send = () => {}) {
     frame = 0,
     last = 0,
     destroyed = false;
-  let direction = "right";
+  let direction = "right",
+    nativeDrag = false;
   let enabled = true,
     visible = true,
     scene = -1,
@@ -1099,6 +1101,11 @@ export function mountMascot(canvas, menu, send = () => {}) {
     ctx.restore();
     mouse = screenMouse;
   }
+  function closeMenu() {
+    const wasOpen = !menu.hidden;
+    menu.hidden = true;
+    if (wasOpen) send("menuClose");
+  }
   function play(index, now = performance.now()) {
     if (index < 0 || index >= SCENES.length) return;
     sceneOrigin =
@@ -1124,7 +1131,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     lastScene = index;
     sceneStart = now;
     nextIdle = now + IDLE_DELAY;
-    menu.hidden = true;
+    closeMenu();
     send("scene", { index });
   }
   function save() {
@@ -1135,8 +1142,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     } catch {}
   }
   function action(name) {
-    menu.hidden = true;
-    send("menuClose");
+    closeMenu();
     nextIdle = performance.now() + IDLE_DELAY;
     if (name === "toggle") {
       enabled = !enabled;
@@ -1195,7 +1201,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
           dy = e.screenY - drag.y;
         if (Math.hypot(dx, dy) > 5) {
           suppressClick = true;
-          send("drag", { dx, dy });
+          if (!nativeDrag) send("drag", { dx, dy });
           drag.x = e.screenX;
           drag.y = e.screenY;
         }
@@ -1204,11 +1210,14 @@ export function mountMascot(canvas, menu, send = () => {}) {
     pointerdown: (e) => {
       if (e.button !== 0) return;
       nextIdle = performance.now() + IDLE_DELAY;
-      menu.hidden = true;
-      send("menuClose");
+      closeMenu();
       drag = { x: e.screenX, y: e.screenY };
       suppressClick = false;
-      canvas.setPointerCapture?.(e.pointerId);
+      if (!nativeDrag) canvas.setPointerCapture?.(e.pointerId);
+    },
+    pointercancel: () => {
+      drag = null;
+      suppressClick = true;
     },
     pointerup: (e) => {
       drag = null;
@@ -1229,7 +1238,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
         showMenu(center.x, center.y);
       }
       if (e.key === "Escape") {
-        menu.hidden = true;
+        closeMenu();
         send("open");
       }
     },
@@ -1240,7 +1249,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     const buttons = [...menu.querySelectorAll("button")],
       i = buttons.indexOf(document.activeElement);
     if (e.key === "Escape") {
-      menu.hidden = true;
+      closeMenu();
       canvas.focus();
     }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -1265,9 +1274,11 @@ export function mountMascot(canvas, menu, send = () => {}) {
         customCenter = data.x === undefined ? null : data;
         resize();
       }
+      if (command === "interaction") nextIdle = performance.now() + IDLE_DELAY;
       if (command === "cursor") mouse = data;
       if (command === "settings") {
         enabled = data.enabled !== false;
+        nativeDrag = data.nativeDrag === true;
         direction = data.direction === "left" ? "left" : "right";
         scene = -1;
         previousEnvironment = null;
@@ -1277,18 +1288,18 @@ export function mountMascot(canvas, menu, send = () => {}) {
         scene = -1;
         previousEnvironment = null;
         nextIdle = performance.now() + IDLE_DELAY;
-        menu.hidden = true;
+        closeMenu();
         resize();
       }
       if (command === "pause") {
         visible = false;
-        menu.hidden = true;
+        closeMenu();
       }
       if (command === "morph") {
         visible = true;
         scene = -1;
         previousEnvironment = null;
-        menu.hidden = true;
+        closeMenu();
         resize();
         morph = { ...data, started: performance.now() };
         if (data.snapshot) {
@@ -1300,6 +1311,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     state: () => ({
       enabled,
       direction,
+      nativeDrag,
       scene,
       visible,
       morphing: !!morph,
