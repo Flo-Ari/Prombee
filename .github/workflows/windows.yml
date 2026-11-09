@@ -51,7 +51,7 @@ jobs:
           if (-not $process.WaitForExit(90000)) { $process.Kill(); throw 'Packaged Windows smoke test timed out.' }
           if ($process.ExitCode -ne 0) { if (Test-Path $report) { Get-Content $report }; throw "Smoke test exited $($process.ExitCode)." }
           $result = Get-Content $report -Raw | ConvertFrom-Json
-          if (-not ($result.ok -and $result.clipboard -and $result.closeSave)) { throw 'Smoke report is incomplete.' }
+          if (-not ($result.ok -and $result.clipboard -and $result.closeSave -and $result.floatingRoundTrip)) { throw 'Smoke report is incomplete.' }
           Get-Content $report
       - uses: actions/upload-artifact@v4
         with:

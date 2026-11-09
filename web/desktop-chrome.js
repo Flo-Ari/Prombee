@@ -1,0 +1,79 @@
+import { mountMascot } from "./mascot.js";
+const platform = new URLSearchParams(location.search).get("desktop");
+const native = platform === "windows" || platform === "gtk";
+export function logoTarget() {
+  const r = document.querySelector(".brand img").getBoundingClientRect();
+  return { x: r.x + r.width * 0.5, y: r.y + (r.height * 53) / 128 };
+}
+window.prombeeLogoTarget = logoTarget;
+function post(action, data = {}) {
+  const msg = { action, ...data };
+  if (window.pywebview?.api?.mascot) return window.pywebview.api.mascot(msg);
+  if (window.webkit?.messageHandlers?.mascot)
+    return window.webkit.messageHandlers.mascot.postMessage(
+      JSON.stringify(msg),
+    );
+  demoAction(action, data);
+}
+if (platform !== "gtk") {
+  const chrome = document.createElement("div");
+  chrome.className = "window-chrome";
+  chrome.innerHTML =
+    '<div class="window-drag pywebview-drag-region">Prombee · 提示蜂</div><button id="floatWindow" title="桌面悬浮球" aria-label="收起为蜜蜂悬浮球"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="8" cy="7" rx="4" ry="3"/><ellipse cx="16" cy="7" rx="4" ry="3"/><path d="M7 11h10v6l-5 4-5-4zM8 14h8M9 17h6"/></svg></button><button id="minimizeWindow" title="最小化" aria-label="最小化">−</button><button id="maximizeWindow" title="最大化 / 还原" aria-label="最大化或还原">□</button><button id="closeWindow" title="关闭" aria-label="关闭">×</button>';
+  document.body.prepend(chrome);
+  chrome.querySelector("#floatWindow").onclick = () =>
+    post("collapse", { logo: logoTarget() });
+  chrome.querySelector("#minimizeWindow").onclick = () =>
+    native ? post("minimize") : post("collapse", { logo: logoTarget() });
+  chrome.querySelector("#maximizeWindow").onclick = () =>
+    native ? post("maximize") : document.documentElement.requestFullscreen?.();
+  chrome.querySelector("#closeWindow").onclick = () =>
+    native ? post("close") : document.exitFullscreen?.();
+}
+let demo, mascot;
+function demoAction(action, data) {
+  if (action === "collapse") {
+    if (!demo) {
+      demo = document.createElement("section");
+      demo.id = "mascotDemo";
+      demo.innerHTML =
+        '<canvas id="mascotCanvas" role="button" tabindex="0" aria-label="蜜蜂悬浮球，点击打开，右键选择动画"></canvas><div id="mascotMenu" role="menu" hidden></div><span class="demo-hint">悬浮球预览 · 点击蜜蜂展开 · 右键选择待机动画 · 拖动蜜蜂</span>';
+      document.body.append(demo);
+      mascot = mountMascot(
+        demo.querySelector("canvas"),
+        demo.querySelector("#mascotMenu"),
+        demoAction,
+      );
+    }
+    demo.hidden = false;
+    mascot.receive("morph", {
+      direction: "close",
+      from: { x: innerWidth / 2 + 26, y: innerHeight / 2 - 8 },
+      to: data.logo,
+      editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
+    });
+  }
+  if (action === "open")
+    mascot.receive("morph", {
+      direction: "open",
+      from: { x: innerWidth / 2 + 26, y: innerHeight / 2 - 8 },
+      to: logoTarget(),
+      editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
+    });
+  if (action === "morphDone") {
+    if (data.direction === "open") {
+      demo.hidden = true;
+      mascot.receive("pause");
+    } else mascot.receive("show");
+  }
+  if (action === "hide") {
+    demo.hidden = true;
+    mascot.receive("pause");
+  }
+}
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && demo && !demo.hidden) {
+    demo.hidden = true;
+    mascot.receive("pause");
+  }
+});

@@ -67,7 +67,8 @@ BRIDGE = """
 window.webkit = {messageHandlers: {
   clipboard: {postMessage: text => window.pywebview.api.clipboard(text)},
   theme: {postMessage: dark => window.pywebview.api.theme(dark)},
-  close: {postMessage: value => window.pywebview.api.close_finished(value)}
+  close: {postMessage: value => window.pywebview.api.close_finished(value)},
+  mascot: {postMessage: value => window.pywebview.api.mascot(JSON.parse(value))}
 }};
 """
 
@@ -97,16 +98,26 @@ def main():
             # Editor theme is shared; Windows owns the native title bar appearance.
             pass
 
+        def mascot(self, msg):
+            floating.command(msg)
+
         def close_finished(self, value):
             if value == 'saved':
                 allow_close.set()
+                floating.stop.set()
+                floating.allow_close=True
+                floating.orb.destroy()
                 window.destroy()
             else:
                 closing.clear()
                 window.run_js("document.getElementById('status').textContent='暂时无法保存，请先复制文字保留内容'")
 
-    window = webview.create_window('Prombee · 提示蜂', f'http://127.0.0.1:{server.server_port}/',
-                                   js_api=Api(), width=1080, height=800, min_size=(640, 450), text_select=True)
+    window = webview.create_window('Prombee · 提示蜂', f'http://127.0.0.1:{server.server_port}/?desktop=windows',
+                                   js_api=Api(), width=1080, height=800, min_size=(640, 450), text_select=True,
+                                   frameless=True, easy_drag=False)
+
+    from prombee.floating_windows import WindowsFloating
+    floating = WindowsFloating(webview,window,f'http://127.0.0.1:{server.server_port}/',data,lambda:window.destroy())
 
     def on_loaded():
         window.run_js(BRIDGE)
@@ -131,6 +142,19 @@ def main():
                 result['diagnostics'] = json.loads(window.run_js("JSON.stringify({status:document.getElementById('status')?.textContent,errors:window.prombeeErrors,userAgent:navigator.userAgent,resources:performance.getEntriesByType('resource').map(e=>({name:e.name,type:e.initiatorType,size:e.transferSize}))})"))
                 raise AssertionError(state)
             assert state['title'] == 'Prombee · 提示蜂', state
+            deadline=time.monotonic()+10
+            while not floating.ready and time.monotonic()<deadline:time.sleep(.05)
+            assert floating.ready,'Floating window did not load'
+            floating.collapse()
+            deadline=time.monotonic()+5
+            while floating.mode!='orb' and time.monotonic()<deadline:time.sleep(.05)
+            assert floating.mode=='orb','Collapse did not finish'
+            floating.open()
+            deadline=time.monotonic()+5
+            while floating.mode!='editor' and time.monotonic()<deadline:time.sleep(.05)
+            assert floating.mode=='editor','Expand did not finish'
+            assert floating.completed_morphs==2,'Native animation renderer did not complete both transitions'
+            result['floatingRoundTrip']=True
             marker = 'Prombee Windows 测试 🐝'
             clipboard_text(marker)
             assert clipboard_text() == marker, 'Unicode clipboard round trip failed'
@@ -140,6 +164,9 @@ def main():
         except Exception as error:
             result.update(ok=False, error=str(error))
             allow_close.set()
+            floating.stop.set()
+            floating.allow_close=True
+            floating.orb.destroy()
             window.destroy()
 
     window.events.loaded += on_loaded

@@ -1,0 +1,132 @@
+.mascot-surface {
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+  user-select: none;
+  font:
+    13px "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+  color: #25395a;
+}
+#mascotCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  cursor: pointer;
+  touch-action: none;
+}
+#mascotCanvas:focus-visible {
+  outline: 2px solid #7da7ef;
+  outline-offset: -4px;
+}
+#mascotMenu {
+  position: fixed;
+  z-index: 10000;
+  width: 260px;
+  padding: 6px;
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  background: #fffffff5;
+  box-shadow: 0 12px 44px #162c5230;
+  color: #25395a;
+  font:
+    13px "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+  backdrop-filter: blur(16px);
+}
+#mascotMenu[hidden] {
+  display: none;
+}
+#mascotMenu button {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  min-height: 0;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: normal;
+  cursor: pointer;
+}
+#mascotMenu button:hover,
+#mascotMenu button:focus-visible {
+  background: #eaf2ff;
+  color: #2563eb;
+  outline: none;
+}
+#mascotMenu hr {
+  height: 1px;
+  background: #e6edf7;
+  border: 0;
+  margin: 5px;
+}
+.window-chrome {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  flex-shrink: 0;
+  padding-left: 14px;
+  background: var(--paper, #fff);
+  color: var(--muted, #7b8aa1);
+  border-bottom: 1px solid var(--line, #e3eaf4);
+  font: 12px sans-serif;
+  user-select: none;
+}
+.window-chrome .window-drag {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.window-chrome button {
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  height: 31px;
+  width: 42px;
+  padding: 0;
+  background: transparent;
+  font: 16px sans-serif;
+  color: inherit;
+}
+.window-chrome button:hover {
+  background: #edf3ff;
+  color: #2563eb;
+}
+.window-chrome button:last-child:hover {
+  background: #e5484d;
+  color: white;
+}
+.window-chrome svg {
+  vertical-align: middle;
+}
+#mascotDemo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #e8effa55;
+  backdrop-filter: blur(3px);
+}
+#mascotDemo[hidden] {
+  display: none;
+}
+#mascotDemo .demo-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border: 1px solid #dce5f2;
+  border-radius: 24px;
+  background: #ffffffeb;
+  color: #627797;
+  font: 12px sans-serif;
+  pointer-events: none;
+}

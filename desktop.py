@@ -16,7 +16,9 @@ def main():
     parser.add_argument('--data-dir',type=Path)
     parser.add_argument('--smoke-test',action='store_true',help=argparse.SUPPRESS)
     parser.add_argument('--screenshot',type=Path,help=argparse.SUPPRESS)
+    parser.add_argument('--floating-smoke-test',action='store_true',help=argparse.SUPPRESS)
     args=parser.parse_args()
+    if args.floating_smoke_test:args.smoke_test=True
     if getattr(sys,'frozen',False):
         exe=Path(sys.executable).resolve()
         project=exe.parent.parent
@@ -26,10 +28,13 @@ def main():
     data=args.data_dir or Path(os.environ.get('PROMBEE_DATA_DIR',str(default_data)))
     if getattr(sys,'frozen',False):
         os.environ['WEBKIT_EXEC_PATH']=str(ROOT/'webkit-processes')
+    if os.environ.get('DISPLAY'):
+        os.environ.setdefault('GDK_BACKEND','x11')
     import gi
     gi.require_version('Gtk','4.0')
     gi.require_version('WebKit','6.0')
-    from gi.repository import Gtk,Gdk,Gio,GLib,WebKit
+    gi.require_version('GdkX11','4.0')
+    from gi.repository import Gtk,Gdk,Gio,GLib,WebKit,GdkX11
     server=start_server(ROOT,data)
     url=f'http://127.0.0.1:{server.server_port}/'
     result=[0]
@@ -41,14 +46,21 @@ def main():
             self.connect('shutdown',lambda app:server.shutdown())
 
         def activate(self,app):
-            existing=self.get_active_window()
-            if existing:
-                existing.present();return
+            if hasattr(self,'window'):
+                if hasattr(self,'floating') and self.floating.mode=='orb':self.floating.open()
+                else:self.window.present()
+                return
             self.window=Gtk.ApplicationWindow(application=self,title='Prombee · 提示蜂')
             self.window.set_default_size(1080,800)
             self.window.set_size_request(640,450)
             header=Gtk.HeaderBar()
             header.set_title_widget(Gtk.Label(label='Prombee · 提示蜂'))
+            float_button=Gtk.Button()
+            float_icon=Gtk.Image.new_from_file(str(ROOT/'web/logo.svg'));float_icon.set_pixel_size(18)
+            float_button.set_child(float_icon)
+            float_button.set_tooltip_text('收起为蜜蜂悬浮球')
+            float_button.connect('clicked',lambda button:self.floating.collapse())
+            header.pack_end(float_button)
             self.window.set_titlebar(header)
             self.web=WebKit.WebView()
             self.closing=False
@@ -64,8 +76,12 @@ def main():
             self.web.get_settings().set_enable_developer_extras(True)
             self.web.connect('decide-policy',self.navigation)
             self.window.set_child(self.web)
-            self.web.load_uri(url)
+            manager.register_script_message_handler('mascot',None)
+            manager.connect('script-message-received::mascot',lambda m,value:self.floating.command(json.loads(value.to_string())))
+            self.web.load_uri(url+'?desktop=gtk')
             self.window.present()
+            from prombee.floating_gtk import GtkFloating
+            self.floating=GtkFloating(self,self.window,self.web,url,data)
             if args.smoke_test:
                 self.tries=0
                 GLib.timeout_add(500,self.check)
@@ -82,7 +98,7 @@ def main():
             self.closing=False
             if value.to_string()=='saved':
                 self.saved_close=True
-                self.window.close()
+                self.quit()
             else:
                 self.web.evaluate_javascript("document.getElementById('status').textContent='暂时无法保存，请先复制文字保留内容'",-1,None,None,None,None,None)
 
@@ -107,12 +123,37 @@ def main():
                     GLib.timeout_add(500,self.check);return
                 assert value['title']=='Prombee · 提示蜂' and value['rows']>0 and value['clipped']==0,value
                 print('DESKTOP_OK '+json.dumps(value,ensure_ascii=False),flush=True)
-                if args.screenshot:
+                if args.floating_smoke_test:
+                    self.floating_stage=0;self.floating_tries=0
+                    self.floating.collapse()
+                    GLib.timeout_add(75,self.check_floating)
+                elif args.screenshot:
                     self.web.get_snapshot(WebKit.SnapshotRegion.VISIBLE,WebKit.SnapshotOptions.NONE,None,self.snapshot,None)
                 else:
                     self.quit()
             except Exception as exc:
                 print('DESKTOP_ERROR '+str(exc),flush=True);result[0]=1;self.quit()
+
+        def check_floating(self):
+            self.floating_tries+=1
+            if self.floating_tries>70:
+                self.floating.view.evaluate_javascript("JSON.stringify({state:window.prombeeMascot?.state(),errors:window.prombeeErrors,size:[innerWidth,innerHeight],visibility:document.visibilityState})",-1,None,None,None,self.floating_failed,None)
+                return False
+            if self.floating_stage==0 and self.floating.mode=='orb':
+                assert not self.window.get_visible() and self.floating.orb.get_visible()
+                self.floating_stage=1;self.floating.open()
+            elif self.floating_stage==1 and self.floating.mode=='editor':
+                assert self.window.get_visible() and not self.floating.orb.get_visible()
+                if self.floating.completed_morphs!=2:
+                    self.floating.view.evaluate_javascript("JSON.stringify({state:window.prombeeMascot?.state(),errors:window.prombeeErrors,size:[innerWidth,innerHeight],visibility:document.visibilityState})",-1,None,None,None,self.floating_failed,None)
+                    return False
+                print('FLOATING_OK '+json.dumps({'roundTrip':True,'rendererCompleted':2,'durationMs':500}),flush=True)
+                self.quit();return False
+            return True
+
+        def floating_failed(self,view,result_value,_):
+            print('FLOATING_ERROR '+self.floating.mode+' completed='+str(self.floating.completed_morphs)+' '+view.evaluate_javascript_finish(result_value).to_string(),flush=True)
+            result[0]=1;self.quit()
 
         def snapshot(self,view,async_result,user_data):
             try:
