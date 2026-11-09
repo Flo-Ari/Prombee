@@ -3,7 +3,11 @@ const platform = new URLSearchParams(location.search).get("desktop");
 const native = platform === "windows" || platform === "gtk";
 export function logoTarget() {
   const r = document.querySelector(".brand img").getBoundingClientRect();
-  return { x: r.x + r.width * 0.5, y: r.y + (r.height * 53) / 128 };
+  return {
+    x: r.x + r.width * 0.5,
+    y: r.y + (r.height * 53) / 128,
+    dark: document.body.classList.contains("dark"),
+  };
 }
 window.prombeeLogoTarget = logoTarget;
 function post(action, data = {}) {
@@ -30,7 +34,7 @@ if (platform !== "gtk") {
   chrome.querySelector("#closeWindow").onclick = () =>
     native ? post("close") : document.exitFullscreen?.();
 }
-let demo, mascot;
+let demo, mascot, demoCenter;
 function demoAction(action, data) {
   if (action === "collapse") {
     if (!demo) {
@@ -46,9 +50,12 @@ function demoAction(action, data) {
       );
     }
     demo.hidden = false;
+    demoCenter ||= { x: innerWidth / 2, y: innerHeight / 2 };
+    mascot.receive("anchor", demoCenter);
     mascot.receive("morph", {
       direction: "close",
-      from: { x: innerWidth / 2 + 26, y: innerHeight / 2 - 8 },
+      dark: document.body.classList.contains("dark"),
+      from: { x: demoCenter.x + 26, y: demoCenter.y - 8 },
       to: data.logo,
       editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
     });
@@ -56,7 +63,8 @@ function demoAction(action, data) {
   if (action === "open")
     mascot.receive("morph", {
       direction: "open",
-      from: { x: innerWidth / 2 + 26, y: innerHeight / 2 - 8 },
+      dark: document.body.classList.contains("dark"),
+      from: { x: demoCenter.x + 26, y: demoCenter.y - 8 },
       to: logoTarget(),
       editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
     });
@@ -65,6 +73,13 @@ function demoAction(action, data) {
       demo.hidden = true;
       mascot.receive("pause");
     } else mascot.receive("show");
+  }
+  if (action === "drag") {
+    demoCenter = {
+      x: Math.max(100, Math.min(innerWidth - 100, demoCenter.x + data.dx)),
+      y: Math.max(90, Math.min(innerHeight - 90, demoCenter.y + data.dy)),
+    };
+    mascot.receive("anchor", demoCenter);
   }
   if (action === "hide") {
     demo.hidden = true;

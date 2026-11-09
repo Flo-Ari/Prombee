@@ -46,7 +46,7 @@ class WindowsFloating:
     def __init__(self,webview,window,url,data,close):
         self.window,self.close=window,close
         self.preferences=FloatingPreferences(data)
-        self.completed_morphs=0;self.mode='editor';self.ready=False;self.orb_rect=None;self.payload=None;self.layout=None;self.scene_expanded=False
+        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.orb_rect=None;self.payload=None;self.layout=None;self.scene_expanded=False
         self.lock=threading.RLock();self.stop=threading.Event();self.allow_close=False
         owner=self
         class Api:
@@ -132,13 +132,14 @@ class WindowsFloating:
     def collapse(self):
         with self.lock:
             if self.mode!='editor' or not self.ready:return
-            self.mode='preparing'
+            self.transition+=1;self.mode='preparing'
         try:
             logo=json.loads(self.window.run_js('JSON.stringify(window.prombeeLogoTarget())'))
             self.editor_rect=self.rect(self.window)
             if not self.orb_rect:
                 x,y,w,h=self.editor_rect;self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
             self.layout,self.payload=morph_layout(self.editor_rect,self.orb_rect,logo)
+            self.payload['dark']=logo.get('dark',False)
             self.payload['snapshot']=capture_window(self.window)
             self.input_region(True);self.place(self.layout);self.orb.show();time.sleep(.05)
             self.mode='closing';self.emit('morph',{**self.payload,'direction':'close'});self.window.hide();self.watchdog('closing')
@@ -148,7 +149,7 @@ class WindowsFloating:
     def open(self):
         with self.lock:
             if self.mode!='orb':return
-            self.mode='opening'
+            self.transition+=1;self.mode='opening'
         self.scene_bounds(False)
         self.orb_rect=self.rect(self.orb)
         logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
@@ -156,8 +157,9 @@ class WindowsFloating:
         self.input_region(True);self.place(self.layout);time.sleep(.05);self.emit('morph',{**self.payload,'direction':'open'});self.watchdog('opening')
 
     def watchdog(self,mode):
+        token=self.transition
         def finish():
-            if self.mode==mode:self.finished('open' if mode=='opening' else 'close')
+            if self.mode==mode and self.transition==token:self.finished('open' if mode=='opening' else 'close')
         timer=threading.Timer(2,finish);timer.daemon=True;timer.start()
 
     def finished(self,direction):

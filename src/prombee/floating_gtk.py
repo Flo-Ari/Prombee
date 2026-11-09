@@ -67,7 +67,7 @@ class GtkFloating:
         self.GLib,self.WebKit=GLib,WebKit
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
-        self.completed_morphs=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None;self.layout=None;self.scene_expanded=False
+        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None;self.layout=None;self.scene_expanded=False
         self.x=XDesktop()
         self.orb=Gtk.ApplicationWindow(application=app,title='提示蜂 · 桌面悬浮球')
         self.orb.set_decorated(False);self.orb.set_default_size(ORB_WIDTH,ORB_HEIGHT)
@@ -131,7 +131,7 @@ class GtkFloating:
     def collapse(self):
         if self.mode!='editor':return
         if not self.ready:self.pending=True;return
-        self.mode='preparing'
+        self.transition+=1;self.mode='preparing'
         self.editor.evaluate_javascript('JSON.stringify(window.prombeeLogoTarget())',-1,None,None,None,self.got_logo,None)
 
     def got_logo(self,view,result,_):
@@ -145,6 +145,7 @@ class GtkFloating:
                 self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
             self.layout,self.payload=morph_layout(self.editor_rect,self.orb_rect,logo)
             self.payload['top']=self.top
+            self.payload['dark']=logo.get('dark',False)
             self.editor.get_snapshot(self.WebKit.SnapshotRegion.VISIBLE,self.WebKit.SnapshotOptions.NONE,None,self.captured,None)
         except Exception:
             self.mode='editor';self.window.present();raise
@@ -171,7 +172,7 @@ class GtkFloating:
         # Recalculate union if the user dragged the companion between transitions.
         logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
         self.layout,new=morph_layout(self.editor_rect,self.orb_rect,logo);self.payload.update(new)
-        self.x.move(self.orb,self.layout);self.mode='opening'
+        self.x.move(self.orb,self.layout);self.transition+=1;self.mode='opening'
         self.GLib.timeout_add(50,self.animate_open)
 
     def animate_open(self):
@@ -180,8 +181,9 @@ class GtkFloating:
         self.emit('morph',{**self.payload,'direction':'open'});self.watchdog('opening');return False
 
     def watchdog(self,mode):
+        token=self.transition
         def finish():
-            if self.mode==mode:self.finished('open' if mode=='opening' else 'close')
+            if self.mode==mode and self.transition==token:self.finished('open' if mode=='opening' else 'close')
             return False
         self.GLib.timeout_add(2000,finish)
 
