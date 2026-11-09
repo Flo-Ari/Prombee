@@ -1,4 +1,4 @@
-# Prombee · 提示蜂
+# 提示蜂
 
 轻量级桌面提示词编辑器，让项目每一轮迭代的要求都有条理、可复用、可对比。
 
@@ -39,7 +39,7 @@
 sudo apt install ./prombee_0.7.4_all.deb
 ```
 
-安装后，从应用菜单打开“Prombee · 提示蜂”。
+安装后，从应用菜单打开“提示蜂”。
 
 ### Fedora 44
 
@@ -49,7 +49,7 @@ sudo apt install ./prombee_0.7.4_all.deb
 sudo dnf install ./prombee-0.7.4-1.fc44.noarch.rpm
 ```
 
-之后按 Super 键搜索 **Prombee** 打开，也可在终端输入 `prombee`。安装包会通过 Fedora 仓库安装所需的 GTK、WebKitGTK 和 XWayland 依赖。
+之后按 Super 键搜索 **提示蜂** 打开，也可在终端输入 `prombee`。安装包会通过 Fedora 仓库安装所需的 GTK、WebKitGTK 和 XWayland 依赖。
 
 如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.7.4`，再运行 `./Prombee-0.7.4`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
 
