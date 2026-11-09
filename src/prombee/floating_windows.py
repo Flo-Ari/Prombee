@@ -67,7 +67,7 @@ class WindowsFloating:
     def emit(self,command,data=None):
         self.orb.run_js('window.prombeeMascot?.receive('+json.dumps(command)+','+json.dumps(data or {})+')')
     def loaded(self):
-        self.ready=True;self.emit('settings',{'enabled':self.preferences.enabled});self.emit('pause')
+        self.emit('settings',{'enabled':self.preferences.enabled});self.emit('pause');self.ready=True
 
     def track(self):
         while not self.stop.wait(.033):
@@ -81,19 +81,36 @@ class WindowsFloating:
     def command(self,msg):
         action=msg.get('action')
         if action=='collapse':self.collapse()
-        elif action=='scene':self.scene_bounds(msg.get('index')==3)
-        elif action=='sceneEnd':self.scene_bounds(False)
+        elif action=='menu':self.input_region(True)
+        elif action=='menuClose':self.input_region(self.scene_expanded)
+        elif action=='scene':
+            self.input_region(True);self.scene_bounds(msg.get('index')==3)
+        elif action=='sceneEnd':
+            self.scene_bounds(False);self.input_region(False)
         elif action=='open':self.open()
         elif action=='morphDone':
             self.completed_morphs+=1;self.finished(msg.get('direction'))
         elif action=='settings':
             self.preferences.save(msg.get('enabled',True));self.scene_bounds(False)
+            if self.mode=='orb':self.input_region(False)
         elif action=='hide':self.hide()
         elif action=='minimize':self.window.minimize()
         elif action=='maximize':self.toggle_maximize()
         elif action=='close':self.close()
         elif action=='drag' and self.mode=='orb' and not self.scene_expanded:
             r=self.rect(self.orb);self.orb.move(int(r[0]+msg.get('dx',0)),int(r[1]+msg.get('dy',0)));self.orb_rect=self.rect(self.orb)
+
+    def input_region(self,full=False):
+        user,gdi=C.windll.user32,C.windll.gdi32
+        user.SetWindowRgn.argtypes=[W.HWND,W.HRGN,W.BOOL]
+        hwnd=int(self.orb.native.Handle.ToInt64())
+        if full:user.SetWindowRgn(hwnd,None,True);return
+        gdi.CreateEllipticRgn.argtypes=[C.c_int,C.c_int,C.c_int,C.c_int];gdi.CreateEllipticRgn.restype=W.HRGN
+        scale=float(self.orb.native._scale);cx=ORB_WIDTH/2;cy=ORB_HEIGHT/2
+        region=gdi.CreateEllipticRgn(round((cx-175)*scale),round((cy-110)*scale),round((cx+175)*scale),round((cy+110)*scale))
+        # Ownership of a successful region is transferred to Windows.
+        if not user.SetWindowRgn(hwnd,region,True):
+            gdi.DeleteObject.argtypes=[W.HGDIOBJ];gdi.DeleteObject(region)
 
     def scene_bounds(self,expand):
         if self.mode not in ('orb','opening'):return
@@ -123,7 +140,7 @@ class WindowsFloating:
                 x,y,w,h=self.editor_rect;self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
             self.layout,self.payload=morph_layout(self.editor_rect,self.orb_rect,logo)
             self.payload['snapshot']=capture_window(self.window)
-            self.place(self.layout);self.orb.show();time.sleep(.05)
+            self.input_region(True);self.place(self.layout);self.orb.show();time.sleep(.05)
             self.mode='closing';self.emit('morph',{**self.payload,'direction':'close'});self.window.hide();self.watchdog('closing')
         except Exception:
             self.mode='editor';self.window.show();raise
@@ -136,7 +153,7 @@ class WindowsFloating:
         self.orb_rect=self.rect(self.orb)
         logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
         self.layout,new=morph_layout(self.editor_rect,self.orb_rect,logo);self.payload.update(new)
-        self.place(self.layout);time.sleep(.05);self.emit('morph',{**self.payload,'direction':'open'});self.watchdog('opening')
+        self.input_region(True);self.place(self.layout);time.sleep(.05);self.emit('morph',{**self.payload,'direction':'open'});self.watchdog('opening')
 
     def watchdog(self,mode):
         def finish():
@@ -146,7 +163,7 @@ class WindowsFloating:
     def finished(self,direction):
         with self.lock:
             if direction=='close' and self.mode=='closing':
-                self.place(self.orb_rect);self.emit('show');self.mode='orb'
+                self.place(self.orb_rect);self.emit('show');self.mode='orb';self.input_region(False)
             elif direction=='open' and self.mode=='opening':
                 self.window.show();self.orb.hide();self.emit('pause');self.mode='editor'
 

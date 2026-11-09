@@ -892,6 +892,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     else send("open");
   }
   function showMenu(x, y) {
+    nextIdle = performance.now() + IDLE_DELAY;
     menu.replaceChildren();
     for (const [label, name] of [
       ["打开编辑器", "open"],
@@ -936,7 +937,9 @@ export function mountMascot(canvas, menu, send = () => {}) {
     },
     pointerdown: (e) => {
       if (e.button !== 0) return;
+      nextIdle = performance.now() + IDLE_DELAY;
       menu.hidden = true;
+      send("menuClose");
       drag = { x: e.screenX, y: e.screenY };
       suppressClick = false;
       canvas.setPointerCapture?.(e.pointerId);
