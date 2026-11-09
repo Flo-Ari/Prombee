@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Prombee · 提示蜂
-Comment=轻量提示词编辑器
-Exec=/home/casm/Projects/Prombee/dist/Prombee
-Icon=/home/casm/Projects/Prombee/web/logo.svg
-Terminal=false
-Categories=Utility;TextEditor;
-StartupWMClass=app.prombee.Prombee

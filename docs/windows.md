@@ -5,7 +5,7 @@
 
 - 支持 Windows 10 / 11 x64。
 - 使用 Microsoft Edge WebView2 Runtime。多数 Windows 电脑已预装；缺失时可从 [Microsoft 官方页面](https://developer.microsoft.com/microsoft-edge/webview2/) 安装。
-- 工作区自动保存在 `%LOCALAPPDATA%\Prombee\workspace.json`，升级程序不会覆盖已有文字。
+- 词集保存在创建时选择的 UTF-8 TXT 文件中；最近词集索引位于 `%LOCALAPPDATA%\Prombee\library.json`。首次迁移产生的 `当前词集.txt` 位于该数据目录，升级程序不会覆盖已有文字。
 - 界面与浏览器迭代版共用 `web/`，没有独立的 Windows 编辑器逻辑。
 
 ## 开发者构建

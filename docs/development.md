@@ -1,6 +1,6 @@
 # 开发与打包
 
-桌面版和浏览器预览共用 `web/` 界面。`main` 和版本功能分支均包含所有操作系统的源码，不按操作系统拆分分支；Windows 与 Debian 由不同工作流构建。
+桌面版和浏览器预览共用 `web/` 界面。`main` 和版本功能分支均包含所有操作系统的源码，不按操作系统拆分分支；Windows、Debian 与 Fedora 由不同工作流构建。
 
 ## 浏览器预览
 
@@ -14,8 +14,9 @@
 
 ## 打包
 
+- Fedora RPM：`python3 scripts/build_rpm.py`
 - Fedora 单文件：`scripts/build.sh`
 - Ubuntu 安装包：`python3 scripts/build_deb.py`
 - Windows：`scripts/build-windows.ps1`
 
-GitHub Actions 在 Windows 和 Ubuntu 上分别打包并启动真实桌面程序验证。用户数据不随程序打包。应用源码采用 Apache-2.0，第三方组件保留原许可证。
+GitHub Actions 在 Windows、Ubuntu 和 Fedora 上分别打包并启动真实桌面程序验证。用户数据不随程序打包。应用源码采用 Apache-2.0，第三方组件保留原许可证。

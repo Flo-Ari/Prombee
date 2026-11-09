@@ -55,6 +55,8 @@ def main():
             self.window.set_default_size(1080,800)
             self.window.set_size_request(640,450)
             header=Gtk.HeaderBar()
+            header.set_show_title_buttons(True)
+            header.set_decoration_layout(":minimize,maximize,close")
             header.set_title_widget(Gtk.Label(label='Prombee · 提示蜂'))
             float_button=Gtk.Button()
             float_icon=Gtk.Image.new_from_file(str(ROOT/'web/logo.svg'));float_icon.set_pixel_size(18)

@@ -1,7 +1,7 @@
 {
   "name": "prombee",
   "private": true,
-  "version": "0.7.2",
+  "version": "0.7.3",
   "type": "module",
   "scripts": {
     "test": "node --test tests/core.test.mjs tests/pages.test.mjs tests/mascot.test.mjs"
