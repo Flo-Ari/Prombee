@@ -332,6 +332,9 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
   $("redo").click();
   $("redo").click();
   assert.equal($("documents").options.length, 0);
+  $("template").click();
+  assert.equal($("copyHierarchy").disabled, true);
+  $("editorTab").click();
   $("newDoc").click();
   assert.equal(roundName(), "第1轮");
   const buttons = [...$("editorToolbar").querySelectorAll("button")];

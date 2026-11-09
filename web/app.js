@@ -803,6 +803,8 @@ function updatePages() {
   $("comparePanel").hidden = page !== "compare";
   $("hierarchyControls").hidden = page !== "template";
   $("copyAll").hidden = page !== "common";
+  $("copyHierarchy").disabled = $("hierarchyRound").disabled =
+    !state.documents.length;
   $("deleteRound").hidden = page !== "editor";
   $("deleteRound").disabled = !state.documents.length;
   document.querySelector(".keys").hidden = !editing();
@@ -861,7 +863,7 @@ $("newDoc").onclick = () => {
     name: nextRoundName(state.documents),
     nodes: hierarchyNodes(state.template.nodes),
   };
-  if (!state.documents.length) {
+  if (!state.documents.length && doc().id === emptyRound.id) {
     histories.set(emptyRound.id, { history, future });
     history = [];
     future = [];
@@ -925,6 +927,7 @@ $("copyHierarchy").onclick = () => {
   const source = state.documents.find(
     (d) => d.id === $("hierarchyRound").value,
   );
+  if (!source) return;
   remember();
   state.template.nodes = hierarchyNodes(source.nodes);
   active = null;
