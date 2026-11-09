@@ -46,12 +46,15 @@ def main():
         def __init__(self):
             super().__init__(application_id='app.prombee.Prombee',flags=Gio.ApplicationFlags.NON_UNIQUE if args.smoke_test else Gio.ApplicationFlags.DEFAULT_FLAGS)
             self.connect('activate',self.activate)
-            self.connect('shutdown',lambda app:server.shutdown())
+            self.connect('shutdown',lambda app:(server.speech.stop(),server.shutdown()))
 
         def activate(self,app):
             if hasattr(self,'window'):
                 if hasattr(self,'floating') and self.floating.mode=='orb':self.floating.open()
-                else:self.window.present()
+                else:
+                    if hasattr(self,'floating'):
+                        self.floating.mode='editor';self.floating.hidden_by_user=False
+                    self.window.unminimize();self.window.present()
                 return
             self.window=Gtk.ApplicationWindow(application=self,title=app_name())
             self.window.set_default_size(1080,800)
@@ -60,12 +63,12 @@ def main():
             header.set_show_title_buttons(True)
             header.set_decoration_layout(":minimize,maximize,close")
             header.set_title_widget(Gtk.Label(label=app_name()))
-            float_button=Gtk.Button()
-            float_icon=Gtk.Image.new_from_file(str(ROOT/'web/logo.svg'));float_icon.set_pixel_size(18)
-            float_button.set_child(float_icon)
-            float_button.set_tooltip_text('收起为蜜蜂悬浮球')
-            float_button.connect('clicked',lambda button:self.floating.collapse())
-            header.pack_end(float_button)
+            # Keep standard maximize/close controls; minimize uses the bee transition.
+            header.set_decoration_layout(":maximize,close")
+            minimize=Gtk.Button.new_from_icon_name('window-minimize-symbolic')
+            minimize.set_tooltip_text('最小化为悬浮球')
+            minimize.connect('clicked',lambda button:self.floating.collapse())
+            header.pack_end(minimize)
             self.window.set_titlebar(header)
             self.web=WebKit.WebView()
             self.closing=False

@@ -187,7 +187,7 @@ def main():
                 f'无法启动 {app_name()}。请安装 Microsoft Edge WebView2 Runtime 后重试。\n\n' + str(error),
                 app_name(), 0x10)
     finally:
-        server.shutdown()
+        server.speech.stop();server.shutdown()
         server.server_close()
         if args.smoke_result:
             args.smoke_result.parent.mkdir(parents=True, exist_ok=True)

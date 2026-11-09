@@ -1081,3 +1081,17 @@ body.dark .fold {
     max-width: 120px;
   }
 }
+#voiceInput[aria-pressed="true"] {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+#speechResult {
+  max-width: 240px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dark #voiceInput[aria-pressed="true"] {
+  background: #172554;
+  color: #bfdbfe;
+}

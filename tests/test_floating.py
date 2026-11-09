@@ -82,3 +82,33 @@ class FloatingTests(unittest.TestCase):
         control.open=lambda:self.fail('Cancelled drag became a click')
         control.drag_cancel(None,None);control.drag_end(None,0,0)
         self.assertIsNone(control.drag_press)
+
+    def test_minimize_converts_editor_to_orb_without_reopening_explicit_hide(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        control=GtkFloating.__new__(GtkFloating)
+        calls=[]
+        control.Gdk=SimpleNamespace(ToplevelState=SimpleNamespace(MINIMIZED=1,ABOVE=16))
+        control.window=SimpleNamespace(unminimize=lambda:calls.append('restore'))
+        control.collapse=lambda:calls.append('collapse')
+        control.mode='editor';control.hidden_by_user=False
+        surface=SimpleNamespace(get_state=lambda:1)
+        control.editor_state_changed(surface,None)
+        self.assertEqual(calls,['restore','collapse'])
+        control.mode='hidden';control.hidden_by_user=True;calls.clear()
+        control.editor_state_changed(SimpleNamespace(get_state=lambda:0),None)
+        control.editor_state_changed(surface,None)
+        self.assertTrue(control.hidden_by_user);self.assertEqual(calls,[])
+
+    def test_orb_recovers_minimize_and_lost_above_without_focus_stealing(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        control=GtkFloating.__new__(GtkFloating);calls=[]
+        control.Gdk=SimpleNamespace(ToplevelState=SimpleNamespace(MINIMIZED=1,ABOVE=16))
+        control.mode='orb';control.orb=SimpleNamespace(unminimize=lambda:calls.append('restore'))
+        control.x=SimpleNamespace(above=lambda orb:calls.append('above'))
+        control.orb_state_changed(SimpleNamespace(get_state=lambda:1),None)
+        self.assertEqual(calls,['restore','above'])
+        calls.clear();control.mode='hidden'
+        control.orb_state_changed(SimpleNamespace(get_state=lambda:1),None)
+        self.assertEqual(calls,[])

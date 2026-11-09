@@ -28,6 +28,8 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
     root, data_dir = Path(root), Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     library = Library(root, data_dir, valid)
+    from .speech import Speech
+    speech = Speech(data_dir)
 
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
@@ -46,7 +48,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
         def do_GET(self):
             path=unquote(urlsplit(self.path).path)
-            if path in ('/api/state', '/api/library', '/api/fs'):
+            if path == '/api/speech':
+                self.json(200, speech.status())
+            elif path in ('/api/state', '/api/library', '/api/fs'):
                 try:
                     from urllib.parse import parse_qs
                     query = parse_qs(urlsplit(self.path).query)
@@ -58,7 +62,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -66,7 +70,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path not in ('/api/state', '/api/library'):
+            if self.path not in ('/api/state', '/api/library', '/api/speech'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -76,7 +80,12 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                result = library.save(payload) if self.path == '/api/state' else library.action(payload)
+                if self.path == '/api/speech':
+                    action=payload.get('action')
+                    if action not in ('start','stop'):raise ValueError('Invalid speech action')
+                    result = speech.start() if action=='start' else speech.stop()
+                else:
+                    result = library.save(payload) if self.path == '/api/state' else library.action(payload)
                 self.json(200,result)
             except ConflictError as error:
                 self.json(409,dict(error=str(error)))
@@ -91,6 +100,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             pass
 
     server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
+    server.speech = speech
     server.daemon_threads=True
     return server
 

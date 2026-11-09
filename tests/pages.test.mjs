@@ -345,3 +345,41 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
   assert.equal(buttons.at(-1).id, "deleteRound");
   assert.equal(document.querySelector("#menuContext,.menu-caption"), null);
 });
+
+test("empty Delete and Backspace remove only the current node, preserve children and undo", () => {
+  $("template").click();
+  let fields = [...document.querySelectorAll(".content")];
+  const field = fields[0];
+  field.innerHTML = "<br>";
+  field.dispatchEvent(new window.Event("input", { bubbles: true }));
+  const before = fields.length;
+  field.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "Delete",
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+    }),
+  );
+  assert.equal(document.querySelectorAll(".content").length, before);
+  field.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "Delete",
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  assert.equal(document.querySelectorAll(".content").length, before - 1);
+  $("undo").click();
+  assert.equal(document.querySelectorAll(".content").length, before);
+  const restored = document.querySelector(".content");
+  restored.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "Backspace",
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  assert.equal(document.querySelectorAll(".content").length, before - 1);
+  $("undo").click();
+});

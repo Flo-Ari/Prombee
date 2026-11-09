@@ -16,6 +16,7 @@ import {
   integrateMarkdown,
 } from "./core.js";
 import { renderMarkdown, renderComparison } from "./review.js";
+import { bindSpeech } from "./speech.js";
 import { createLibraryUI } from "./library.js";
 const $ = (id) => document.getElementById(id);
 let state,
@@ -59,6 +60,42 @@ function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $("toast").classList.remove("show"), 2000);
 }
+const speech = bindSpeech({
+  button: $("voiceInput"),
+
+  notify: toast,
+  capture: () => {
+    if (!editing()) return null;
+    const node = doc().nodes.find((node) => node.id === active);
+    return node
+      ? { collection: doc(), node, focus: () => focus(node.id, true) }
+      : null;
+  },
+  commit: (target, text) => {
+    const { collection, node } = target;
+    if (
+      ![...state.documents, state.template, state.common].includes(
+        collection,
+      ) ||
+      !collection.nodes.includes(node)
+    ) {
+      toast("原条目已删除或词集已切换，听写文字：" + text);
+      $("speechResult").hidden = false;
+      $("speechResult").value = text;
+      return;
+    }
+    // Preserve edits made while dictating and never insert recognition as HTML.
+    if (doc() === collection) remember();
+    const span = document.createElement("span");
+    span.textContent = text;
+    node.html = cleanHTML(node.html + span.outerHTML);
+    if (doc() === collection) {
+      render();
+      focus(node.id, true);
+    }
+    changed();
+  },
+});
 function remember() {
   if (!state) return;
   const copy = JSON.stringify(doc());
@@ -615,9 +652,15 @@ function editKey(e, n, el) {
     focus(next.id);
     changed();
   }
-  if (e.key === "Backspace" && !plain(n.html) && doc().nodes.length > 1) {
+  if (
+    ["Backspace", "Delete"].includes(e.key) &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    !e.metaKey &&
+    !plain(el.innerHTML).trim()
+  ) {
     e.preventDefault();
-    deleteNode(n.id);
+    deleteNode(n.id, false);
   }
 }
 function mergeMarkdown(id) {
@@ -686,12 +729,12 @@ $("batchDelete").onclick = () => {
   changed();
   toast(`已删除 ${ids.size} 项，可撤销`);
 };
-function deleteNode(id) {
+function deleteNode(id, subtree = true) {
   const nodes = doc().nodes,
     index = nodes.findIndex((n) => n.id === id);
   if (index < 0) return;
   remember();
-  const count = scopeEnd(nodes, index) - index;
+  const count = subtree ? scopeEnd(nodes, index) - index : 1;
   nodes.splice(index, count);
   active = null;
   selection = null;
@@ -739,6 +782,7 @@ function copy() {
   return copyText(toMarkdown(doc().nodes));
 }
 function switchPage(next, roundId) {
+  speech.stop();
   integrateCurrent();
   multi = false;
   selected.clear();
@@ -1056,6 +1100,7 @@ async function flushWorkspace() {
     throw new Error("当前内容尚未保存，请先复制内容并检查保存状态");
 }
 function acceptWorkspace(data) {
+  speech.stop();
   state = data.state;
   revision = data.revision;
   setId = data.set?.id || null;
@@ -1191,6 +1236,7 @@ setInterval(async () => {
 }, 1000);
 
 window.addEventListener("prombee-close", async () => {
+  await speech.stop();
   clearTimeout(saveTimer);
   if (!saveRunning) await save();
   let ticks = 0;

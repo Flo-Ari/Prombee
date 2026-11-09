@@ -8,6 +8,18 @@ from .branding import app_name, ui_language
 from .floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT, morph_layout
 
 
+class ClientData(C.Union):
+    _fields_=[('b',C.c_char*20),('s',C.c_short*10),('l',C.c_long*5)]
+
+class ClientMessage(C.Structure):
+    _fields_=[('type',C.c_int),('serial',C.c_ulong),('send_event',C.c_int),
+              ('display',C.c_void_p),('window',C.c_ulong),('message_type',C.c_ulong),
+              ('format',C.c_int),('data',ClientData)]
+
+class XEvent(C.Union):
+    _fields_=[('client',ClientMessage),('pad',C.c_long*24)]
+
+
 class XDesktop:
     def __init__(self):
         self.x = C.CDLL(ctypes.util.find_library('X11'))
@@ -19,6 +31,7 @@ class XDesktop:
             'XInternAtom': ([C.c_void_p,C.c_char_p,C.c_int],C.c_ulong),
             'XChangeProperty': ([C.c_void_p,C.c_ulong,C.c_ulong,C.c_ulong,C.c_int,C.c_int,C.c_void_p,C.c_int],C.c_int),
             'XQueryPointer': ([C.c_void_p,C.c_ulong,C.POINTER(C.c_ulong),C.POINTER(C.c_ulong),C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_uint)],C.c_int),
+            'XSendEvent': ([C.c_void_p,C.c_ulong,C.c_int,C.c_long,C.POINTER(XEvent)],C.c_int),
             'XFlush': ([C.c_void_p],C.c_int),
             'XCloseDisplay': ([C.c_void_p],C.c_int),
         }
@@ -43,10 +56,30 @@ class XDesktop:
         self.x.XFlush(self.display)
 
     def above(self,window):
+        # Mapped windows must request WM state through ClientMessage (EWMH).
+        # Replacing _NET_WM_STATE after mapping is ignored/overwritten by Mutter.
         atom=lambda name:self.x.XInternAtom(self.display,name.encode(),0)
-        value=(C.c_ulong*2)(atom('_NET_WM_STATE_ABOVE'),atom('_NET_WM_STATE_SKIP_TASKBAR'))
-        self.x.XChangeProperty(self.display,window.get_surface().get_xid(),atom('_NET_WM_STATE'),4,32,0,value,2)
+        xid=window.get_surface().get_xid()
+        states=['_NET_WM_STATE_ABOVE','_NET_WM_STATE_SKIP_TASKBAR',
+                '_NET_WM_STATE_SKIP_PAGER','_NET_WM_STATE_STICKY']
+        if not window.get_mapped():
+            value=(C.c_ulong*len(states))(*(atom(name) for name in states))
+            self.x.XChangeProperty(self.display,xid,atom('_NET_WM_STATE'),4,32,0,value,len(states))
+            desktop=C.c_ulong(0xffffffff)
+            self.x.XChangeProperty(self.display,xid,atom('_NET_WM_DESKTOP'),6,32,0,C.byref(desktop),1)
+        else:
+            for first,second in zip(states[::2],states[1::2]):
+                self.message(xid,atom('_NET_WM_STATE'),[1,atom(first),atom(second),1,0])
+            self.message(xid,atom('_NET_WM_DESKTOP'),[0xffffffff,1,0,0,0])
         self.x.XFlush(self.display)
+
+    def message(self,xid,kind,values):
+        event=XEvent()
+        event.client.type=33;event.client.send_event=1
+        event.client.display=self.display;event.client.window=xid
+        event.client.message_type=kind;event.client.format=32
+        event.client.data.l[:]=values
+        self.x.XSendEvent(self.display,self.root,0,(1<<20)|(1<<19),C.byref(event))
 
     def input_region(self,window,full=False):
         class Rect(C.Structure):
@@ -66,13 +99,15 @@ class XDesktop:
 class GtkFloating:
     def __init__(self,app,window,editor,url,data):
         from gi.repository import Gtk,Gdk,GLib,WebKit
-        self.GLib,self.WebKit,self.Gtk=GLib,WebKit,Gtk
+        self.GLib,self.WebKit,self.Gtk,self.Gdk=GLib,WebKit,Gtk,Gdk
+        self.hidden_by_user=False
         self.menu_open=False;self.drag_press=None;self.drag_started=False;self.last_cursor=None
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
         self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None;self.layout=None
         self.x=XDesktop()
-        self.orb=Gtk.ApplicationWindow(application=app,title=app_name())
+        self.orb=Gtk.Window(title=app_name())
+        app.add_window(self.orb)
         self.orb.set_decorated(False);self.orb.set_default_size(ORB_WIDTH,ORB_HEIGHT)
         self.orb.add_css_class('prombee-orb')
         css=Gtk.CssProvider();css.load_from_data(b'window.prombee-orb {background: transparent; box-shadow:none; border:none;}')
@@ -94,7 +129,27 @@ class GtkFloating:
         self.orb.connect('close-request',lambda w:self.hide())
         self.view.load_uri(url+'mascot.html?host=gtk&lang='+ui_language())
         self.orb.realize();self.x.above(self.orb)
+        self.orb.connect("map",lambda orb:self.x.above(orb))
+        self.orb.get_surface().connect("notify::state",self.orb_state_changed)
+        self.window.get_surface().connect("notify::state",self.editor_state_changed)
         self.GLib.timeout_add(33,self.track)
+
+    def editor_state_changed(self,surface,_):
+        minimized=bool(surface.get_state() & self.Gdk.ToplevelState.MINIMIZED)
+        if not minimized and self.mode!='hidden':
+            self.hidden_by_user=False
+        elif self.mode=='editor' and not self.hidden_by_user:
+            # Also handle taskbar / WM keyboard minimization. Restore without focus
+            # so WebKit can capture a valid frame before hiding the editor.
+            self.window.unminimize()
+            self.collapse()
+
+    def orb_state_changed(self,surface,_):
+        if self.mode in ('orb','closing','opening'):
+            if surface.get_state() & self.Gdk.ToplevelState.MINIMIZED:
+                self.orb.unminimize()
+            if not surface.get_state() & self.Gdk.ToplevelState.ABOVE:
+                self.x.above(self.orb)
 
     def emit(self,command,data=None):
         js='window.prombeeMascot?.receive('+json.dumps(command)+','+json.dumps(data or {})+')'
@@ -157,6 +212,7 @@ class GtkFloating:
     def collapse(self):
         if self.mode!='editor':return
         if not self.ready:self.pending=True;return
+        self.hidden_by_user=False
         self.transition+=1;self.mode='preparing'
         self.editor.evaluate_javascript('JSON.stringify(window.prombeeLogoTarget())',-1,None,None,None,self.got_logo,None)
 
@@ -219,8 +275,8 @@ class GtkFloating:
             self.x.move(self.orb,self.orb_rect);self.emit('show');self.mode='orb'
             self.x.input_region(self.orb)
         elif direction=='open' and self.mode=='opening':
-            self.window.present();self.orb.set_visible(False);self.emit('pause');self.mode='editor'
+            self.window.unminimize();self.window.present();self.orb.set_visible(False);self.emit('pause');self.mode='editor'
 
     def hide(self):
-        self.menu_open=False
-        self.orb.set_visible(False);self.emit('pause');self.window.present();self.window.minimize();self.mode='editor';return True
+        self.menu_open=False;self.hidden_by_user=True;self.mode='hidden'
+        self.orb.set_visible(False);self.emit('pause');self.window.present();self.window.minimize();return True

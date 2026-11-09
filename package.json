@@ -1,10 +1,10 @@
 {
   "name": "prombee",
   "private": true,
-  "version": "0.7.4",
+  "version": "0.7.5",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/core.test.mjs tests/pages.test.mjs tests/mascot.test.mjs tests/brand.test.mjs"
+    "test": "node --test tests/core.test.mjs tests/pages.test.mjs tests/mascot.test.mjs tests/brand.test.mjs tests/speech.test.mjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"

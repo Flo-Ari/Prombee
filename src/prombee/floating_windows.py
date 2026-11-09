@@ -95,7 +95,7 @@ class WindowsFloating:
             self.preferences.save(msg.get('enabled',True),msg.get('direction'))
             if self.mode=='orb':self.input_region(False)
         elif action=='hide':self.hide()
-        elif action=='minimize':self.window.minimize()
+        elif action=='minimize':self.collapse()
         elif action=='maximize':self.toggle_maximize()
         elif action=='close':self.close()
         elif action=='drag' and self.mode=='orb':
