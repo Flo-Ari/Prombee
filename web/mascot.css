@@ -130,3 +130,11 @@
   font: 12px sans-serif;
   pointer-events: none;
 }
+#mascotMenu button[role="menuitemradio"][aria-checked="true"] {
+  background: #eaf2ff;
+  color: #2563eb;
+}
+#mascotMenu button[role="menuitemradio"][aria-checked="true"]::after {
+  content: "✓";
+  float: right;
+}
