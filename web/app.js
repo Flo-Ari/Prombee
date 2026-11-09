@@ -39,8 +39,11 @@ let multi = false,
 let page = "editor",
   previewSource = null;
 const histories = new Map();
+const emptyRound = { id: "no-round", name: "", nodes: [] };
 const currentDoc = () =>
-  state.documents.find((d) => d.id === state.current) || state.documents[0];
+  state.documents.find((d) => d.id === state.current) ||
+  state.documents[0] ||
+  emptyRound;
 const doc = () =>
   page === "preview"
     ? previewSource || currentDoc()
@@ -69,26 +72,58 @@ function buttons() {
   $("redo").disabled = !future.length;
 }
 function restore(snapshot) {
-  if (page === "template") state.template = JSON.parse(snapshot);
-  else if (page === "common") state.common = JSON.parse(snapshot);
-  else
-    state.documents[state.documents.indexOf(currentDoc())] =
-      JSON.parse(snapshot);
+  let inverse;
+  if (snapshot?.action === "restoreRound") {
+    inverse = { action: "deleteRound", id: snapshot.document.id };
+    histories.delete(currentDoc().id);
+    state.documents.splice(
+      Math.min(snapshot.index, state.documents.length),
+      0,
+      structuredClone(snapshot.document),
+    );
+    state.current = snapshot.document.id;
+    histories.delete(state.current);
+  } else if (snapshot?.action === "deleteRound") {
+    const index = state.documents.findIndex((d) => d.id === snapshot.id);
+    if (index < 0) return null;
+    inverse = {
+      action: "restoreRound",
+      index,
+      document: structuredClone(state.documents[index]),
+    };
+    state.documents.splice(index, 1);
+    histories.delete(snapshot.id);
+    state.current =
+      state.documents[Math.min(index, state.documents.length - 1)]?.id || null;
+    histories.delete(state.current);
+  } else {
+    inverse = JSON.stringify(doc());
+    if (page === "template") state.template = JSON.parse(snapshot);
+    else if (page === "common") state.common = JSON.parse(snapshot);
+    else
+      state.documents[state.documents.indexOf(currentDoc())] =
+        JSON.parse(snapshot);
+  }
   active = null;
   selection = null;
+  if (snapshot?.action) {
+    selected.clear();
+    multi = false;
+  }
   render();
   changed();
+  return inverse;
 }
 function undo() {
   if (!history.length) return;
-  future.push(JSON.stringify(doc()));
-  restore(history.pop());
+  const inverse = restore(history.pop());
+  if (inverse) future.push(inverse);
   buttons();
 }
 function redo() {
   if (!future.length) return;
-  history.push(JSON.stringify(doc()));
-  restore(future.pop());
+  const inverse = restore(future.pop());
+  if (inverse) history.push(inverse);
   buttons();
 }
 function element(tag, cls, text) {
@@ -267,10 +302,19 @@ function render() {
   }
   if (!doc().nodes.length) {
     const empty = element("div", "empty-document");
-    const start = element("button", "", "＋ 添加条目");
+    const start = element(
+      "button",
+      "",
+      state.documents.length || page !== "editor"
+        ? "＋ 添加条目"
+        : "＋ 新建一轮",
+    );
     start.onclick = () => {
-      active = null;
-      addItem();
+      if (!state.documents.length && page === "editor") $("newDoc").click();
+      else {
+        active = null;
+        addItem();
+      }
     };
     empty.append(start);
     $("paper").append(empty);
@@ -497,9 +541,6 @@ function openMenu(id, anchor) {
   const menu = $("headingMenu");
   menu.hidden = false;
   const level = contextLevel(doc().nodes, id);
-  $("menuContext").textContent = level
-    ? `当前 H${level} · 可选择任意等级`
-    : "当前为顶层";
   for (const button of menu.querySelectorAll("[data-level]")) {
     button.classList.toggle(
       "ancestor-level",
@@ -762,6 +803,8 @@ function updatePages() {
   $("comparePanel").hidden = page !== "compare";
   $("hierarchyControls").hidden = page !== "template";
   $("copyAll").hidden = page !== "common";
+  $("deleteRound").hidden = page !== "editor";
+  $("deleteRound").disabled = !state.documents.length;
   document.querySelector(".keys").hidden = !editing();
   $("paper").setAttribute(
     "aria-label",
@@ -797,11 +840,11 @@ function updatePreview() {
 function updateComparison() {
   const left = state.documents.find((d) => d.id === $("compareLeft").value);
   const right = state.documents.find((d) => d.id === $("compareRight").value);
-  $("leftTitle").textContent = left.name;
-  $("rightTitle").textContent = right.name;
+  $("leftTitle").textContent = left?.name || "暂无轮次";
+  $("rightTitle").textContent = right?.name || "暂无轮次";
   renderComparison(
-    toMarkdown(left.nodes),
-    toMarkdown(right.nodes),
+    toMarkdown(left?.nodes || []),
+    toMarkdown(right?.nodes || []),
     $("diffRows"),
   );
   requestAnimationFrame(() => {
@@ -818,10 +861,44 @@ $("newDoc").onclick = () => {
     name: nextRoundName(state.documents),
     nodes: hierarchyNodes(state.template.nodes),
   };
+  if (!state.documents.length) {
+    histories.set(emptyRound.id, { history, future });
+    history = [];
+    future = [];
+  }
   state.documents.unshift(d);
   switchPage("editor", d.id);
   if (d.nodes.length) focus((d.nodes[1] || d.nodes[0]).id);
   changed();
+};
+$("deleteRound").onclick = () => {
+  if (page !== "editor" || !state.documents.length) return;
+  integrateCurrent();
+  const current = currentDoc(),
+    index = state.documents.indexOf(current);
+  // Round actions affect only the deleted round, never snapshots of other rounds.
+  const deletions = history.filter((entry) => entry?.action);
+  const snapshot = {
+    action: "restoreRound",
+    index,
+    document: structuredClone(current),
+  };
+  histories.delete(current.id);
+  state.documents.splice(index, 1);
+  state.current =
+    state.documents[Math.min(index, state.documents.length - 1)]?.id || null;
+  histories.delete(state.current);
+  history = [...deletions, snapshot];
+  future = [];
+  active = null;
+  selection = null;
+  selected.clear();
+  multi = false;
+  $("compareLeft").value = "";
+  $("compareRight").value = "";
+  render();
+  changed();
+  toast(`已删除${current.name}，可用撤销恢复`);
 };
 $("documents").onchange = () => {
   switchPage("editor", $("documents").value);

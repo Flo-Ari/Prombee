@@ -221,7 +221,7 @@ test("folding changes visibility only; contextual add has item first and keeps a
   assert.equal(document.querySelectorAll(".row").length, 3);
   assert.equal($("headingMenu").hidden, true);
   assert.equal(document.querySelector("#editorToolbar #addItem"), null);
-  assert.equal($("editorToolbar").querySelector("button").id, "undo");
+  assert.equal($("editorToolbar").querySelector("button").id, "multiSelect");
   $("preview").click();
   assert.equal($("previewToolbar").querySelector("select"), null);
   $("previewRaw").click();
@@ -303,4 +303,42 @@ test("new prompt set requires a selected directory and recent selector follows t
   assert.equal($("recentSets").value, "new");
   assert.equal($("editorTab").getAttribute("aria-selected"), "true");
   assert.equal(document.body.inert, false);
+});
+
+test("round deletion is reversible, numbering follows remaining rounds, and empty sets restart at round one", () => {
+  const roundName = () => $("documents").selectedOptions[0]?.textContent;
+  assert.equal(roundName(), "第2轮");
+  const content = document.querySelector(".content").textContent;
+  $("deleteRound").click();
+  assert.equal(roundName(), "第1轮");
+  $("undo").click();
+  assert.equal(roundName(), "第2轮");
+  assert.equal(document.querySelector(".content").textContent, content);
+  $("redo").click();
+  assert.equal(roundName(), "第1轮");
+  $("newDoc").click();
+  assert.equal(roundName(), "第2轮");
+  $("deleteRound").click();
+  $("deleteRound").click();
+  assert.equal($("documents").options.length, 0);
+  assert.equal(
+    document.querySelector(".empty-document button").textContent,
+    "＋ 新建一轮",
+  );
+  $("undo").click();
+  assert.equal(roundName(), "第1轮");
+  $("undo").click();
+  assert.equal(roundName(), "第2轮");
+  $("redo").click();
+  $("redo").click();
+  assert.equal($("documents").options.length, 0);
+  $("newDoc").click();
+  assert.equal(roundName(), "第1轮");
+  const buttons = [...$("editorToolbar").querySelectorAll("button")];
+  assert.deepEqual(
+    buttons.slice(0, 2).map((b) => b.id),
+    ["multiSelect", "deleteEmpty"],
+  );
+  assert.equal(buttons.at(-1).id, "deleteRound");
+  assert.equal(document.querySelector("#menuContext,.menu-caption"), null);
 });

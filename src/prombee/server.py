@@ -8,7 +8,7 @@ from .library import Library, ConflictError
 
 
 def valid(state):
-    if not isinstance(state, dict) or not isinstance(state.get('documents'), list) or not state['documents']:
+    if not isinstance(state, dict) or not isinstance(state.get('documents'), list):
         return False
     if len(state['documents']) > 1000:
         return False
@@ -21,7 +21,7 @@ def valid(state):
         for n in doc['nodes']:
             if not isinstance(n, dict) or n.get('kind') not in ('heading','item') or not isinstance(n.get('id'),str) or not isinstance(n.get('html'),str) or not isinstance(n.get('level'),int) or not 1 <= n['level'] <= 6 or any(key in n and not isinstance(n[key], bool) for key in ('excluded', 'collapsed', 'raw')):
                 return False
-    return state.get('current') in [d['id'] for d in state['documents']] and isinstance(state.get('dark'),bool) and isinstance(state.get('font'),str) and isinstance(state.get('size'),(int,float)) and 9 <= state['size'] <= 96
+    return (state.get('current') in [d['id'] for d in state['documents']] if state['documents'] else state.get('current') is None) and isinstance(state.get('dark'),bool) and isinstance(state.get('font'),str) and isinstance(state.get('size'),(int,float)) and 9 <= state['size'] <= 96
 
 
 def create_server(root, data_dir, port=0, dev=False, native_bridge=False):

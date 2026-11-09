@@ -325,12 +325,7 @@ footer {
   margin-left: auto;
   color: var(--muted);
 }
-.menu-caption {
-  font-size: 10px;
-  color: var(--muted);
-  display: block;
-  padding: 6px 10px 9px;
-}
+
 dialog {
   background: var(--paper);
   color: var(--text);
@@ -761,43 +756,58 @@ header .selected-tab {
 
 /* Page identity, hierarchy and batch editing. */
 body[data-page="template"] main {
-  background: #f0f7f1;
+  background: repeating-linear-gradient(
+    135deg,
+    #f0f1f3 0,
+    #f0f1f3 12px,
+    #e9ebee 12px,
+    #e9ebee 24px
+  );
 }
-body[data-page="template"] #paper {
-  background: #fcfffc;
-  border-color: #d9e8dc;
+body[data-page="template"] #paper,
+body[data-page="common"] #paper {
+  background: #fff;
+  border-color: #dfe4ec;
 }
 body[data-page="common"] main {
-  background: #f4f0fb;
-}
-body[data-page="common"] #paper {
-  background: #fefcff;
-  border-color: #e5dcef;
+  background-color: #f0f5fb;
+  background-image: radial-gradient(circle, #dce7f4 0 14px, transparent 15px);
+  background-size: 76px 76px;
 }
 body.dark[data-page="template"] main {
-  background: #0b130e;
-}
-body.dark[data-page="template"] #paper {
-  background: #101a14;
-  border-color: #24392a;
+  background: repeating-linear-gradient(
+    135deg,
+    #161719 0,
+    #161719 12px,
+    #1c1e21 12px,
+    #1c1e21 24px
+  );
 }
 body.dark[data-page="common"] main {
-  background: #120d19;
+  background-color: #0c1420;
+  background-image: radial-gradient(circle, #19283b 0 14px, transparent 15px);
 }
+body.dark[data-page="template"] #paper,
 body.dark[data-page="common"] #paper {
-  background: #1a1322;
-  border-color: #35263f;
+  background: var(--paper);
+  border-color: var(--line);
 }
 #editorTab {
-  background: #2563eb;
+  background: linear-gradient(to top, #2563eb 0 24%, var(--paper) 24% 100%);
   border-color: #2563eb;
-  color: white;
+  color: #2563eb;
   font-weight: 650;
   box-shadow: 0 2px 6px #2563eb20;
 }
 #editorTab[aria-selected="true"] {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  background: #2563eb;
+  color: #fff;
+}
+body.dark #editorTab:not([aria-selected="true"]) {
+  color: #93bcff;
+}
+#deleteRound {
+  margin-left: auto;
 }
 header {
   flex-wrap: wrap;

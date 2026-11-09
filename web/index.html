@@ -43,6 +43,10 @@
       role="toolbar"
       aria-label="文字格式"
     >
+      <button id="multiSelect">多选</button>
+      <button id="deleteEmpty" title="清理整份提示词的空标题和空条目">
+        删除空项
+      </button>
       <button id="undo" title="撤销 Ctrl+Z" aria-label="撤销">↶</button>
       <button id="redo" title="重做 Ctrl+Shift+Z" aria-label="重做">↷</button>
       <span class="separator"></span>
@@ -80,7 +84,6 @@
         <option value="5">H5 五级标题</option>
         <option value="6">H6 六级标题</option>
       </select>
-      <button id="multiSelect">多选</button>
       <div id="batchControls" hidden>
         <span id="selectedCount"></span><button id="batchExclude">排除</button
         ><button id="batchDelete">删除</button>
@@ -93,9 +96,7 @@
           <select id="hierarchyRound" aria-label="历史层级轮次"></select></label
         ><button id="copyHierarchy">复制层级</button>
       </div>
-      <button id="deleteEmpty" title="清理整份提示词的空标题和空条目">
-        删除空项
-      </button>
+      <button id="deleteRound">删除本轮</button>
     </div>
     <div
       id="previewToolbar"
@@ -203,8 +204,6 @@
       hidden
     >
       <button id="menuAddItem" role="menuitem">＋ <span>添加条目</span></button
-      ><span id="menuContext" class="menu-caption"></span
-      ><span class="menu-caption">添加标题</span
       ><button data-level="1" role="menuitem">
         H1 <span>一级标题</span><small>#</small></button
       ><button data-level="2" role="menuitem">

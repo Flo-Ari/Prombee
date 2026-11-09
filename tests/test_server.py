@@ -87,6 +87,13 @@ class WorkspaceTests(unittest.TestCase):
         state['common']=[]
         self.assertFalse(valid(state))
 
+    def test_last_round_can_be_deleted_and_empty_set_reopened(self):
+        state=self.read()['state']
+        state['documents']=[];state['current']=None
+        self.assertTrue(valid(state))
+        self.assertEqual(self.put(dict(state=state,baseRevision=0))[0],200)
+        self.assertEqual(self.read()['state'],state)
+
     def test_private_files_not_served(self):
         for path in ['/seed.json','/data/workspace.json','/../desktop.py','/%2e%2e/seed.json']:
             with self.assertRaises(HTTPError) as failure:urlopen(self.url+path)
