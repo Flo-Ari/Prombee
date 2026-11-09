@@ -87,7 +87,7 @@ test("right-click menu has all scenes; disabling removes flight and automatic sc
   assert.equal(api.state().enabled, true);
   api.destroy();
 });
-test("both morph directions complete in 500 ms, once only, even with all animations disabled", () => {
+test("both morph directions complete in 300 ms, once only, even with all animations disabled", () => {
   const { api, messages } = start();
   api.receive("settings", { enabled: false });
   for (const direction of ["open", "close"]) {
@@ -98,9 +98,9 @@ test("both morph directions complete in 500 ms, once only, even with all animati
       to: { x: 24, y: 40 },
       editor: { x: 0, y: 0, width: 520, height: 420 },
     });
-    tick(began + 499);
+    tick(began + 299);
     assert.equal(api.state().morphing, true);
-    tick(began + 500);
+    tick(began + 300);
     assert.equal(api.state().morphing, false);
     assert.equal(
       messages.filter(
@@ -122,4 +122,66 @@ test("hidden mascot pauses; showing it restarts the 60-second idle timer", () =>
   tick(180_000);
   assert.equal(api.state().scene, 0);
   api.destroy();
+});
+
+test("all scenes enter from the current pose and return continuously to live flight", async () => {
+  const { flightPose, scenePose } = await import("../web/mascot.js");
+  const began = 12345,
+    origin = flightPose(began);
+  for (let index = 0; index < SCENES.length; index++) {
+    const duration = SCENES[index].duration;
+    assert.deepEqual(scenePose(index, 0, began, origin), origin);
+    assert.deepEqual(
+      scenePose(index, duration, began + duration, origin),
+      flightPose(began + duration),
+    );
+    const first = scenePose(index, 1, began + 1, origin),
+      last = scenePose(index, duration - 1, began + duration - 1, origin),
+      neutral = flightPose(began + duration - 1);
+    for (const key of Object.keys(origin)) {
+      assert.ok(
+        Math.abs(first[key] - origin[key]) < 0.01,
+        `scene ${index} entrance ${key}`,
+      );
+      assert.ok(
+        Math.abs(last[key] - neutral[key]) < 0.001,
+        `scene ${index} exit ${key}`,
+      );
+    }
+    for (let t = 0; t <= duration; t += 16) {
+      const pose = scenePose(index, t, began + t, origin);
+      for (const value of Object.values(pose))
+        assert.ok(Number.isFinite(value));
+      assert.ok(pose.scale > 0 && pose.alpha >= 0 && pose.alpha <= 1);
+    }
+  }
+});
+test("switching scenes retains the current bee position, scale, rotation and energy", () => {
+  const { api } = start();
+  for (const [index, elapsed] of [
+    [0, 1700],
+    [1, 5000],
+    [2, 11000],
+    [3, 2900],
+  ]) {
+    api.play(index);
+    tick(now + elapsed);
+    const before = api.state().pose;
+    api.play((index + 1) % 4);
+    tick(now);
+    assert.deepEqual(api.state().pose, before);
+  }
+  api.destroy();
+});
+test("fracture is clipped to a small patch regardless of canvas dimensions", async () => {
+  const { CRACK_RADIUS } = await import("../web/mascot.js");
+  const radii = [];
+  ctx.arc = (x, y, r) => radii.push(r);
+  const { api } = start();
+  api.play(3);
+  tick(2800);
+  assert.equal(CRACK_RADIUS, 92);
+  assert.deepEqual(radii, [92]);
+  api.destroy();
+  delete ctx.arc;
 });

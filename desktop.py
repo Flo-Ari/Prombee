@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT/'src'))
 from prombee.server import start_server
+from prombee.floating import MORPH_MS
 
 
 def main():
@@ -147,7 +148,7 @@ def main():
                 if self.floating.completed_morphs!=2:
                     self.floating.view.evaluate_javascript("JSON.stringify({state:window.prombeeMascot?.state(),errors:window.prombeeErrors,size:[innerWidth,innerHeight],visibility:document.visibilityState})",-1,None,None,None,self.floating_failed,None)
                     return False
-                print('FLOATING_OK '+json.dumps({'roundTrip':True,'rendererCompleted':2,'durationMs':500}),flush=True)
+                print('FLOATING_OK '+json.dumps({'roundTrip':True,'rendererCompleted':2,'durationMs':MORPH_MS}),flush=True)
                 self.quit();return False
             return True
 

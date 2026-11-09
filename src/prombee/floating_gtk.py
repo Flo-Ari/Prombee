@@ -67,7 +67,7 @@ class GtkFloating:
         self.GLib,self.WebKit=GLib,WebKit
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
-        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None;self.layout=None;self.scene_expanded=False
+        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None;self.layout=None
         self.x=XDesktop()
         self.orb=Gtk.ApplicationWindow(application=app,title='提示蜂 · 桌面悬浮球')
         self.orb.set_decorated(False);self.orb.set_default_size(ORB_WIDTH,ORB_HEIGHT)
@@ -100,33 +100,20 @@ class GtkFloating:
             if self.pending:self.pending=False;self.collapse()
         elif action=='collapse':self.collapse()
         elif action=='menu':self.x.input_region(self.orb,True)
-        elif action=='menuClose':self.x.input_region(self.orb,self.scene_expanded)
+        elif action=='menuClose':self.x.input_region(self.orb)
         elif action=='scene':
-            self.scene_bounds(msg.get('index')==3)
             self.x.input_region(self.orb,True)
         elif action=='sceneEnd':
-            self.scene_bounds(False);self.x.input_region(self.orb)
+            self.x.input_region(self.orb)
         elif action=='open':self.open()
         elif action=='morphDone':
             self.completed_morphs+=1;self.finished(msg.get('direction'))
         elif action=='hide':self.hide()
         elif action=='settings':
-            self.preferences.save(msg.get('enabled',True));self.scene_bounds(False)
+            self.preferences.save(msg.get('enabled',True))
             if self.mode=='orb':self.x.input_region(self.orb)
-        elif action=='drag' and self.mode=='orb' and not self.scene_expanded:
+        elif action=='drag' and self.mode=='orb':
             r=self.x.position(self.orb);self.orb_rect=(r[0]+msg.get('dx',0),r[1]+msg.get('dy',0),ORB_WIDTH,ORB_HEIGHT);self.x.move(self.orb,self.orb_rect)
-
-    def scene_bounds(self,expand):
-        if self.mode!='orb':return
-        if expand and not self.scene_expanded:
-            from gi.repository import Gdk
-            self.orb_rect=self.x.position(self.orb)
-            monitor=Gdk.Display.get_default().get_monitor_at_surface(self.orb.get_surface()).get_geometry()
-            self.scene_expanded=True
-            self.x.move(self.orb,(monitor.x,monitor.y,monitor.width,monitor.height))
-            self.emit('anchor',{'x':self.orb_rect[0]-monitor.x+ORB_WIDTH/2,'y':self.orb_rect[1]-monitor.y+ORB_HEIGHT/2})
-        elif not expand and self.scene_expanded:
-            self.scene_expanded=False;self.x.move(self.orb,self.orb_rect);self.emit('anchor')
 
     def collapse(self):
         if self.mode!='editor':return
@@ -167,7 +154,6 @@ class GtkFloating:
         if self.mode!='orb':
             if self.mode=='editor':self.window.present()
             return
-        self.scene_bounds(False)
         self.orb_rect=self.x.position(self.orb)
         # Recalculate union if the user dragged the companion between transitions.
         logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
@@ -195,5 +181,4 @@ class GtkFloating:
             self.window.present();self.orb.set_visible(False);self.emit('pause');self.mode='editor'
 
     def hide(self):
-        self.scene_bounds(False)
         self.orb.set_visible(False);self.emit('pause');self.window.present();self.window.minimize();self.mode='editor';return True

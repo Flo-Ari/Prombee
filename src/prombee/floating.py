@@ -1,9 +1,9 @@
-"""Shared floating-window state, preferences and exact 500ms morph geometry."""
+"""Shared floating-window state, preferences and exact 300ms morph geometry."""
 import json
 from pathlib import Path
 
 ORB_WIDTH, ORB_HEIGHT = 520, 420
-MORPH_MS = 500
+MORPH_MS = 300
 
 
 def morph_layout(editor, orb, logo):

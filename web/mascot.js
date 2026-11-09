@@ -1,6 +1,6 @@
 // Code-drawn mascot: transparent at every scale, independent of editor content.
 export const IDLE_DELAY = 60_000;
-export const MORPH_DURATION = 500;
+export const MORPH_DURATION = 300;
 export const SCENES = [
   { name: "机甲除虫", duration: 16_000 },
   { name: "飞累了，睡一会", duration: 14_000 },
@@ -11,8 +11,81 @@ const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const ease = (t) => t * t * (3 - 2 * t);
 const mix = (a, b, t) => a + (b - a) * t;
 const BLUE = "#2563eb",
-  INK = "#17345c",
-  HONEY = "#ffc94b";
+  INK = "#2563eb",
+  LIGHT = "#b7d8ff";
+
+export const CRACK_RADIUS = 92;
+export function flightPose(now) {
+  return {
+    x: 0,
+    y: Math.sin(now * 0.0034) * 5,
+    scale: 1,
+    rotation: 0,
+    sleep: 0,
+    energy: 0,
+    sting: 0,
+    alpha: 1,
+  };
+}
+const blendPose = (a, b, t) =>
+  Object.fromEntries(Object.keys(a).map((k) => [k, mix(a[k], b[k], t)]));
+// One bee follows one continuous path. Scene props never draw a second bee.
+export function scenePose(index, t, now, origin = flightPose(now - t)) {
+  const neutral = flightPose(now),
+    u = t / 1000,
+    duration = SCENES[index].duration;
+  if (t <= 0) return { ...origin };
+  if (t >= duration) return neutral;
+  let target = { ...neutral },
+    entry = 2000,
+    exitStart = duration - 2500;
+  if (index === 0) {
+    target = {
+      ...neutral,
+      x: -12,
+      y: 4,
+      scale: 0.23,
+      alpha: 1 - ease(clamp((t - 2200) / 900)),
+    };
+    entry = 2400;
+    exitStart = 13000;
+    if (t >= exitStart)
+      target = { ...target, alpha: ease(clamp((t - exitStart) / 650)) };
+  } else if (index === 1) {
+    target = { ...neutral, y: 14, sleep: ease(clamp((t - 1200) / 900)) };
+    exitStart = 11500;
+  } else if (index === 2) {
+    target = {
+      ...neutral,
+      x: 38,
+      y: -40 + Math.sin(u * 2) * 3,
+      scale: 0.83,
+      energy: u > 9 && u < 14 ? Math.sin(clamp((u - 9) / 5) * Math.PI) : 0,
+    };
+    exitStart = 12000;
+  } else {
+    entry = 850;
+    exitStart = 4600;
+    const turn = ease(clamp(t / 2200)),
+      recover = ease(clamp((t - 2600) / 2000));
+    target = {
+      ...neutral,
+      x: 18 * recover,
+      y: -14 * recover,
+      scale: 1 + 0.2 * turn,
+      rotation: Math.PI * 0.86 * turn * (1 - recover),
+      sting: turn * (1 - recover),
+    };
+  }
+  let pose = blendPose(origin, target, ease(clamp(t / entry)));
+  if (t >= exitStart)
+    pose = blendPose(
+      pose,
+      neutral,
+      ease(clamp((t - exitStart) / (duration - exitStart))),
+    );
+  return pose;
+}
 
 export function mountMascot(canvas, menu, send = () => {}) {
   const ctx = canvas.getContext("2d", { alpha: true });
@@ -37,6 +110,9 @@ export function mountMascot(canvas, menu, send = () => {}) {
     drag = null,
     suppressClick = false,
     morph = null;
+  let currentPose = flightPose(performance.now()),
+    sceneOrigin = currentPose,
+    previousEnvironment = null;
   let customCenter = null;
   let center = { x: 260, y: 210 };
   function resize() {
@@ -110,9 +186,25 @@ export function mountMascot(canvas, menu, send = () => {}) {
     ctx.globalAlpha *= alpha;
     ctx.translate(x, y);
     ctx.scale(scale, scale);
-    if (energy) glow(0, 0, 100, `rgba(74,174,255,${energy * 0.32})`);
+    if (energy) glow(0, 0, 100, `rgba(37,99,235,${energy * 0.32})`);
+    if (Number(sleep) < 1) {
+      ctx.save();
+      ctx.globalAlpha *= (1 - Number(sleep)) * 0.45;
+      for (let i = 0; i < 3; i++) {
+        const drift = (t * 0.018 + i * 11) % 24;
+        line(
+          [
+            [-86 - drift, -3 + i * 7],
+            [-93 - drift, -3 + i * 7],
+          ],
+          LIGHT,
+          1.1,
+        );
+      }
+      ctx.restore();
+    }
     // Far wing, then near wing: both attach behind the head.
-    const flap = sleep ? 0.08 : Math.abs(Math.sin(t * 0.12));
+    const flap = mix(Math.abs(Math.sin(t * 0.12)), 0.08, Number(sleep));
     ctx.save();
     ctx.translate(-15, -19);
     ctx.rotate(-0.55 - flap * 0.4);
@@ -130,15 +222,33 @@ export function mountMascot(canvas, menu, send = () => {}) {
     path(
       [
         [-60, 1],
-        [-84, sting ? 18 : 5],
+        [-84, mix(5, 18, Number(sting))],
         [-60, 14],
       ],
       INK,
     );
-    ellipse(-27, 7, 42, 29, HONEY, INK, 2.5);
+    path(
+      [
+        [-68, 7],
+        [-49, -22],
+        [-9, -22],
+        [15, 7],
+        [-9, 36],
+        [-49, 36],
+      ],
+      "#fff",
+      BLUE,
+      2.5,
+    );
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(-27, 7, 41, 28, 0, 0, Math.PI * 2);
+    ctx.moveTo(-68, 7);
+    ctx.lineTo(-49, -22);
+    ctx.lineTo(-9, -22);
+    ctx.lineTo(15, 7);
+    ctx.lineTo(-9, 36);
+    ctx.lineTo(-49, 36);
+    ctx.closePath();
     ctx.clip();
     path(
       [
@@ -190,8 +300,54 @@ export function mountMascot(canvas, menu, send = () => {}) {
       INK,
       3,
     );
-    // The circular head is 26px right, 8px above the bee's origin.
-    ellipse(26, -8, 29, 28, "#f8fcff", BLUE, 2.5);
+    // The logo's hexagonal shell, white antenna tips and blue dual eyes share one skin.
+    path(
+      [
+        [0, -17],
+        [11, -34],
+        [38, -34],
+        [55, -17],
+        [55, 4],
+        [39, 20],
+        [12, 20],
+        [0, 5],
+      ],
+      "#fff",
+      BLUE,
+      2.5,
+    );
+    path(
+      [
+        [11, -32],
+        [37, -32],
+        [48, -21],
+        [13, -21],
+        [4, -12],
+        [2, -17],
+      ],
+      "#b7d8ff80",
+    );
+    path(
+      [
+        [39, 18],
+        [53, 3],
+        [53, -4],
+        [47, 2],
+        [36, 10],
+        [12, 10],
+        [15, 18],
+      ],
+      "#b7d8ff55",
+    );
+    line(
+      [
+        [5, -18],
+        [12, -27],
+        [37, -27],
+      ],
+      "#fff",
+      1.2,
+    );
     line(
       [
         [12, -29],
@@ -201,7 +357,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       BLUE,
       2.4,
     );
-    ellipse(-1, -48, 3.5, 3.5, HONEY);
+    ellipse(-1, -48, 3.5, 3.5, "#fff", BLUE, 1.3);
     line(
       [
         [34, -32],
@@ -211,56 +367,93 @@ export function mountMascot(canvas, menu, send = () => {}) {
       BLUE,
       2.4,
     );
-    ellipse(48, -47, 3.5, 3.5, HONEY);
-    if (sleep) {
-      line(
+    ellipse(48, -47, 3.5, 3.5, "#fff", BLUE, 1.3);
+    // Two independent sensor apertures retain the logo's blue-dot eyes.
+    for (const [ex, ey] of [
+      [16, -12],
+      [40, -13],
+    ]) {
+      const lid = 1 - Number(sleep),
+        h = Math.max(0.8, 7 * lid);
+      path(
         [
-          [11, -11],
-          [17, -8],
-          [23, -11],
+          [ex - 9, ey - h],
+          [ex + 6, ey - h],
+          [ex + 9, ey],
+          [ex + 6, ey + h],
+          [ex - 9, ey + h],
         ],
-        INK,
-        2.6,
+        "#eef5ff",
+        LIGHT,
+        1,
       );
-      line(
-        [
-          [34, -12],
-          [40, -9],
-          [46, -12],
-        ],
-        INK,
-        2.6,
+      const dx = mouse.x - x - ex * scale,
+        dy = mouse.y - y - ey * scale,
+        len = Math.max(1, Math.hypot(dx, dy));
+      ellipse(
+        ex + (dx / len) * 3,
+        ey + (dy / len) * 2 * lid,
+        3.2,
+        Math.max(0.4, 3.6 * lid),
+        BLUE,
       );
-    } else {
-      for (const [ex, ey, rx] of [
-        [16, -12, 8],
-        [40, -13, 8.5],
-      ]) {
-        ellipse(ex, ey, rx, 11, "white", "#a9c9ed", 1);
-        const dx = mouse.x - x - ex * scale,
-          dy = mouse.y - y - ey * scale,
-          len = Math.max(1, Math.hypot(dx, dy));
-        ellipse(ex + (dx / len) * 3.5, ey + (dy / len) * 4, 4, 5, INK);
+      if (lid > 0.1)
         ellipse(
-          ex + (dx / len) * 3.5 + 1,
-          ey + (dy / len) * 4 - 1.5,
-          1.2,
-          1.5,
-          "white",
+          ex + (dx / len) * 3 + 0.7,
+          ey + (dy / len) * 2 * lid - 1,
+          0.7,
+          Math.max(0.1, 0.7 * lid),
+          "#fff",
         );
-      }
+    }
+    // Machined vents replace the cartoon smile and cheeks.
+    for (let i = 0; i < 3; i++)
+      line(
+        [
+          [20 + i * 6, 6],
+          [23 + i * 6, 3],
+        ],
+        BLUE,
+        1.4,
+      );
+    for (const [jx, jy] of [
+      [-27, 28],
+      [-7, 26],
+    ]) {
+      path(
+        [
+          [jx - 4, jy],
+          [jx - 2, jy - 3.5],
+          [jx + 2, jy - 3.5],
+          [jx + 4, jy],
+          [jx + 2, jy + 3.5],
+          [jx - 2, jy + 3.5],
+        ],
+        "#fff",
+        BLUE,
+        1.2,
+      );
     }
     line(
       [
-        [27, 6],
-        [31, 8],
-        [36, 5],
+        [-61, 8],
+        [-51, 23],
+        [-44, 23],
       ],
-      BLUE,
-      1.8,
+      LIGHT,
+      1.2,
     );
-    ellipse(8, 1, 4, 2.4, "#ffb4ac80");
-    ellipse(47, 0, 3.5, 2.4, "#ffb4ac80");
+    ellipse(-50, 23, 1.8, 1.8, "#fff");
+    line(
+      [
+        [-14, 26],
+        [-2, 14],
+        [-2, 4],
+      ],
+      LIGHT,
+      1.2,
+    );
+    ellipse(-2, 3, 2, 2, "#fff", BLUE, 1);
     // AI circuit traces on the temple.
     line(
       [
@@ -275,7 +468,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     if (energy) {
       ctx.save();
       ctx.scale(1, 0.36);
-      ctx.strokeStyle = `rgba(89,199,255,${energy})`;
+      ctx.strokeStyle = `rgba(37,99,235,${energy})`;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.ellipse(0, 0, 84, 60, t * 0.004, 0, Math.PI * 2);
@@ -293,7 +486,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(i + p * 4);
-      ctx.globalAlpha = Math.sin(p * Math.PI) * 0.7;
+      ctx.globalAlpha *= Math.sin(p * Math.PI) * 0.7;
       if (i % 3 === 0) {
         line(
           [
@@ -301,7 +494,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
             [0, -4],
             [4, 3],
           ],
-          "#8cad91",
+          "#7ca9ed",
           1.5,
         );
         line(
@@ -309,26 +502,22 @@ export function mountMascot(canvas, menu, send = () => {}) {
             [0, 9],
             [0, -4],
           ],
-          "#b1c7a1",
+          "#b7d8ff",
           1,
         );
       } else {
-        ellipse(0, 0, 4 + (i % 2) * 2, 2 + (i % 3), "#f6c7c9");
+        ellipse(0, 0, 4 + (i % 2) * 2, 2 + (i % 3), "#b7d8ff");
         line(
           [
             [-3, 0],
             [3, 0],
           ],
-          "#dea7bc",
+          "#7ca9ed",
           0.5,
         );
       }
       ctx.restore();
     }
-  }
-  function idle(t) {
-    scenery(t);
-    bee(center.x, center.y + Math.sin(t * 0.0034) * 5, 1, t);
   }
   function gear(x, y, r, t, color = "#91accb") {
     ctx.save();
@@ -354,7 +543,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
           [-9, i * 8],
           [-18, i * 11 - 4],
         ],
-        "#6b5b86",
+        "#7ca9ed",
         2,
       );
       line(
@@ -362,17 +551,17 @@ export function mountMascot(canvas, menu, send = () => {}) {
           [9, i * 8],
           [18, i * 11 - 4],
         ],
-        "#6b5b86",
+        "#7ca9ed",
         2,
       );
     }
-    ellipse(0, 1, 11, 16, hit ? "#ffcaa6" : "#a89bc4", INK, 1.5);
+    ellipse(0, 1, 11, 16, hit ? "#fff" : "#b7d8ff", INK, 1.5);
     line(
       [
         [0, -12],
         [0, 16],
       ],
-      "#716486",
+      "#7ca9ed",
       1,
     );
     ellipse(-4, -6, 2, 2, "white");
@@ -387,7 +576,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       combat = u > 3 && u < 12,
       fade = 1 - ease(clamp((u - 13) / 3));
     ctx.save();
-    ctx.globalAlpha = fade;
+    ctx.globalAlpha *= fade;
     glow(cx, cy + 64, 115, "#3f87ff16");
     ellipse(cx, cy + 103, 94, 10, "#2b548c15");
     gear(cx - 44, cy + 7, 18, u * 0.35);
@@ -453,7 +642,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       ],
       BLUE,
     );
-    ellipse(cx, cy + 4, 10, 10, "#89efff", INK, 1.5);
+    ellipse(cx, cy + 4, 10, 10, "#b7d8ff", INK, 1.5);
     path(
       [
         [cx - 25, cy - 61],
@@ -465,18 +654,10 @@ export function mountMascot(canvas, menu, send = () => {}) {
       "#6099c6",
       2,
     );
-    ctx.fillStyle = "#7ce9ff";
+    ctx.fillStyle = "#b7d8ff";
     ctx.fillRect(cx - 19, cy - 49, 38, 8);
-    // Open cockpit accepts the flying pilot.
-    if (u < 3.5)
-      bee(
-        mix(cx - 154, cx, arrive),
-        mix(cy - 100, cy - 8, arrive),
-        mix(0.72, 0.23, arrive),
-        t,
-      );
-    else {
-      ellipse(cx - 3, cy - 1, 4, 4, HONEY);
+    if (u > 2.8 && u < 13.5) {
+      ellipse(cx - 3, cy - 1, 4, 4, LIGHT);
       ellipse(cx + 4, cy - 2, 2, 2, "white");
     }
     ctx.save();
@@ -557,9 +738,9 @@ export function mountMascot(canvas, menu, send = () => {}) {
           [75, 45],
           [58, 39],
         ],
-        HONEY,
+        LIGHT,
       );
-      glow(66, 30, 29, "#ffd96677");
+      glow(66, 30, 29, "#b7d8ff77");
     }
     ctx.restore();
     for (let i = 0; i < 3; i++) {
@@ -576,7 +757,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
               [bx + Math.cos(a) * r, by + Math.sin(a) * r],
               [bx + Math.cos(a) * (r + 5), by + Math.sin(a) * (r + 5)],
             ],
-            HONEY,
+            LIGHT,
             2,
           );
         }
@@ -587,11 +768,11 @@ export function mountMascot(canvas, menu, send = () => {}) {
             [cx + 107, cy + 20],
             [bx - 15, by],
           ],
-          "#ffc94b80",
+          "#b7d8ff80",
           1.5,
         );
     }
-    if (u > 13) bee(cx - (u - 13) * 55, cy - 35 - (u - 13) * 20, 0.65, t);
+
     ctx.restore();
   }
   function sleep(t) {
@@ -602,37 +783,42 @@ export function mountMascot(canvas, menu, send = () => {}) {
     ctx.save();
     ctx.translate(center.x - 7, center.y + 46);
     ctx.rotate(-0.12);
-    ellipse(0, 0, 78, 15, "#b0c8b1");
+    path(
+      [
+        [-78, 0],
+        [-56, -12],
+        [56, -12],
+        [78, 0],
+        [56, 12],
+        [-56, 12],
+      ],
+      "#dceaff",
+      BLUE,
+      1.5,
+    );
     line(
       [
         [-68, 0],
         [66, 0],
       ],
-      "#789f8a",
+      "#7ca9ed",
       1.5,
     );
     for (let i = -2; i < 3; i++)
       line(
         [
           [i * 20, 0],
-          [i * 20 + 13, -9],
+          [i * 20 + 5, -8],
         ],
-        "#91ae97",
+        "#b7d8ff",
         1,
       );
     ctx.restore();
-    bee(
-      center.x,
-      center.y + mix(-15, 14, land) * (1 - wake) - wake * 25,
-      1,
-      t,
-      { sleep: u > 2 && u < 12 },
-    );
     if (u > 2 && u < 12)
       for (let i = 0; i < 3; i++) {
         let p = (u * 0.3 + i * 0.33) % 1;
         ctx.save();
-        ctx.globalAlpha = Math.sin(p * Math.PI);
+        ctx.globalAlpha *= Math.sin(p * Math.PI);
         text(
           "z",
           center.x + 52 + p * 35,
@@ -667,37 +853,28 @@ export function mountMascot(canvas, menu, send = () => {}) {
     );
     gear(cx, cy, 49, u * 0.13, "#c1d8e7");
     gear(cx, cy, 29, -u * 0.24, "#90b5d7");
-    glow(cx, cy, 65, `rgba(73,175,255,${0.12 + charge * 0.25})`);
-    ellipse(cx, cy, 14, 14, HONEY, INK, 2);
+    glow(cx, cy, 65, `rgba(37,99,235,${0.12 + charge * 0.25})`);
+    ellipse(cx, cy, 14, 14, LIGHT, INK, 2);
     for (let i = 0; i < 6; i++) {
       let p = (u * 0.55 + i / 6) % 1,
         xx = cx + Math.cos(i * 2) * 39 * (1 - p),
         yy = cy - 16 - p * 44;
       ctx.save();
-      ctx.globalAlpha = (1 - p) * clamp(u - 2) * clamp(11 - u);
+      ctx.globalAlpha *= (1 - p) * clamp(u - 2) * clamp(11 - u);
       text(i % 2 ? "01" : "T", xx, yy, 10, "#61a6da");
       ctx.restore();
     }
-    let bx = center.x + 38,
-      by = center.y - 40 + Math.sin(u * 2) * 3;
-    if (u < 2) {
-      bx = mix(center.x - 100, bx, ease(u / 2));
-      by = mix(center.y - 90, by, ease(u / 2));
-    }
-    if (u > 12) {
-      bx += (u - 12) * 27;
-      by -= (u - 12) * 17;
-    }
-    bee(bx, by, 0.83, t, {
-      energy: u > 9 && u < 14 ? Math.sin(clamp((u - 9) / 5) * Math.PI) : 0,
-    });
+    const bx = center.x + currentPose.x,
+      by = center.y + currentPose.y;
     if (u > 10 && u < 13) {
       ctx.save();
       ctx.translate(bx, by);
+      ctx.globalAlpha *=
+        ease(clamp((u - 10) / 0.4)) * (1 - ease(clamp((u - 12.5) / 0.5)));
       ctx.scale(1, 0.45);
       for (let i = 0; i < 3; i++) {
         let r = 38 + ((burst + i / 3) % 1) * 110;
-        ctx.strokeStyle = `rgba(72,176,255,${(1 - (r - 38) / 110) * 0.7})`;
+        ctx.strokeStyle = `rgba(37,99,235,${(1 - (r - 38) / 110) * 0.7})`;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
@@ -715,7 +892,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
             [bx + Math.cos(a) * r, by + Math.sin(a) * r],
             [bx + Math.cos(a) * (r + 12), by + Math.sin(a) * (r + 12)],
           ],
-          `rgba(91,197,255,${1 - p})`,
+          `rgba(37,99,235,${1 - p})`,
           2,
         );
       }
@@ -724,27 +901,20 @@ export function mountMascot(canvas, menu, send = () => {}) {
   function sting(t) {
     const u = t / 1000,
       hit = 2.6;
-    if (u < hit) {
-      ctx.save();
-      ctx.translate(center.x, center.y);
-      ctx.rotate(ease(clamp(u / 2)) * Math.PI * 0.86);
-      bee(0, 0, 1 + clamp(u / 2) * 0.2, t, { sting: true });
-      ctx.restore();
-    } else {
+    if (u >= hit) {
       const p = clamp((u - hit) / 0.24),
-        fade = 1 - clamp((u - 6.2) / 1.8),
+        fade = 1 - ease(clamp((u - 5) / 2)),
         x = center.x - 22,
         y = center.y;
-      bee(center.x + 18, center.y - 14, 1.2 - (u - hit) * 0.045, t, {
-        sting: true,
-        alpha: clamp(1 - (u - 3) / 2),
-      });
       ctx.save();
-      ctx.globalAlpha = fade;
-      glow(x, y, 70 * (1 - p) + 8, "#e5f7ffbb");
+      ctx.globalAlpha *= fade;
+      ctx.beginPath();
+      ctx.arc(x, y, CRACK_RADIUS, 0, Math.PI * 2);
+      ctx.clip();
+      glow(x, y, 35 * (1 - p) + 8, "#e5f7ffbb");
       for (let i = 0; i < 17; i++) {
         const a = i * 2.399,
-          reach = (90 + ((i * 71) % Math.max(width, height))) * p,
+          reach = (40 + ((i * 17) % 52)) * p,
           pts = [[x, y]];
         for (let j = 1; j <= 5; j++) {
           let r = (reach * j) / 5,
@@ -773,7 +943,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       // Faceted glass fragments catch opposing highlights.
       for (let i = 0; i < 11; i++) {
         const a = i * 0.571,
-          r = 30 + i * 7,
+          r = 12 + i * 4,
           xx = x + Math.cos(a) * r,
           yy = y + Math.sin(a) * r;
         path(
@@ -852,17 +1022,78 @@ export function mountMascot(canvas, menu, send = () => {}) {
     if (scene < 0 && now >= nextIdle) {
       play((lastScene + 1) % SCENES.length, now);
     }
+    const t = now - sceneStart;
+    if (scene >= 0 && t >= SCENES[scene].duration) {
+      scene = -1;
+      previousEnvironment = null;
+      nextIdle = now + IDLE_DELAY;
+      send("sceneEnd");
+    }
+    currentPose =
+      scene < 0 ? flightPose(now) : scenePose(scene, t, now, sceneOrigin);
+    const environmentOpacity = (index, elapsed) =>
+      ease(clamp(elapsed / 650)) *
+      (1 - ease(clamp((elapsed - (SCENES[index].duration - 1800)) / 1800)));
+    const strength = scene < 0 ? 0 : environmentOpacity(scene, t);
+    ctx.save();
+    ctx.globalAlpha = 1 - strength * 0.85;
+    scenery(now);
+    ctx.restore();
+    if (previousEnvironment) {
+      const opacity =
+        previousEnvironment.opacity *
+        (1 - ease(clamp((now - previousEnvironment.interrupted) / 650)));
+      if (opacity > 0) {
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        [mech, sleep, flower, sting][previousEnvironment.index](
+          now - previousEnvironment.started,
+        );
+        ctx.restore();
+      } else previousEnvironment = null;
+    }
     if (scene >= 0) {
-      const t = now - sceneStart;
-      if (t >= SCENES[scene].duration) {
-        scene = -1;
-        nextIdle = now + IDLE_DELAY;
-        send("sceneEnd");
-        idle(now);
-      } else [mech, sleep, flower, sting][scene](t);
-    } else idle(now);
+      ctx.save();
+      ctx.globalAlpha = strength;
+      [mech, sleep, flower, sting][scene](t);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(center.x + currentPose.x, center.y + currentPose.y);
+    ctx.rotate(currentPose.rotation);
+    // Transform the pointer back into the bee's coordinate space as it turns.
+    const originalMouse = mouse,
+      dx = mouse.x - center.x - currentPose.x,
+      dy = mouse.y - center.y - currentPose.y;
+    mouse = {
+      x:
+        dx * Math.cos(-currentPose.rotation) -
+        dy * Math.sin(-currentPose.rotation),
+      y:
+        dx * Math.sin(-currentPose.rotation) +
+        dy * Math.cos(-currentPose.rotation),
+    };
+    bee(0, 0, currentPose.scale, now, currentPose);
+    mouse = originalMouse;
+    ctx.restore();
   }
   function play(index, now = performance.now()) {
+    if (index < 0 || index >= SCENES.length) return;
+    sceneOrigin =
+      scene < 0
+        ? flightPose(now)
+        : scenePose(scene, now - sceneStart, now, sceneOrigin);
+    if (scene >= 0) {
+      const elapsed = now - sceneStart;
+      previousEnvironment = {
+        index: scene,
+        started: sceneStart,
+        interrupted: now,
+        opacity:
+          ease(clamp(elapsed / 650)) *
+          (1 - ease(clamp((elapsed - (SCENES[scene].duration - 1800)) / 1800))),
+      };
+    }
     if (!enabled) {
       enabled = true;
       save();
@@ -887,6 +1118,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     if (name === "toggle") {
       enabled = !enabled;
       scene = -1;
+      previousEnvironment = null;
       save();
     } else if (name === "hide") {
       visible = false;
@@ -1006,10 +1238,12 @@ export function mountMascot(canvas, menu, send = () => {}) {
       if (command === "settings") {
         enabled = data.enabled !== false;
         scene = -1;
+        previousEnvironment = null;
       }
       if (command === "show") {
         visible = true;
         scene = -1;
+        previousEnvironment = null;
         nextIdle = performance.now() + IDLE_DELAY;
         menu.hidden = true;
         resize();
@@ -1021,6 +1255,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       if (command === "morph") {
         visible = true;
         scene = -1;
+        previousEnvironment = null;
         menu.hidden = true;
         resize();
         morph = { ...data, started: performance.now() };
@@ -1036,6 +1271,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       visible,
       morphing: !!morph,
       nextIdle,
+      pose: { ...currentPose },
       frames: frame,
       last,
     }),

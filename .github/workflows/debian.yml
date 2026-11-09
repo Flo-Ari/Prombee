@@ -20,11 +20,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build distribution-native package
-        run: python3 scripts/build_deb.py --version 0.7.0
+        run: python3 scripts/build_deb.py --version 0.7.1
       - name: Install and smoke test
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb dbus-x11 desktop-file-utils ./dist/prombee_0.7.0_all.deb
+          sudo apt-get install -y xvfb dbus-x11 desktop-file-utils ./dist/prombee_0.7.1_all.deb
           desktop-file-validate /usr/share/applications/prombee.desktop
           # Hosted Ubuntu blocks unprivileged user namespaces. This override applies only to this isolated CI smoke process, never to the installed launcher.
           timeout 90s xvfb-run -a dbus-run-session -- env GTK_A11Y=none WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 XDG_DATA_HOME="$RUNNER_TEMP/prombee-smoke" WEBKIT_DISABLE_COMPOSITING_MODE=1 prombee --floating-smoke-test

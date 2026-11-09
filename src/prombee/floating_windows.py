@@ -46,7 +46,7 @@ class WindowsFloating:
     def __init__(self,webview,window,url,data,close):
         self.window,self.close=window,close
         self.preferences=FloatingPreferences(data)
-        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.orb_rect=None;self.payload=None;self.layout=None;self.scene_expanded=False
+        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.orb_rect=None;self.payload=None;self.layout=None
         self.lock=threading.RLock();self.stop=threading.Event();self.allow_close=False
         owner=self
         class Api:
@@ -82,22 +82,22 @@ class WindowsFloating:
         action=msg.get('action')
         if action=='collapse':self.collapse()
         elif action=='menu':self.input_region(True)
-        elif action=='menuClose':self.input_region(self.scene_expanded)
+        elif action=='menuClose':self.input_region(False)
         elif action=='scene':
-            self.input_region(True);self.scene_bounds(msg.get('index')==3)
+            self.input_region(True)
         elif action=='sceneEnd':
-            self.scene_bounds(False);self.input_region(False)
+            self.input_region(False)
         elif action=='open':self.open()
         elif action=='morphDone':
             self.completed_morphs+=1;self.finished(msg.get('direction'))
         elif action=='settings':
-            self.preferences.save(msg.get('enabled',True));self.scene_bounds(False)
+            self.preferences.save(msg.get('enabled',True))
             if self.mode=='orb':self.input_region(False)
         elif action=='hide':self.hide()
         elif action=='minimize':self.window.minimize()
         elif action=='maximize':self.toggle_maximize()
         elif action=='close':self.close()
-        elif action=='drag' and self.mode=='orb' and not self.scene_expanded:
+        elif action=='drag' and self.mode=='orb':
             r=self.rect(self.orb);self.orb.move(int(r[0]+msg.get('dx',0)),int(r[1]+msg.get('dy',0)));self.orb_rect=self.rect(self.orb)
 
     def input_region(self,full=False):
@@ -111,18 +111,6 @@ class WindowsFloating:
         # Ownership of a successful region is transferred to Windows.
         if not user.SetWindowRgn(hwnd,region,True):
             gdi.DeleteObject.argtypes=[W.HGDIOBJ];gdi.DeleteObject(region)
-
-    def scene_bounds(self,expand):
-        if self.mode not in ('orb','opening'):return
-        if expand and not self.scene_expanded:
-            from System.Windows.Forms import Screen
-            self.orb_rect=self.rect(self.orb)
-            r=Screen.FromHandle(self.orb.native.Handle).Bounds
-            scale=float(self.orb.native._scale)
-            self.scene_expanded=True;self.place((r.X/scale,r.Y/scale,r.Width/scale,r.Height/scale))
-            self.emit('anchor',dict(x=self.orb_rect[0]-r.X/scale+ORB_WIDTH/2,y=self.orb_rect[1]-r.Y/scale+ORB_HEIGHT/2))
-        elif not expand and self.scene_expanded:
-            self.scene_expanded=False;self.place(self.orb_rect);self.emit('anchor')
 
     def toggle_maximize(self):
         if getattr(self,'maximized',False):self.window.restore()
@@ -150,7 +138,6 @@ class WindowsFloating:
         with self.lock:
             if self.mode!='orb':return
             self.transition+=1;self.mode='opening'
-        self.scene_bounds(False)
         self.orb_rect=self.rect(self.orb)
         logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
         self.layout,new=morph_layout(self.editor_rect,self.orb_rect,logo);self.payload.update(new)
@@ -170,5 +157,4 @@ class WindowsFloating:
                 self.window.show();self.orb.hide();self.emit('pause');self.mode='editor'
 
     def hide(self):
-        self.scene_bounds(False)
         self.orb.hide();self.emit('pause');self.window.show();self.window.minimize();self.mode='editor'

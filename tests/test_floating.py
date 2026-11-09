@@ -18,3 +18,20 @@ class FloatingTests(unittest.TestCase):
             prefs=FloatingPreferences(folder);self.assertTrue(prefs.enabled)
             prefs.save(False);self.assertFalse(FloatingPreferences(folder).enabled)
             prefs.path.write_text('broken');self.assertTrue(FloatingPreferences(folder).enabled)
+
+    def test_native_idle_scenes_never_expand_to_monitor_bounds(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        from prombee.floating_windows import WindowsFloating
+        for cls in (GtkFloating,WindowsFloating):
+            controller=cls.__new__(cls)
+            regions=[]
+            def no_move(*args):
+                self.fail('An idle scene must not resize or move the companion')
+            controller.orb=object()
+            controller.x=SimpleNamespace(input_region=lambda orb,full=False:regions.append(full),move=no_move)
+            controller.input_region=lambda full=False:regions.append(full)
+            controller.place=no_move
+            controller.command({'action':'scene','index':3})
+            controller.command({'action':'sceneEnd'})
+            self.assertEqual(regions,[True,False])
