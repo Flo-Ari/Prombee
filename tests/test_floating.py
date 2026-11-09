@@ -35,3 +35,14 @@ class FloatingTests(unittest.TestCase):
             controller.command({'action':'scene','index':3})
             controller.command({'action':'sceneEnd'})
             self.assertEqual(regions,[True,False])
+
+    def test_direction_is_saved_and_head_alignment_tracks_facing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            prefs=FloatingPreferences(folder);self.assertEqual(prefs.direction,'right')
+            prefs.save(False,'left');restored=FloatingPreferences(folder)
+            self.assertEqual(restored.direction,'left');self.assertFalse(restored.enabled)
+            restored.save(True);self.assertEqual(FloatingPreferences(folder).direction,'left')
+        editor=(0,0,1080,800);orb=(600,400,520,420);logo={'x':42,'y':73}
+        _,right=morph_layout(editor,orb,logo,'right');_,left=morph_layout(editor,orb,logo,'left')
+        self.assertEqual(right['from']['x']-left['from']['x'],52)
+        self.assertEqual(right['to'],left['to'])

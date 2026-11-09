@@ -96,7 +96,7 @@ class GtkFloating:
     def command(self,msg):
         action=msg.get('action')
         if action=='ready':
-            self.ready=True;self.emit('settings',{'enabled':self.preferences.enabled})
+            self.ready=True;self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction})
             if self.pending:self.pending=False;self.collapse()
         elif action=='collapse':self.collapse()
         elif action=='menu':self.x.input_region(self.orb,True)
@@ -110,7 +110,7 @@ class GtkFloating:
             self.completed_morphs+=1;self.finished(msg.get('direction'))
         elif action=='hide':self.hide()
         elif action=='settings':
-            self.preferences.save(msg.get('enabled',True))
+            self.preferences.save(msg.get('enabled',True),msg.get('direction'))
             if self.mode=='orb':self.x.input_region(self.orb)
         elif action=='drag' and self.mode=='orb':
             r=self.x.position(self.orb);self.orb_rect=(r[0]+msg.get('dx',0),r[1]+msg.get('dy',0),ORB_WIDTH,ORB_HEIGHT);self.x.move(self.orb,self.orb_rect)
@@ -130,7 +130,7 @@ class GtkFloating:
             if not self.orb_rect:
                 x,y,w,h=self.editor_rect
                 self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
-            self.layout,self.payload=morph_layout(self.editor_rect,self.orb_rect,logo)
+            self.layout,self.payload=morph_layout(self.editor_rect,self.orb_rect,logo,self.preferences.direction)
             self.payload['top']=self.top
             self.payload['dark']=logo.get('dark',False)
             self.editor.get_snapshot(self.WebKit.SnapshotRegion.VISIBLE,self.WebKit.SnapshotOptions.NONE,None,self.captured,None)
@@ -157,7 +157,7 @@ class GtkFloating:
         self.orb_rect=self.x.position(self.orb)
         # Recalculate union if the user dragged the companion between transitions.
         logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
-        self.layout,new=morph_layout(self.editor_rect,self.orb_rect,logo);self.payload.update(new)
+        self.layout,new=morph_layout(self.editor_rect,self.orb_rect,logo,self.preferences.direction);self.payload.update(new)
         self.x.move(self.orb,self.layout);self.transition+=1;self.mode='opening'
         self.GLib.timeout_add(50,self.animate_open)
 

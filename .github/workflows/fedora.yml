@@ -1,0 +1,36 @@
+name: Fedora package
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Fedora packaging and headless test tools
+        run: dnf install -y rpm-build python3 xorg-x11-server-Xvfb dbus-daemon desktop-file-utils
+      - name: Build Fedora-native RPM
+        run: python3 scripts/build_rpm.py
+      - name: Install and test the packaged application
+        shell: bash
+        run: |
+          dnf install -y ./dist/prombee-*.noarch.rpm
+          desktop-file-validate /usr/share/applications/prombee.desktop
+          Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp &
+          trap 'kill $!' EXIT
+          for i in {1..30}; do test -S /tmp/.X11-unix/X99 && break; sleep .2; done
+          # Root in this isolated CI container cannot use WebKit's user-namespace sandbox.
+          # This override is never part of the installed launcher.
+          timeout 90s env DISPLAY=:99 GTK_A11Y=none GSK_RENDERER=cairo WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_DATA_HOME="$RUNNER_TEMP/prombee-smoke" dbus-run-session -- prombee --floating-smoke-test
+          test -d "$RUNNER_TEMP/prombee-smoke/prombee"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Prombee-Fedora
+          path: dist/*.rpm
+          if-no-files-found: error

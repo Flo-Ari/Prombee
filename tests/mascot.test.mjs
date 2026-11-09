@@ -75,14 +75,16 @@ test("right-click menu has all scenes; disabling removes flight and automatic sc
   const { api, messages } = start();
   api.showMenu(500, 400);
   const buttons = [...document.querySelectorAll("#menu button")];
-  assert.equal(buttons.length, 7);
+  assert.equal(buttons.length, 9);
   buttons.find((b) => b.textContent === "取消动画").click();
   assert.equal(api.state().enabled, false);
   tick(120_000);
   assert.equal(api.state().scene, -1);
   assert.ok(messages.some((m) => m.action === "settings" && !m.enabled));
   api.showMenu(40, 40);
-  document.querySelectorAll("#menu button")[4].click();
+  [...document.querySelectorAll("#menu button")]
+    .find((b) => b.textContent.includes("播放待机动画 2"))
+    .click();
   assert.equal(api.state().scene, 1);
   assert.equal(api.state().enabled, true);
   api.destroy();
@@ -184,4 +186,38 @@ test("fracture is clipped to a small patch regardless of canvas dimensions", asy
   assert.deepEqual(radii, [92]);
   api.destroy();
   delete ctx.arc;
+});
+
+test("flight direction is selected in the context menu, mirrored and saved", () => {
+  const { api, messages } = start();
+  api.receive("settings", { enabled: true, direction: "right" });
+  api.showMenu(50, 50);
+  const left = [...document.querySelectorAll("#menu button")].find((b) =>
+    b.textContent.includes("向左飞行"),
+  );
+  assert.equal(left.role, "menuitemradio");
+  assert.equal(left.getAttribute("aria-checked"), "false");
+  left.click();
+  assert.equal(api.state().direction, "left");
+  assert.ok(
+    messages.some((m) => m.action === "settings" && m.direction === "left"),
+  );
+  assert.equal(localStorage.getItem("prombee-mascot-direction"), "left");
+  const scales = [];
+  ctx.scale = (x, y) => scales.push([x, y]);
+  tick(100);
+  assert.ok(scales.some(([x, y]) => x === -1 && y === 1));
+  api.showMenu(50, 50);
+  assert.equal(
+    [...document.querySelectorAll("#menu button")]
+      .find((b) => b.textContent.includes("向左飞行"))
+      .getAttribute("aria-checked"),
+    "true",
+  );
+  [...document.querySelectorAll("#menu button")]
+    .find((b) => b.textContent.includes("向右飞行"))
+    .click();
+  assert.equal(api.state().direction, "right");
+  api.destroy();
+  delete ctx.scale;
 });

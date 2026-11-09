@@ -97,6 +97,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     frame = 0,
     last = 0,
     destroyed = false;
+  let direction = "right";
   let enabled = true,
     visible = true,
     scene = -1,
@@ -105,6 +106,10 @@ export function mountMascot(canvas, menu, send = () => {}) {
     lastScene = -1;
   try {
     enabled = localStorage.getItem("prombee-mascot-animations") !== "false";
+    direction =
+      localStorage.getItem("prombee-mascot-direction") === "left"
+        ? "left"
+        : "right";
   } catch {}
   let mouse = { x: 360, y: 120 },
     drag = null,
@@ -990,9 +995,17 @@ export function mountMascot(canvas, menu, send = () => {}) {
       );
     ctx.restore();
     const beeScale = mix(1, 0.18, v);
-    bee(hx - 26 * beeScale, hy + 8 * beeScale, beeScale, now, {
+    ctx.save();
+    ctx.translate(hx, hy);
+    const facing = direction === "left" ? -1 : 1;
+    ctx.scale(facing, 1);
+    const pointer = mouse;
+    mouse = { x: (mouse.x - hx) * facing, y: mouse.y - hy };
+    bee(-26 * beeScale, 8 * beeScale, beeScale, now, {
       alpha: 1 - clamp((v - 0.68) / 0.32),
     });
+    mouse = pointer;
+    ctx.restore();
     if (p >= 1) {
       morph = null;
       send("morphDone", { direction: m.direction });
@@ -1018,6 +1031,13 @@ export function mountMascot(canvas, menu, send = () => {}) {
       if (logo.complete)
         ctx.drawImage(logo, center.x - 40, center.y - 40, 80, 80);
       return;
+    }
+    const screenMouse = mouse;
+    ctx.save();
+    if (direction === "left") {
+      ctx.translate(center.x * 2, 0);
+      ctx.scale(-1, 1);
+      mouse = { x: center.x * 2 - mouse.x, y: mouse.y };
     }
     if (scene < 0 && now >= nextIdle) {
       play((lastScene + 1) % SCENES.length, now);
@@ -1076,6 +1096,8 @@ export function mountMascot(canvas, menu, send = () => {}) {
     bee(0, 0, currentPose.scale, now, currentPose);
     mouse = originalMouse;
     ctx.restore();
+    ctx.restore();
+    mouse = screenMouse;
   }
   function play(index, now = performance.now()) {
     if (index < 0 || index >= SCENES.length) return;
@@ -1106,9 +1128,10 @@ export function mountMascot(canvas, menu, send = () => {}) {
     send("scene", { index });
   }
   function save() {
-    send("settings", { enabled });
+    send("settings", { enabled, direction });
     try {
       localStorage.setItem("prombee-mascot-animations", String(enabled));
+      localStorage.setItem("prombee-mascot-direction", direction);
     } catch {}
   }
   function action(name) {
@@ -1119,6 +1142,9 @@ export function mountMascot(canvas, menu, send = () => {}) {
       enabled = !enabled;
       scene = -1;
       previousEnvironment = null;
+      save();
+    } else if (name === "left" || name === "right") {
+      direction = name;
       save();
     } else if (name === "hide") {
       visible = false;
@@ -1133,6 +1159,8 @@ export function mountMascot(canvas, menu, send = () => {}) {
       ["打开编辑器", "open"],
       ["隐藏悬浮球", "hide"],
       [enabled ? "取消动画" : "开启动画", "toggle"],
+      ["← 向左飞行", "left"],
+      ["向右飞行 →", "right"],
       ...SCENES.map((s, i) => [
         `播放待机动画 ${i + 1} · ${s.name}`,
         `scene${i}`,
@@ -1140,7 +1168,10 @@ export function mountMascot(canvas, menu, send = () => {}) {
     ]) {
       const b = document.createElement("button");
       b.type = "button";
-      b.role = "menuitem";
+      b.role =
+        name === "left" || name === "right" ? "menuitemradio" : "menuitem";
+      if (b.role === "menuitemradio")
+        b.setAttribute("aria-checked", String(direction === name));
       b.textContent = label;
       b.onclick = () => action(name);
       menu.append(b);
@@ -1237,6 +1268,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       if (command === "cursor") mouse = data;
       if (command === "settings") {
         enabled = data.enabled !== false;
+        direction = data.direction === "left" ? "left" : "right";
         scene = -1;
         previousEnvironment = null;
       }
@@ -1267,6 +1299,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     },
     state: () => ({
       enabled,
+      direction,
       scene,
       visible,
       morphing: !!morph,
