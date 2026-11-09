@@ -30,6 +30,9 @@ export function mountMascot(canvas, menu, send = () => {}) {
     sceneStart = 0,
     nextIdle = performance.now() + IDLE_DELAY,
     lastScene = -1;
+  try {
+    enabled = localStorage.getItem("prombee-mascot-animations") !== "false";
+  } catch {}
   let mouse = { x: 360, y: 120 },
     drag = null,
     suppressClick = false,
