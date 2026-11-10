@@ -300,3 +300,23 @@ test("feeding tokens reach the mouth, idle labels omit names and the menu only o
   assert.equal(labels.filter((s) => s.includes("飞行")).length, 1);
   api.destroy();
 });
+
+test("native frame pulse finishes a 300 ms morph when RAF and browser timers stop", () => {
+  const { api, messages } = start();
+  api.receive("morph", {
+    direction: "open",
+    from: { x: 250, y: 210 },
+    to: { x: 30, y: 40 },
+    editor: { x: 0, y: 0, width: 520, height: 420 },
+  });
+  now = 150;
+  api.receive("frame");
+  assert.equal(api.state().morphing, true);
+  now = 300;
+  api.receive("frame");
+  assert.equal(api.state().morphing, false);
+  now = 350;
+  api.receive("frame");
+  assert.equal(messages.filter((m) => m.action === "morphDone").length, 1);
+  api.destroy();
+});

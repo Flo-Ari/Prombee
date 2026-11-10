@@ -156,6 +156,10 @@ class GtkFloating:
         self.view.evaluate_javascript(js,-1,None,None,None,None,None)
 
     def track(self):
+        if self.mode in ('orb', 'opening', 'closing'):
+            # Transparent-view remaps can suspend WebKit's frame clock. A native
+            # pulse keeps the same 300 ms timeline; JS skips it while RAF is live.
+            self.emit('frame')
         if self.mode=='orb':
             x,y=self.x.cursor(self.orb.get_scale_factor());r=self.x.position(self.orb)
             cursor=(x-r[0],y-r[1])
