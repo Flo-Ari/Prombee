@@ -106,7 +106,7 @@ class LibraryTests(unittest.TestCase):
         self.library.action({'action':'openSet','path':str(path)})
         self.assertIn('已有标题',self.library.load()['state']['documents'][0]['nodes'][0]['html'])
         self.assertEqual(path.read_text(encoding='utf-8'),text)
-        self.assertEqual(self.library.load()['set']['path'],str(path))
+        self.assertTrue(Path(self.library.load()['set']['path']).samefile(path))
 
     def test_invalid_txt_is_never_silently_overwritten(self):
         path=self.folder/'损坏.txt';text='Prombee TXT 1\n@node {broken}\n';path.write_text(text,encoding='utf-8')
