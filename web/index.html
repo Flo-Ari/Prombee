@@ -20,7 +20,7 @@
       </button>
       <select id="recentSets" aria-label="最近使用的提示词集"></select>
       <button id="template" role="tab" aria-controls="editorPanel">模板</button>
-      <button id="newDoc" title="新建文档 Ctrl+N">＋ 新建</button
+      <button id="newDoc" title="新建一轮 Ctrl+Shift+N">＋ 新建</button
       ><select id="documents" aria-label="切换文档"></select>
       <button id="editorTab" role="tab" aria-controls="editorPanel">
         编写
@@ -32,6 +32,9 @@
       </button>
       <button id="commonTab" role="tab" aria-controls="editorPanel">
         常用提示词
+      </button>
+      <button id="shortcutsTab" role="tab" aria-controls="shortcutsPanel">
+        快捷键
       </button>
       <div class="spacer"></div>
       <button id="theme" aria-label="切换深色主题" title="切换黑纸白字主题">
@@ -136,6 +139,28 @@
       ><span class="toolbar-note">红色为删除 · 绿色为新增</span>
     </div>
     <main>
+      <section
+        id="shortcutsPanel"
+        role="tabpanel"
+        hidden
+        aria-label="快捷键设置"
+      >
+        <div class="shortcut-heading">
+          <h2>快捷键</h2>
+          <div>
+            <button id="resetShortcuts">恢复默认</button
+            ><button id="saveShortcuts" class="primary">保存快捷键</button>
+          </div>
+        </div>
+        <p class="shortcut-hint">
+          点击右侧输入框后按下组合键，Backspace 清除，Esc 取消。
+        </p>
+        <p id="insertShortcutHint" class="shortcut-hint">
+          添加：Ctrl+N → 1–6 选择标题 → Enter；直接 Enter 添加条目，Esc 取消。
+        </p>
+        <div id="shortcutStatus" role="status"></div>
+        <div class="shortcut-rows"></div>
+      </section>
       <section id="libraryPanel" role="tabpanel" hidden>
         <div class="library-toolbar">
           <button data-library-mode="createSet">新建词集</button

@@ -1143,3 +1143,79 @@ body.dark .fold {
     transition: none;
   }
 }
+#shortcutsPanel {
+  max-width: 920px;
+  margin: 24px auto;
+  padding: 28px 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.shortcut-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.shortcut-heading h2 {
+  margin: 0;
+  font-size: 19px;
+}
+.shortcut-heading > div {
+  display: flex;
+  gap: 8px;
+}
+.shortcut-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+#shortcutStatus {
+  min-height: 22px;
+  color: var(--blue);
+  font-size: 12px;
+}
+.shortcut-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 30px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.shortcut-row > span {
+  font-size: 12px;
+}
+.shortcut-key {
+  width: 158px;
+  min-width: 100px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-align: center;
+  cursor: pointer;
+  font:
+    12px ui-monospace,
+    monospace;
+}
+#headingMenu button.keyboard-choice {
+  background: var(--hover);
+  color: var(--blue);
+  outline: 1px solid var(--blue);
+  outline-offset: -1px;
+}
+@media (max-width: 760px) {
+  .shortcut-rows {
+    grid-template-columns: 1fr;
+  }
+  #shortcutsPanel {
+    margin: 16px;
+    padding: 20px;
+  }
+}

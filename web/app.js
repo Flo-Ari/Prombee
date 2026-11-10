@@ -1,3 +1,9 @@
+import {
+  mountShortcuts,
+  DEFAULT_SHORTCUTS,
+  keyCombo,
+  displayCombo,
+} from "./shortcuts.js";
 import { mountEdgeNavigation } from "./edge-navigation.js";
 import {
   uid,
@@ -40,6 +46,9 @@ let multi = false,
   selected = new Set();
 let page = "editor",
   previewSource = null;
+let keyboardInsert = false,
+  keyboardLevel = 0,
+  shortcutBindings = { ...DEFAULT_SHORTCUTS };
 const histories = new Map();
 const emptyRound = { id: "no-round", name: "", nodes: [] };
 const currentDoc = () =>
@@ -238,7 +247,7 @@ function render() {
     const mark = element("span", "marker");
     mark.setAttribute("aria-hidden", "true");
     const content = element("div", "content");
-    content.contentEditable = "true";
+    content.setAttribute("contenteditable", "true");
     content.spellcheck = false;
     content.dataset.id = n.id;
     content.dataset.placeholder =
@@ -324,7 +333,9 @@ function render() {
       "aria-label",
       n.kind === "heading" ? "删除此标题及下级" : "删除此条目",
     );
-    remove.title = "删除，可用 Ctrl+Z 撤销";
+    remove.title = shortcutBindings.undo
+      ? "删除（" + displayCombo(shortcutBindings.undo) + " 撤销）"
+      : "删除";
     remove.onclick = () => deleteNode(n.id);
     if (page === "common") {
       const copyBranch = element("button", "row-action copy-branch", "复制");
@@ -575,6 +586,11 @@ function addHeading(level) {
   changed();
 }
 function openMenu(id, anchor) {
+  keyboardInsert = false;
+  for (const button of $("headingMenu").querySelectorAll("button")) {
+    button.classList.remove("keyboard-choice");
+    button.setAttribute("aria-current", "false");
+  }
   menuAnchor = id;
   const menu = $("headingMenu");
   menu.hidden = false;
@@ -599,6 +615,7 @@ function openMenu(id, anchor) {
     ) + "px";
 }
 function closeMenu() {
+  keyboardInsert = false;
   $("headingMenu").hidden = true;
 }
 document.addEventListener("click", (e) => {
@@ -728,7 +745,6 @@ $("batchDelete").onclick = () => {
   selection = null;
   render();
   changed();
-  toast(`已删除 ${ids.size} 项，可撤销`);
 };
 function deleteNode(id, subtree = true) {
   const nodes = doc().nodes,
@@ -742,7 +758,6 @@ function deleteNode(id, subtree = true) {
   render();
   if (nodes.length) focus(nodes[Math.min(index, nodes.length - 1)].id);
   changed();
-  toast(`已删除 ${count} 项，可撤销`);
 }
 function deleteEmpty() {
   const nodes = doc().nodes;
@@ -758,7 +773,6 @@ function deleteEmpty() {
   selection = null;
   render();
   changed();
-  toast(`已清理本轮 ${count} 个空项，可撤销`);
 }
 async function copyText(text) {
   try {
@@ -822,12 +836,14 @@ function updatePages() {
     ["compare", "compare"],
     ["commonTab", "common"],
     ["libraryTab", "library"],
+    ["shortcutsTab", "shortcuts"],
   ]) {
     $(id).classList.toggle("selected-tab", page === target);
     $(id).setAttribute("aria-selected", String(page === target));
   }
   document.body.dataset.page = page;
   $("libraryPanel").hidden = page !== "library";
+  $("shortcutsPanel").hidden = page !== "shortcuts";
   for (const id of [
     "template",
     "editorTab",
@@ -839,7 +855,7 @@ function updatePages() {
     "copy",
   ])
     $(id).disabled = noSet;
-  $("copy").hidden = page === "library";
+  $("copy").hidden = ["library", "shortcuts"].includes(page);
   $("editorToolbar").hidden = !editing();
   $("editorPanel").hidden = !editing();
   $("previewToolbar").hidden = page !== "preview";
@@ -945,7 +961,6 @@ $("deleteRound").onclick = () => {
   $("compareRight").value = "";
   render();
   changed();
-  toast(`已删除${current.name}，可用撤销恢复`);
 };
 $("documents").onchange = () => {
   switchPage("editor", $("documents").value);
@@ -1049,35 +1064,202 @@ $("headingLevel").onchange = () => {
 $("deleteEmpty").onclick = deleteEmpty;
 $("undo").onclick = undo;
 $("redo").onclick = redo;
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeMenu();
-  if (!(e.ctrlKey || e.metaKey)) return;
-  const k = e.key.toLowerCase();
-  if (k === "s") {
-    e.preventDefault();
-    save();
-  }
-  if (k === "n") {
-    e.preventDefault();
-    $("newDoc").click();
-  }
-  if (editing() && (k === "b" || k === "i")) {
-    e.preventDefault();
-    format(k === "b" ? "bold" : "italic");
-  }
-  if (k === "c" && e.shiftKey) {
-    e.preventDefault();
-    copy();
-  }
-  if (editing() && k === "z") {
-    e.preventDefault();
-    e.shiftKey ? redo() : undo();
-  }
-  if (editing() && k === "y") {
-    e.preventDefault();
-    redo();
-  }
+$("shortcutsTab").onclick = () => switchPage("shortcuts");
+const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
+  onChange: (bindings) => {
+    shortcutBindings = bindings;
+    if ($("insertShortcutHint"))
+      $("insertShortcutHint").textContent = bindings.insert
+        ? `添加：${displayCombo(bindings.insert)} → 1–6 选择标题 → Enter；直接 Enter 添加条目，Esc 取消。`
+        : "添加快捷键未设置";
+    for (const [id, action, label] of [
+      ["newDoc", "newRound", "新建一轮"],
+      ["undo", "undo", "撤销"],
+      ["redo", "redo", "重做"],
+      ["bold", "bold", "粗体"],
+      ["italic", "italic", "斜体"],
+    ]) {
+      $(id).title =
+        label + (bindings[action] ? " " + displayCombo(bindings[action]) : "");
+    }
+  },
 });
+function beginKeyboardInsert() {
+  if (!editing() || noSet) return;
+  const node =
+    doc().nodes.find((node) => node.id === active) || doc().nodes.at(-1);
+  active = node?.id || null;
+  openMenu(
+    active,
+    contentFor(active)?.closest(".row").querySelector(".add-heading") ||
+      $("newDoc"),
+  );
+  keyboardInsert = true;
+  keyboardLevel = 0;
+  selectKeyboardLevel();
+}
+function selectKeyboardLevel() {
+  for (const button of $("headingMenu").querySelectorAll("button")) {
+    const chosen = keyboardLevel
+      ? Number(button.dataset.level) === keyboardLevel
+      : button.id === "menuAddItem";
+    button.classList.toggle("keyboard-choice", chosen);
+    button.setAttribute("aria-current", String(chosen));
+  }
+}
+function moveEntry(step) {
+  const source = document.activeElement?.closest(".content");
+  if (!source) return false;
+  const fields = [
+    ...$("paper").querySelectorAll(".row:not([hidden]) .content"),
+  ];
+  const index = fields.indexOf(source),
+    target = fields[index + step];
+  if (!target) return true;
+  const selectedRange = window.getSelection();
+  let offset = 0;
+  if (selectedRange?.rangeCount && source.contains(selectedRange.focusNode)) {
+    const prefix = document.createRange();
+    prefix.selectNodeContents(source);
+    prefix.setEnd(selectedRange.focusNode, selectedRange.focusOffset);
+    offset = prefix.toString().length;
+  }
+  focus(target.dataset.id);
+  const walker = document.createTreeWalker(target, window.NodeFilter.SHOW_TEXT);
+  const texts = [];
+  let text;
+  while ((text = walker.nextNode())) texts.push(text);
+  for (let i = 0; i < texts.length; i++) {
+    text = texts[i];
+    if (offset <= text.length || i === texts.length - 1) {
+      const range = document.createRange();
+      range.setStart(text, Math.min(offset, text.length));
+      range.collapse(true);
+      selectedRange.removeAllRanges();
+      selectedRange.addRange(range);
+      selection = range.cloneRange();
+      break;
+    }
+    offset -= text.length;
+  }
+  return true;
+}
+function runShortcut(action) {
+  if (action === "collapse") {
+    window.dispatchEvent(new window.Event("prombee-minimize"));
+    return true;
+  }
+  if (action === "library") {
+    $("libraryTab").click();
+    return true;
+  }
+  if (action === "settings") {
+    switchPage("shortcuts");
+    return true;
+  }
+  if (action === "theme") {
+    $("theme").click();
+    return true;
+  }
+  if (action === "save") {
+    save();
+    return true;
+  }
+  if (noSet) return true;
+  if (["previous", "next"].includes(action))
+    return editing() && moveEntry(action === "previous" ? -1 : 1);
+  if (action === "deleteRound") {
+    if (page === "editor") $("deleteRound").click();
+    return true;
+  }
+  if (action === "copyAll") {
+    if (page === "common") $("copyAll").click();
+    return true;
+  }
+  if (action === "newRound") {
+    $("newDoc").click();
+    return true;
+  }
+  if (["preview", "compare", "editor", "template", "common"].includes(action)) {
+    switchPage(action);
+    return true;
+  }
+  if (action === "copy" && !["library", "shortcuts"].includes(page)) {
+    copy();
+    return true;
+  }
+  if (!editing()) return true;
+  if (action === "insert") beginKeyboardInsert();
+  else if (action === "copy") copy();
+  else if (action === "undo") undo();
+  else if (["redo", "redoAlt"].includes(action)) redo();
+  else if (["bold", "italic"].includes(action)) format(action);
+  else if (action === "multi") $("multiSelect").click();
+  else if (action === "deleteEmpty") deleteEmpty();
+  else if (action === "voice") $("voiceInput").click();
+  else {
+    const row = contentFor(active)?.closest(".row");
+    if (action === "delete" && active) deleteNode(active);
+    if (action === "exclude") row?.querySelector(".eye")?.click();
+    if (action === "fold") row?.querySelector(".fold")?.click();
+  }
+  return true;
+}
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (
+      !window.prombeeReady ||
+      event.isComposing ||
+      event.target.closest?.(".shortcut-key")
+    )
+      return;
+    if (keyboardInsert) {
+      if (event.key === "Escape") closeMenu();
+      else if (/^[1-6]$/.test(event.key)) {
+        keyboardLevel = Number(event.key);
+        selectKeyboardLevel();
+      } else if (event.key === "Backspace") {
+        keyboardLevel = 0;
+        selectKeyboardLevel();
+      } else if (event.key === "Enter") {
+        const level = keyboardLevel;
+        if (page === "editor" && !state.documents.length) {
+          $("newDoc").click();
+          active = doc().nodes.at(-1)?.id || null;
+          menuAnchor = active;
+        }
+        level ? addHeading(level) : addItem();
+      } else if (event.key === "Tab") {
+        closeMenu();
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (event.key === "Escape") closeMenu();
+    const combo = keyCombo(event);
+    if (!combo) return;
+    const action = Object.keys(shortcutBindings).find(
+      (id) => shortcutBindings[id] === combo,
+    );
+    if (!action) return;
+    if (
+      event.repeat &&
+      !["previous", "next", "undo", "redo", "redoAlt"].includes(action)
+    ) {
+      event.preventDefault();
+      return;
+    }
+    if (runShortcut(action)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },
+  true,
+);
+document.addEventListener("compositionstart", closeMenu);
 window.addEventListener("pagehide", () => {
   if (dirty && !conflict)
     navigator.sendBeacon(
@@ -1145,6 +1327,9 @@ function acceptWorkspace(data) {
   }
   page = "editor";
   previewSource = null;
+  let keyboardInsert = false,
+    keyboardLevel = 0,
+    shortcutBindings = { ...DEFAULT_SHORTCUTS };
   $("compareLeft").value = "";
   $("compareRight").value = "";
   render();
@@ -1219,6 +1404,7 @@ try {
     libraryUI.refresh();
   };
   await libraryUI.refresh();
+  await shortcutsUI.ready;
   window.prombeeReady = true;
 } catch (err) {
   $("status").textContent = err.message;

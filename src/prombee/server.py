@@ -30,6 +30,8 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
     library = Library(root, data_dir, valid)
     from .speech import Speech
     speech = Speech(data_dir)
+    from .shortcuts import Shortcuts
+    shortcuts = Shortcuts(data_dir)
 
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
@@ -48,7 +50,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
         def do_GET(self):
             path=unquote(urlsplit(self.path).path)
-            if path == '/api/speech':
+            if path == '/api/shortcuts':
+                self.json(200, shortcuts.load())
+            elif path == '/api/speech':
                 self.json(200, speech.status())
             elif path in ('/api/state', '/api/library', '/api/fs'):
                 try:
@@ -62,7 +66,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/edge-navigation.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -70,7 +74,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path not in ('/api/state', '/api/library', '/api/speech'):
+            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -80,7 +84,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                if self.path == '/api/speech':
+                if self.path == '/api/shortcuts':
+                    result = shortcuts.save(payload)
+                elif self.path == '/api/speech':
                     action=payload.get('action')
                     if action not in ('start','stop'):raise ValueError('Invalid speech action')
                     result = speech.start() if action=='start' else speech.stop()

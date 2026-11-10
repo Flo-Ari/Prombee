@@ -43,14 +43,23 @@ const source = {
   ],
 };
 let saved;
+let savedShortcuts = {};
 globalThis.fetch = async (url, options) =>
-  options
-    ? ((saved = JSON.parse(options.body)),
-      { ok: true, json: async () => ({ revision: 1 }) })
-    : {
+  url === "/api/shortcuts"
+    ? {
         ok: true,
-        json: async () => ({ state: structuredClone(source), revision: 0 }),
-      };
+        json: async () => {
+          if (options) savedShortcuts = JSON.parse(options.body).bindings;
+          return { bindings: savedShortcuts };
+        },
+      }
+    : options
+      ? ((saved = JSON.parse(options.body)),
+        { ok: true, json: async () => ({ revision: 1 }) })
+      : {
+          ok: true,
+          json: async () => ({ state: structuredClone(source), revision: 0 }),
+        };
 await import("../web/app.js");
 const $ = (id) => document.getElementById(id);
 const { hierarchyNodes, toMarkdown } = await import("../web/core.js");
@@ -383,5 +392,121 @@ test("empty Delete and Backspace remove only the current node, preserve children
     }),
   );
   assert.equal(document.querySelectorAll(".content").length, before - 1);
+  $("undo").click();
+});
+
+const key = (key, options = {}, target = document.activeElement) => {
+  const event = new window.KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...options,
+  });
+  target.dispatchEvent(event);
+  return event;
+};
+test("Ctrl+N then level and Enter adds a heading; plain Enter adds an item; Escape cancels", () => {
+  $("editorTab").click();
+  $("newDoc").click();
+  let fields = [...document.querySelectorAll(".content")];
+  fields[0].focus();
+  const before = fields.length;
+  key("n", { ctrlKey: true, isComposing: true });
+  assert.equal($("headingMenu").hidden, true);
+  key("n", { ctrlKey: true });
+  assert.equal($("headingMenu").hidden, false);
+  key("3", { ctrlKey: true });
+  assert.ok(
+    document
+      .querySelector('[data-level="3"]')
+      .classList.contains("keyboard-choice"),
+  );
+  key("Enter");
+  assert.equal(
+    document.activeElement.closest(".row").classList.contains("h3"),
+    true,
+  );
+  const count = document.querySelectorAll(".content").length;
+  assert.ok(count > before);
+  key("n", { ctrlKey: true });
+  key("Enter");
+  assert.equal(
+    document.activeElement.closest(".row").classList.contains("item"),
+    true,
+  );
+  assert.equal(document.querySelectorAll(".content").length, count + 1);
+  key("n", { ctrlKey: true });
+  key("6");
+  key("Escape");
+  assert.equal(document.querySelectorAll(".content").length, count + 1);
+  assert.equal($("headingMenu").hidden, true);
+});
+test("up and down switch visible entries, preserve text and skip folded children", () => {
+  $("editorTab").click();
+  const fields = [...document.querySelectorAll(".content")];
+  fields.at(-1).focus();
+  key("n", { ctrlKey: true });
+  key("1");
+  key("Enter");
+  const firstId = document.activeElement.dataset.id;
+  key("n", { ctrlKey: true });
+  key("Enter");
+  key("n", { ctrlKey: true });
+  key("1");
+  key("Enter");
+  const secondId = document.activeElement.dataset.id;
+  document.querySelector(`.row[data-id="${firstId}"] .fold`).click();
+  const visible = [
+    ...document.querySelectorAll("#paper .row:not([hidden]) .content"),
+  ];
+  visible[0].focus();
+  assert.equal(key("ArrowUp").defaultPrevented, true);
+  assert.equal(document.activeElement, visible[0]);
+  const first = visible.find((field) => field.dataset.id === firstId),
+    second = visible.find((field) => field.dataset.id === secondId);
+  first.focus();
+  const original = first.innerHTML;
+  key("ArrowDown");
+  assert.equal(document.activeElement, second);
+  key("ArrowUp");
+  assert.equal(document.activeElement, first);
+  assert.equal(first.innerHTML, original);
+  assert.equal(key("ArrowDown", { shiftKey: true }).defaultPrevented, false);
+});
+test("shortcut tab records, validates, saves and activates edited bindings without triggering editor commands", async () => {
+  $("shortcutsTab").click();
+  assert.equal($("shortcutsPanel").hidden, false);
+  assert.equal($("editorToolbar").hidden, true);
+  assert.equal($("commonTab").nextElementSibling, $("shortcutsTab"));
+  const input = document.querySelector('[data-action="insert"]');
+  input.focus();
+  key("k", { ctrlKey: true });
+  assert.equal(input.dataset.binding, "Ctrl+K");
+  assert.equal($("headingMenu").hidden, true);
+  await $("saveShortcuts").onclick();
+  assert.equal(savedShortcuts.insert, "Ctrl+K");
+  $("editorTab").click();
+  document.querySelector(".content").focus();
+  key("k", { ctrlKey: true });
+  assert.equal($("headingMenu").hidden, false);
+  key("Escape");
+  assert.equal(key("n", { ctrlKey: true }).defaultPrevented, false);
+  $("shortcutsTab").click();
+  const bold = document.querySelector('[data-action="bold"]');
+  bold.focus();
+  key("k", { ctrlKey: true });
+  assert.equal($("saveShortcuts").disabled, true);
+  assert.match($("shortcutStatus").textContent, /冲突/);
+  key("Escape");
+  $("resetShortcuts").click();
+  assert.equal($("saveShortcuts").disabled, false);
+  // Restore and save defaults before returning to normal editing.
+  await $("saveShortcuts").onclick();
+  $("editorTab").click();
+  document.querySelector(".content").focus();
+  $("toast").classList.remove("show");
+  const row = document.activeElement.closest(".row");
+  row.querySelector(".remove").click();
+  assert.equal($("toast").classList.contains("show"), false);
   $("undo").click();
 });

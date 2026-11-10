@@ -20,6 +20,9 @@ function post(action, data = {}) {
     );
   demoAction(action, data);
 }
+window.addEventListener("prombee-minimize", () =>
+  post("collapse", { logo: logoTarget() }),
+);
 if (platform !== "gtk") {
   const chrome = document.createElement("div");
   chrome.className = "window-chrome";
