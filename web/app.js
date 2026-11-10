@@ -1,3 +1,4 @@
+import { mountEdgeNavigation } from "./edge-navigation.js";
 import {
   uid,
   cleanHTML,
@@ -1247,3 +1248,9 @@ window.addEventListener("prombee-close", async () => {
     dirty || conflict ? "error" : "saved",
   );
 });
+
+mountEdgeNavigation(document.getElementById("edgeNavigation"), () =>
+  document.body.dataset.page === "compare"
+    ? document.getElementById("diffScroll")
+    : document.querySelector("main"),
+);

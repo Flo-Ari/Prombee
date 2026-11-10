@@ -36,7 +36,7 @@
 下载 **Prombee-Debian**，解压后安装 `.deb`：
 
 ```bash
-sudo apt install ./prombee_0.7.5_all.deb
+sudo apt install ./prombee_0.8.0_all.deb
 ```
 
 安装后，从应用菜单打开“提示蜂”。
@@ -46,14 +46,14 @@ sudo apt install ./prombee_0.7.5_all.deb
 下载 **Prombee-Fedora** 并解压，在 RPM 文件所在文件夹打开终端，安装一次：
 
 ```bash
-sudo dnf install ./prombee-0.7.5-1.fc44.noarch.rpm
+sudo dnf install ./prombee-0.8.0-1.fc44.noarch.rpm
 ```
 
 之后按 Super 键搜索 **提示蜂** 打开，也可在终端输入 `prombee`。安装包会通过 Fedora 仓库安装所需的 GTK、WebKitGTK 和 XWayland 依赖。
 
-如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.7.5`，再运行 `./Prombee-0.7.5`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
+如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.8.0`，再运行 `./Prombee-0.8.0`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
 
-打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.7.5`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
+打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.8.0`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
 
 ### 提示词保存位置
 

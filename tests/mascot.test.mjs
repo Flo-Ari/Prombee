@@ -28,7 +28,7 @@ globalThis.Image = class {
 };
 const gradient = { addColorStop() {} };
 const ctx = new Proxy(
-  { createRadialGradient: () => gradient },
+  { createRadialGradient: () => gradient, createLinearGradient: () => gradient },
   { get: (o, k) => o[k] || (() => {}) },
 );
 const canvas = document.querySelector("canvas");

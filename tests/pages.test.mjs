@@ -16,6 +16,8 @@ for (const key of ["window", "document", "localStorage", "navigator"])
   });
 globalThis.setInterval = () => 0;
 globalThis.requestAnimationFrame = (callback) => callback();
+dom.window.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+dom.window.cancelAnimationFrame = clearTimeout;
 dom.window.HTMLElement.prototype.scrollIntoView = () => {};
 const node = (id, kind, level, html) => ({ id, kind, level, html });
 const source = {

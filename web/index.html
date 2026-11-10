@@ -228,6 +228,52 @@
         H6 <span>六级标题</span><small>######</small>
       </button>
     </div>
+    <nav id="edgeNavigation" aria-label="页面跳转">
+      <button
+        type="button"
+        data-edge="up"
+        data-visible="false"
+        aria-label="到顶部"
+        title="到顶部"
+        aria-hidden="true"
+        tabindex="-1"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 5h12M7 13l5-5 5 5M12 8v12" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        data-edge="down"
+        data-visible="false"
+        aria-label="到底部"
+        title="到底部"
+        aria-hidden="true"
+        tabindex="-1"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 19h12M7 11l5 5 5-5M12 4v12" />
+        </svg>
+      </button>
+    </nav>
     <div id="toast" role="status"></div>
     <script src="diagnostics.js"></script>
     <script type="module" src="app.js"></script>
