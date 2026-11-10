@@ -320,3 +320,19 @@ test("native frame pulse finishes a 300 ms morph when RAF and browser timers sto
   assert.equal(messages.filter((m) => m.action === "morphDone").length, 1);
   api.destroy();
 });
+
+test("native frame pulse can refresh the static logo but never draws a hidden companion", () => {
+  const { api } = start();
+  let images = 0;
+  ctx.drawImage = () => images++;
+  api.receive("settings", { enabled: false });
+  now = 100;
+  api.receive("frame");
+  assert.equal(images, 1);
+  api.receive("pause");
+  now = 200;
+  api.receive("frame");
+  assert.equal(images, 1);
+  api.destroy();
+  delete ctx.drawImage;
+});

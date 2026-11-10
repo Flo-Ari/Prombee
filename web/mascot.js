@@ -2131,7 +2131,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       }
       // Resizing a transparent GTK WebView can suspend both RAF and JS timers.
       // The host's frame pulse only draws when the renderer's own clock is stale.
-      if (command === "frame" && visible && (enabled || morph)) {
+      if (command === "frame" && visible) {
         const now = performance.now();
         if (now - last > 24) draw(now);
       }
