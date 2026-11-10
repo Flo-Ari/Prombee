@@ -22,3 +22,16 @@ class ShortcutsTests(unittest.TestCase):
             with self.assertRaises(ValueError):store.save({'bindings':{**mapping,'insert':'Ctrl+N','save':'Ctrl+N'}})
             with self.assertRaises(ValueError):store.save({'bindings':{'insert':'Ctrl+N'}})
             self.assertFalse(store.path.exists())
+    def test_legacy_alternate_redo_is_removed_without_resetting_custom_keys(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder)
+            value={name:'' for name in IDS}
+            value.update(insert='Ctrl+K',redo='Ctrl+Shift+Z',redoAlt='Ctrl+Y')
+            store.path.write_text(json.dumps(value),encoding='utf-8')
+            loaded=store.load()['bindings']
+            self.assertNotIn('redoAlt',loaded)
+            self.assertEqual(loaded['insert'],'Ctrl+K')
+            self.assertEqual(loaded['redo'],'Ctrl+Shift+Z')
+            value['redo']=''
+            store.path.write_text(json.dumps(value),encoding='utf-8')
+            self.assertEqual(store.load()['bindings']['redo'],'Ctrl+Y')

@@ -3,6 +3,7 @@ import {
   DEFAULT_SHORTCUTS,
   keyCombo,
   displayCombo,
+  shortcutTitle,
 } from "./shortcuts.js";
 import { mountEdgeNavigation } from "./edge-navigation.js";
 import {
@@ -236,6 +237,11 @@ function render() {
         n.collapsed ? "展开此层级" : "折叠此层级",
       );
       fold.setAttribute("aria-expanded", String(!n.collapsed));
+      fold.title = shortcutTitle(
+        n.collapsed ? "展开" : "折叠",
+        "fold",
+        shortcutBindings,
+      );
       fold.onclick = () => {
         n.collapsed = !n.collapsed;
         render();
@@ -300,8 +306,8 @@ function render() {
       }, 0);
     });
     const plus = element("button", "add-heading", "＋");
-    plus.title = "添加条目或 Markdown 标题";
-    plus.setAttribute("aria-label", "在此处添加标题或条目");
+    plus.title = shortcutTitle("添加", "insert", shortcutBindings);
+    plus.setAttribute("aria-label", "添加");
     plus.onclick = (e) => openMenu(n.id, e.currentTarget);
     const controls = element("div", "row-controls");
     const visibilityState = visibilityStates.get(n.id);
@@ -309,16 +315,9 @@ function render() {
     eye.innerHTML = visibilityState.excluded
       ? '<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10 5c5-1 9 3 12 7-1 2-3 4-5 5M7 7c-3 1-5 3-7 5 3 4 7 7 12 7 2 0 3 0 4-1"/></svg>'
       : '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-    eye.setAttribute(
-      "aria-label",
-      visibilityState.excluded ? "开启此层级复制" : "排除此层级复制",
-    );
+    eye.setAttribute("aria-label", "排除");
     eye.setAttribute("aria-pressed", String(visibilityState.excluded));
-    eye.title = visibilityState.inherited
-      ? "上级已排除，请先开启上级"
-      : visibilityState.excluded
-        ? "此层级不参与复制，点击开启"
-        : "此层级参与复制，点击排除";
+    eye.title = shortcutTitle("排除", "exclude", shortcutBindings);
     eye.disabled = visibilityState.inherited;
     eye.onclick = () => {
       remember();
@@ -329,13 +328,8 @@ function render() {
     const remove = element("button", "row-action remove");
     remove.innerHTML =
       '<svg viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>';
-    remove.setAttribute(
-      "aria-label",
-      n.kind === "heading" ? "删除此标题及下级" : "删除此条目",
-    );
-    remove.title = shortcutBindings.undo
-      ? "删除（" + displayCombo(shortcutBindings.undo) + " 撤销）"
-      : "删除";
+    remove.setAttribute("aria-label", "删除");
+    remove.title = shortcutTitle("删除", "delete", shortcutBindings);
     remove.onclick = () => deleteNode(n.id);
     if (page === "common") {
       const copyBranch = element("button", "row-action copy-branch", "复制");
@@ -371,6 +365,7 @@ function render() {
   updateBatch();
   renumber();
   buttons();
+  refreshShortcutHints();
 }
 function renumber() {
   let number = 0;
@@ -1072,17 +1067,65 @@ const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
       $("insertShortcutHint").textContent = bindings.insert
         ? `添加：${displayCombo(bindings.insert)} → 1–6 选择标题 → Enter；直接 Enter 添加条目，Esc 取消。`
         : "添加快捷键未设置";
-    for (const [id, action, label] of [
-      ["newDoc", "newRound", "新建一轮"],
-      ["undo", "undo", "撤销"],
-      ["redo", "redo", "重做"],
-      ["bold", "bold", "粗体"],
-      ["italic", "italic", "斜体"],
-    ]) {
-      $(id).title =
-        label + (bindings[action] ? " " + displayCombo(bindings[action]) : "");
-    }
+    refreshShortcutHints();
+    window.webkit?.messageHandlers?.shortcutHints?.postMessage(
+      JSON.stringify({ collapse: bindings.collapse }),
+    );
   },
+});
+function refreshShortcutHints() {
+  for (const [id, action, name] of [
+    ["libraryTab", "library", "新建词集"],
+    ["template", "template", "模板"],
+    ["newDoc", "newRound", "新建一轮"],
+    ["editorTab", "editor", "编写"],
+    ["compare", "compare", "历史对比"],
+    ["preview", "preview", "预览"],
+    ["commonTab", "common", "常用提示词"],
+    ["shortcutsTab", "settings", "快捷键"],
+    ["theme", "theme", "主题"],
+    ["copy", "copy", "复制提示词"],
+    ["multiSelect", "multi", $("multiSelect").textContent],
+    ["deleteEmpty", "deleteEmpty", "删除空项"],
+    ["undo", "undo", "撤销"],
+    ["redo", "redo", "重做"],
+    ["bold", "bold", "粗体"],
+    ["italic", "italic", "斜体"],
+    ["voiceInput", "voice", "语音输入"],
+    ["copyAll", "copyAll", "全部复制"],
+    ["deleteRound", "deleteRound", "删除本轮"],
+  ]) {
+    $(id).dataset.shortcutAction = action;
+    $(id).dataset.shortcutName = name;
+    $(id).title = shortcutTitle(name, action, shortcutBindings);
+  }
+  for (const [selector, action, name] of [
+    [".add-heading", "insert", "添加"],
+    [".eye", "exclude", "排除"],
+    [".remove", "delete", "删除"],
+    [".fold", "fold", null],
+  ])
+    for (const button of $("paper").querySelectorAll(selector))
+      button.title = shortcutTitle(
+        name ||
+          (button.getAttribute("aria-expanded") === "true" ? "折叠" : "展开"),
+        action,
+        shortcutBindings,
+      );
+  const minimize = document.getElementById("minimizeWindow");
+  if (minimize)
+    minimize.title = shortcutTitle("最小化", "collapse", shortcutBindings);
+}
+document.addEventListener("mouseover", (event) => {
+  const button = event.target.closest?.("[data-shortcut-action]");
+  if (button)
+    button.title = shortcutTitle(
+      ["multiSelect", "voiceInput"].includes(button.id)
+        ? button.textContent.trim()
+        : button.dataset.shortcutName,
+      button.dataset.shortcutAction,
+      shortcutBindings,
+    );
 });
 function beginKeyboardInsert() {
   if (!editing() || noSet) return;
@@ -1192,7 +1235,7 @@ function runShortcut(action) {
   if (action === "insert") beginKeyboardInsert();
   else if (action === "copy") copy();
   else if (action === "undo") undo();
-  else if (["redo", "redoAlt"].includes(action)) redo();
+  else if (action === "redo") redo();
   else if (["bold", "italic"].includes(action)) format(action);
   else if (action === "multi") $("multiSelect").click();
   else if (action === "deleteEmpty") deleteEmpty();
@@ -1247,7 +1290,7 @@ document.addEventListener(
     if (!action) return;
     if (
       event.repeat &&
-      !["previous", "next", "undo", "redo", "redoAlt"].includes(action)
+      !["previous", "next", "undo", "redo"].includes(action)
     ) {
       event.preventDefault();
       return;
@@ -1327,9 +1370,8 @@ function acceptWorkspace(data) {
   }
   page = "editor";
   previewSource = null;
-  let keyboardInsert = false,
-    keyboardLevel = 0,
-    shortcutBindings = { ...DEFAULT_SHORTCUTS };
+  closeMenu();
+  keyboardLevel = 0;
   $("compareLeft").value = "";
   $("compareRight").value = "";
   render();

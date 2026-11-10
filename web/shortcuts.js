@@ -1,33 +1,60 @@
-export const SHORTCUTS = [
-  ["insert", "添加条目／标题", "Ctrl+N"],
-  ["newRound", "新建一轮", "Ctrl+Shift+N"],
-  ["library", "词集与项目", "Ctrl+Alt+O"],
-  ["deleteRound", "删除本轮", ""],
-  ["collapse", "最小化为悬浮球", "Ctrl+M"],
-  ["previous", "上一条目／标题", "ArrowUp"],
-  ["next", "下一条目／标题", "ArrowDown"],
-  ["save", "保存", "Ctrl+S"],
-  ["copy", "复制提示词", "Ctrl+Shift+C"],
-  ["copyAll", "复制全部常用提示词", "Ctrl+Alt+C"],
-  ["undo", "撤销", "Ctrl+Z"],
-  ["redo", "重做", "Ctrl+Shift+Z"],
-  ["redoAlt", "重做（备用）", "Ctrl+Y"],
-  ["bold", "粗体", "Ctrl+B"],
-  ["italic", "斜体", "Ctrl+I"],
-  ["multi", "多选／全选", "Ctrl+Shift+M"],
-  ["exclude", "切换当前条目的复制参与状态", "Ctrl+Shift+E"],
-  ["delete", "删除当前条目／标题及下级", "Ctrl+Shift+Backspace"],
-  ["deleteEmpty", "删除本轮空项", "Ctrl+Alt+K"],
-  ["fold", "折叠／展开当前标题", "Ctrl+Shift+L"],
-  ["preview", "预览", "Ctrl+Alt+P"],
-  ["compare", "历史对比", "Ctrl+Alt+D"],
-  ["editor", "编写", "Ctrl+Alt+E"],
-  ["template", "模板", "Ctrl+Alt+T"],
-  ["common", "常用提示词", "Ctrl+Alt+U"],
-  ["settings", "快捷键设置", "Ctrl+Alt+H"],
-  ["theme", "切换深浅主题", "Ctrl+Shift+J"],
-  ["voice", "开始／停止语音输入", "Ctrl+Alt+V"],
+export const SHORTCUT_GROUPS = [
+  {
+    id: "window",
+    name: "窗口栏",
+    actions: [["collapse", "最小化为悬浮球", "Ctrl+M"]],
+  },
+  {
+    id: "header",
+    name: "顶部栏",
+    actions: [
+      ["library", "词集与项目", "Ctrl+Alt+O"],
+      ["template", "模板", "Ctrl+Alt+T"],
+      ["newRound", "新建一轮", "Ctrl+Shift+N"],
+      ["editor", "编写", "Ctrl+Alt+E"],
+      ["compare", "历史对比", "Ctrl+Alt+D"],
+      ["preview", "预览", "Ctrl+Alt+P"],
+      ["common", "常用提示词", "Ctrl+Alt+U"],
+      ["settings", "快捷键设置", "Ctrl+Alt+H"],
+      ["theme", "主题", "Ctrl+Shift+J"],
+      ["copy", "复制提示词", "Ctrl+Shift+C"],
+    ],
+  },
+  {
+    id: "toolbar",
+    name: "编辑工具栏",
+    actions: [
+      ["multi", "多选／全选", "Ctrl+Shift+M"],
+      ["deleteEmpty", "删除空项", "Ctrl+Alt+K"],
+      ["undo", "撤销", "Ctrl+Z"],
+      ["redo", "重做", "Ctrl+Shift+Z"],
+      ["bold", "粗体", "Ctrl+B"],
+      ["italic", "斜体", "Ctrl+I"],
+      ["voice", "语音输入", "Ctrl+Alt+V"],
+      ["copyAll", "全部复制（常用提示词）", "Ctrl+Alt+C"],
+      ["deleteRound", "删除本轮", ""],
+    ],
+  },
+  {
+    id: "editor",
+    name: "编辑区",
+    actions: [
+      ["previous", "上一条目／标题", "ArrowUp"],
+      ["next", "下一条目／标题", "ArrowDown"],
+      ["fold", "折叠／展开", "Ctrl+Shift+L"],
+      ["insert", "添加", "Ctrl+N"],
+      ["exclude", "排除本条目", "Ctrl+Shift+E"],
+      ["delete", "删除本条目", "Ctrl+Shift+Backspace"],
+    ],
+  },
+  { id: "footer", name: "状态栏", actions: [["save", "保存", "Ctrl+S"]] },
 ];
+export const SHORTCUTS = SHORTCUT_GROUPS.flatMap((group) => group.actions);
+export function shortcutTitle(name, action, bindings) {
+  return (
+    name + (bindings[action] ? `（${displayCombo(bindings[action])}）` : "")
+  );
+}
 export const DEFAULT_SHORTCUTS = Object.fromEntries(
   SHORTCUTS.map(([id, , key]) => [id, key]),
 );
@@ -101,13 +128,18 @@ export function mountShortcuts(root, { onChange, request = fetch } = {}) {
   let bindings = { ...DEFAULT_SHORTCUTS },
     draft = { ...bindings },
     edited = false;
-  const rows = root.querySelector(".shortcut-rows"),
+  const groups = root.querySelector(".shortcut-groups"),
     status = root.querySelector("[role=status]");
   const inputs = new Map();
   function refresh() {
     for (const [id, input] of inputs) {
       input.value = displayCombo(draft[id]);
       input.dataset.binding = draft[id];
+      input.title = shortcutTitle(
+        input.getAttribute("aria-label").replace(/快捷键$/, ""),
+        id,
+        draft,
+      );
     }
   }
   function updateDraft() {
@@ -116,35 +148,48 @@ export function mountShortcuts(root, { onChange, request = fetch } = {}) {
     status.textContent = error || "尚未保存";
     root.querySelector("#saveShortcuts").disabled = !!error;
   }
-  for (const [id, label] of SHORTCUTS) {
-    const row = document.createElement("label");
-    row.className = "shortcut-row";
-    const name = document.createElement("span");
-    name.textContent = label;
-    const input = document.createElement("input");
-    input.className = "shortcut-key";
-    input.readOnly = true;
-    input.placeholder = "未设置";
-    input.dataset.action = id;
-    input.setAttribute("aria-label", label + "快捷键");
-    input.onkeydown = (event) => {
-      if (event.key === "Tab") return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.isComposing) return;
-      if (event.key === "Escape") {
-        input.blur();
-        return;
-      }
-      const combo = keyCombo(event);
-      if (!combo) return;
-      draft[id] = ["Backspace", "Delete"].includes(combo) ? "" : combo;
-      refresh();
-      updateDraft();
-    };
-    row.append(name, input);
-    rows.append(row);
-    inputs.set(id, input);
+  for (const group of SHORTCUT_GROUPS) {
+    const section = document.createElement("section");
+    section.className = "shortcut-section";
+    section.dataset.section = group.id;
+    const heading = document.createElement("h3");
+    heading.textContent = group.name;
+    heading.id = "shortcut-group-" + group.id;
+    section.setAttribute("aria-labelledby", heading.id);
+    const rows = document.createElement("div");
+    rows.className = "shortcut-rows";
+    section.append(heading, rows);
+    groups.append(section);
+    for (const [id, label] of group.actions) {
+      const row = document.createElement("label");
+      row.className = "shortcut-row";
+      const name = document.createElement("span");
+      name.textContent = label;
+      const input = document.createElement("input");
+      input.className = "shortcut-key";
+      input.readOnly = true;
+      input.placeholder = "未设置";
+      input.dataset.action = id;
+      input.setAttribute("aria-label", label + "快捷键");
+      input.onkeydown = (event) => {
+        if (event.key === "Tab") return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.isComposing) return;
+        if (event.key === "Escape") {
+          input.blur();
+          return;
+        }
+        const combo = keyCombo(event);
+        if (!combo) return;
+        draft[id] = ["Backspace", "Delete"].includes(combo) ? "" : combo;
+        refresh();
+        updateDraft();
+      };
+      row.append(name, input);
+      rows.append(row);
+      inputs.set(id, input);
+    }
   }
   root.querySelector("#resetShortcuts").onclick = () => {
     draft = { ...DEFAULT_SHORTCUTS };
@@ -185,7 +230,14 @@ export function mountShortcuts(root, { onChange, request = fetch } = {}) {
       const response = await request("/api/shortcuts");
       if (!response.ok) throw new Error();
       const value = await response.json();
-      const saved = { ...DEFAULT_SHORTCUTS, ...value.bindings };
+      const saved = Object.fromEntries(
+        SHORTCUTS.map(([id, , fallback]) => [
+          id,
+          value.bindings?.[id] ?? fallback,
+        ]),
+      );
+      if (!saved.redo && value.bindings?.redoAlt)
+        saved.redo = value.bindings.redoAlt;
       if (validateBindings(saved)) throw new Error();
       bindings = saved;
       if (!edited) {

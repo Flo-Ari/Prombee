@@ -27,7 +27,7 @@ if (platform !== "gtk") {
   const chrome = document.createElement("div");
   chrome.className = "window-chrome";
   chrome.innerHTML =
-    '<div class="window-drag pywebview-drag-region"></div><button id="minimizeWindow" title="最小化" aria-label="最小化">−</button><button id="maximizeWindow" title="最大化 / 还原" aria-label="最大化或还原">□</button><button id="closeWindow" title="关闭" aria-label="关闭">×</button>';
+    '<div class="window-drag pywebview-drag-region"></div><button id="minimizeWindow" data-shortcut-action="collapse" data-shortcut-name="最小化" title="最小化" aria-label="最小化">−</button><button id="maximizeWindow" title="最大化 / 还原" aria-label="最大化或还原">□</button><button id="closeWindow" title="关闭" aria-label="关闭">×</button>';
   chrome.querySelector(".window-drag").textContent = productName;
   document.body.prepend(chrome);
   chrome.querySelector("#minimizeWindow").onclick = () =>

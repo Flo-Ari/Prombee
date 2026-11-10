@@ -510,3 +510,55 @@ test("shortcut tab records, validates, saves and activates edited bindings witho
   assert.equal($("toast").classList.contains("show"), false);
   $("undo").click();
 });
+
+test("shortcut sections follow component positions, have one redo, and tooltips follow saved keys", async () => {
+  $("shortcutsTab").click();
+  const sections = [...document.querySelectorAll(".shortcut-section")];
+  assert.deepEqual(
+    sections.map((section) => section.querySelector("h3").textContent),
+    ["窗口栏", "顶部栏", "编辑工具栏", "编辑区", "状态栏"],
+  );
+  assert.equal(document.querySelectorAll('[data-action="redo"]').length, 1);
+  assert.equal(document.querySelector('[data-action="redoAlt"]'), null);
+  const editor = sections.find(
+    (section) => section.dataset.section === "editor",
+  );
+  assert.match(editor.textContent, /排除本条目/);
+  assert.match(editor.textContent, /删除本条目/);
+  for (const [action, value, options] of [
+    ["insert", "n", { ctrlKey: true, altKey: true }],
+    ["exclude", "q", { ctrlKey: true, shiftKey: true }],
+    ["delete", "g", { ctrlKey: true, shiftKey: true }],
+    ["theme", "j", { ctrlKey: true, altKey: true }],
+  ]) {
+    const input = document.querySelector(`[data-action="${action}"]`);
+    input.focus();
+    key(value, options);
+  }
+  await $("saveShortcuts").onclick();
+  $("editorTab").click();
+  assert.equal(
+    document.querySelector(".add-heading").title,
+    "添加（Ctrl+Alt+N）",
+  );
+  assert.equal(
+    document.querySelector(".row-action.eye").title,
+    "排除（Ctrl+Shift+Q）",
+  );
+  assert.equal(
+    document.querySelector(".row-action.remove").title,
+    "删除（Ctrl+Shift+G）",
+  );
+  $("theme").dispatchEvent(
+    new window.MouseEvent("mouseover", { bubbles: true }),
+  );
+  assert.equal($("theme").title, "主题（Ctrl+Alt+J）");
+  assert.equal($("undo").title, "撤销（Ctrl+Z）");
+  assert.equal($("redo").title, "重做（Ctrl+Shift+Z）");
+  document.querySelector(".content").focus();
+  assert.equal(key("y", { ctrlKey: true }).defaultPrevented, false);
+  $("shortcutsTab").click();
+  $("resetShortcuts").click();
+  await $("saveShortcuts").onclick();
+  $("editorTab").click();
+});

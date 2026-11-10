@@ -66,7 +66,8 @@ def main():
             # Keep standard maximize/close controls; minimize uses the bee transition.
             header.set_decoration_layout(":maximize,close")
             minimize=Gtk.Button.new_from_icon_name('window-minimize-symbolic')
-            minimize.set_tooltip_text('最小化为悬浮球')
+            minimize.set_tooltip_text('最小化（Ctrl+M）')
+            self.minimize_button=minimize
             minimize.connect('clicked',lambda button:self.floating.collapse())
             header.pack_end(minimize)
             self.window.set_titlebar(header)
@@ -76,6 +77,8 @@ def main():
             manager=self.web.get_user_content_manager()
             manager.register_script_message_handler('clipboard',None)
             manager.connect('script-message-received::clipboard',lambda m,value:Gdk.Display.get_default().get_clipboard().set(value.to_string()))
+            manager.register_script_message_handler('shortcutHints',None)
+            manager.connect('script-message-received::shortcutHints',self.shortcut_hints)
             manager.register_script_message_handler('theme',None)
             manager.connect('script-message-received::theme',lambda m,value:Gtk.Settings.get_default().set_property('gtk-application-prefer-dark-theme',value.to_boolean()))
             manager.register_script_message_handler('close',None)
@@ -93,6 +96,13 @@ def main():
             if args.smoke_test:
                 self.tries=0
                 GLib.timeout_add(500,self.check)
+
+        def shortcut_hints(self,manager,value):
+            try:
+                key=json.loads(value.to_string()).get('collapse','')
+                if not isinstance(key,str) or len(key)>64:return
+                self.minimize_button.set_tooltip_text('最小化'+('（'+key+'）' if key else ''))
+            except (ValueError,AttributeError):pass
 
         def close_requested(self,window):
             if self.saved_close:

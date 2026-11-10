@@ -1219,3 +1219,16 @@ body.dark .fold {
     padding: 20px;
   }
 }
+.shortcut-section {
+  margin-top: 24px;
+}
+.shortcut-section h3 {
+  margin: 0;
+  padding: 10px 0;
+  color: var(--blue);
+  font-size: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.shortcut-section:first-child {
+  margin-top: 12px;
+}

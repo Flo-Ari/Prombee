@@ -5,7 +5,7 @@ from pathlib import Path
 from .library import atomic_write
 from .filelock import exclusive_file_lock
 
-IDS={'library','deleteRound','collapse','copyAll','insert','newRound','previous','next','save','copy','undo','redo','redoAlt','bold','italic','multi','exclude','delete','deleteEmpty','fold','preview','compare','editor','template','common','settings','theme','voice'}
+IDS={'library','deleteRound','collapse','copyAll','insert','newRound','previous','next','save','copy','undo','redo','bold','italic','multi','exclude','delete','deleteEmpty','fold','preview','compare','editor','template','common','settings','theme','voice'}
 PATTERN=re.compile(r'^(Ctrl\+)?(Alt\+)?(Shift\+)?([A-Z0-9]|F([1-9]|1[0-2])|Arrow(Up|Down)|Backspace|Delete|Enter|Space|Home|End|PageUp|PageDown|Escape)$')
 
 def validate(value):
@@ -25,7 +25,12 @@ class Shortcuts:
     def __init__(self,folder):
         self.path=Path(folder)/'shortcuts.json'
     def load(self):
-        try: value=validate(json.loads(self.path.read_text(encoding='utf-8')))
+        try:
+            value=json.loads(self.path.read_text(encoding='utf-8'))
+            if isinstance(value,dict) and 'redoAlt' in value:
+                alternate=value.pop('redoAlt')
+                if not value.get('redo'):value['redo']=alternate
+            value=validate(value)
         except (OSError,ValueError,TypeError):value={}
         return {'bindings':value}
     def save(self,payload):
