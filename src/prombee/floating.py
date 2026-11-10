@@ -12,7 +12,7 @@ def morph_layout(editor, orb, logo, direction="right"):
     right, bottom = max(editor[0]+editor[2], orb[0]+orb[2]), max(editor[1]+editor[3], orb[1]+orb[3])
     return (x, y, right-x, bottom-y), {
         'editor': {'x': editor[0]-x, 'y': editor[1]-y, 'width': editor[2], 'height': editor[3]},
-        'from': {'x': orb[0]-x+ORB_WIDTH/2+(26 if direction=='right' else -26), 'y': orb[1]-y+ORB_HEIGHT/2-8},
+        'from': {'x': orb[0]-x+ORB_WIDTH/2+(31 if direction=='right' else -31), 'y': orb[1]-y+ORB_HEIGHT/2-6},
         'to': {'x': editor[0]-x+logo['x'], 'y': editor[1]-y+logo['y']},
     }
 

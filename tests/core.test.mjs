@@ -18,7 +18,7 @@ test('excluded heading suppresses descendants until an equal-level heading', () 
   assert.deepEqual(flags.get('b'), { excluded: true, inherited: false });
   for (const id of ['b1', 'c', 'c1']) assert.equal(flags.get(id).inherited, true, id);
   for (const id of ['a', 'a1', 'd', 'd1', 'e']) assert.equal(flags.get(id).excluded, false, id);
-  assert.equal(toMarkdown(nodes), '# Visible\n1. Keep\n\n## Resumed\n1. Back\n\n# Next\n');
+  assert.equal(toMarkdown(nodes), '# Visible\n1. Keep\n\n## Resumed\n1. Back\n');
 });
 
 test('excluding one item leaves its neighbors visible and copy numbering contiguous', () => {
@@ -82,20 +82,20 @@ test('history line diff reconstructs both source texts without treating content 
 const { subtreeMarkdown, markdownHeadings } = await import('../web/core.js');
 
 test('authored Markdown overrides generated prefixes without rewriting lists or fenced content', () => {
-  const nodes=[heading('h',2,'# 原始标题'),item('m','1. 原始列表<br>2. 第二条<br><br>```md<br># 代码中的标题<br>```'),heading('peer',2,'后续标题')];
+  const nodes=[heading('h',2,'# 原始标题'),item('m','1. 原始列表<br>2. 第二条<br><br>```md<br># 代码中的标题<br>```'),heading('peer',2,'后续标题'),item('peer-body','后续正文')];
   const original=structuredClone(nodes), text=toMarkdown(nodes);
   assert.match(text,/^# 原始标题\n/);
   assert.ok(text.includes('1. 原始列表\n2. 第二条\n\n```md\n# 代码中的标题\n```'));
-  assert.match(text,/\n## 后续标题\n$/);
+  assert.match(text,/\n## 后续标题\n1. 后续正文\n$/);
   assert.deepEqual(nodes,original);
   assert.deepEqual(markdownHeadings('```md\n# 代码\n```\n## 真实'),[2]);
 });
 
 test('explicit heading level affects only structural descendants and conflicting headings both survive', () => {
-  const nodes=[heading('a',2,'# 自定义'),heading('b',3,'下级'),item('x','正文'),heading('c',2,'同级'),heading('d',3,'正常下级'),heading('e',1,'顶级')];
+  const nodes=[heading('a',2,'# 自定义'),heading('b',3,'下级'),item('x','正文'),heading('c',2,'同级'),heading('d',3,'正常下级'),item('d-body','正常正文'),heading('e',1,'顶级'),item('e-body','末尾正文')];
   const text=toMarkdown(nodes);
-  assert.equal(text,'# 自定义\n\n## 下级\n1. 正文\n\n## 同级\n\n### 正常下级\n\n# 顶级\n');
-  const duplicates=[heading('a',2,'# 重复'),heading('b',3,'# 重复'),item('c','保留正文'),heading('d',2,'重复')];
+  assert.equal(text,'# 自定义\n\n## 下级\n1. 正文\n\n## 同级\n\n### 正常下级\n1. 正常正文\n\n# 顶级\n1. 末尾正文\n');
+  const duplicates=[heading('a',2,'# 重复'),heading('b',3,'# 重复'),item('c','保留正文'),heading('d',2,'重复'),item('last','保留末尾正文')];
   const before=structuredClone(duplicates);
   assert.equal((toMarkdown(duplicates).match(/# 重复/g)||[]).length,3);
   assert.deepEqual(duplicates,before);
@@ -109,16 +109,16 @@ test('scoped copy retains inherited Markdown hierarchy and never includes siblin
 });
 
 test('Markdown in a body item does not change later structural headings', () => {
-  const nodes=[heading('a',2,'标题'),item('b','# 内容标题<br>## 内容子级'),heading('c',3,'编辑器子级'),heading('d',2,'同级')];
+  const nodes=[heading('a',2,'标题'),item('b','# 内容标题<br>## 内容子级'),heading('c',3,'编辑器子级'),item('c-body','子级正文'),heading('d',2,'同级'),item('d-body','同级正文')];
   const text=toMarkdown(nodes);
   assert.ok(text.includes('# 内容标题\n## 内容子级'));
   assert.ok(text.includes('### 编辑器子级'));
-  assert.match(text,/\n## 同级\n$/);
+  assert.match(text,/\n## 同级\n1. 同级正文\n$/);
 });
 
 test('authored heading Markdown wins over display emphasis and setext levels stay local', () => {
-  const nodes=[heading('a',3,'<b># 原始标题</b>'),heading('b',4,'子级'),heading('c',3,'另一个标题<br>==='),heading('d',4,'其子级'),heading('e',3,'恢复')];
-  assert.equal(toMarkdown(nodes),'# 原始标题\n\n## 子级\n\n另一个标题\n===\n\n## 其子级\n\n### 恢复\n');
+  const nodes=[heading('a',3,'<b># 原始标题</b>'),heading('b',4,'子级'),item('body1','甲'),heading('c',3,'另一个标题<br>==='),heading('d',4,'其子级'),item('body2','乙'),heading('e',3,'恢复'),item('body3','丙')];
+  assert.equal(toMarkdown(nodes),'# 原始标题\n\n## 子级\n1. 甲\n\n另一个标题\n===\n\n## 其子级\n1. 乙\n\n### 恢复\n1. 丙\n');
 });
 
 const { integrateMarkdown, foldedNodes, selectionScope, contextLevel } = await import('../web/core.js');
@@ -138,11 +138,11 @@ test('folded descendants and overlapping batch scopes do not remove or exclude c
   const nodes=[{...heading('a',1,'A'),collapsed:true},heading('b',2,'B'),item('c','C'),heading('d',1,'D')];
   assert.deepEqual([...foldedNodes(nodes)],['b','c']);
   assert.deepEqual([...selectionScope(nodes,new Set(['a','b']))],['a','b','c']);
-  assert.equal(toMarkdown(nodes),'# A\n\n## B\n1. C\n\n# D\n');
+  assert.equal(toMarkdown(nodes),'# A\n\n## B\n1. C\n');
 });
 
 test('inline Markdown in a title keeps its structural heading marker', () => {
-  assert.equal(toMarkdown([heading('a',2,'**强调标题**')]),'## **强调标题**\n');
+  assert.equal(toMarkdown([heading('a',2,'**强调标题**'),item('b','正文')]),'## **强调标题**\n1. 正文\n');
 });
 
 test('contenteditable multiline paste preserves the first block boundary and Markdown list items', () => {
@@ -182,4 +182,17 @@ test("drag sorting retains excluded and collapsed children and rejects self drop
   );
   assert.equal(moveSubtree(nodes, "a", "b"), true);
   assert.deepEqual(nodes, before);
+});
+
+test('copy prunes empty and excluded-only branches without changing stored headings or children',()=>{
+ const nodes=[heading('a',1,'空标题'),heading('b',1,'父标题'),heading('c',2,'有正文'),item('body','保留'),heading('d',2,'空子级'),heading('e',1,'只有排除正文'),item('hidden','不复制',true)];
+ const original=structuredClone(nodes);
+ assert.equal(toMarkdown(nodes),'# 父标题\n\n## 有正文\n1. 保留\n');assert.deepEqual(nodes,original);
+ assert.equal(toMarkdown([heading('inline',1,'# 标题<br>直接写在标题中的正文')]),'# 标题\n直接写在标题中的正文\n');
+});
+test('template hierarchy includes excluded ancestors and excluded descendants with fresh copy flags', async()=>{
+ const {hierarchyNodes}=await import('../web/core.js');
+ const source=[heading('root',1,'被排除的父级',true),heading('child',2,'子级',true),item('body','历史正文')];
+ const copy=hierarchyNodes(source);
+ assert.deepEqual(copy.filter(n=>n.kind==='heading').map(n=>n.html),['被排除的父级','子级']);assert.ok(copy.every(n=>!n.excluded));
 });

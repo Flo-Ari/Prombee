@@ -11,6 +11,7 @@ export const SHORTCUT_GROUPS = [
       ["library", "词集管理", "Ctrl+Alt+O"],
       ["template", "模板", "Ctrl+Alt+T"],
       ["newRound", "新建一轮", "Ctrl+Shift+N"],
+      ["deleteRound", "删除本轮", ""],
       ["editor", "编写", "Ctrl+Alt+E"],
       ["compare", "历史对比", "Ctrl+Alt+D"],
       ["preview", "预览", "Ctrl+Alt+P"],
@@ -32,7 +33,6 @@ export const SHORTCUT_GROUPS = [
       ["italic", "斜体", "Ctrl+I"],
       ["voice", "语音输入", "Ctrl+Alt+V"],
       ["copyAll", "全部复制（常用提示词）", "Ctrl+Alt+C"],
-      ["deleteRound", "删除本轮", ""],
     ],
   },
   {

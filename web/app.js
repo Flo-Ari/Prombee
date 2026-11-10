@@ -53,6 +53,7 @@ let keyboardInsert = false,
   shortcutBindings = { ...DEFAULT_SHORTCUTS };
 let sorting = null;
 const histories = new Map();
+const editorViews = new Map();
 const emptyRound = { id: "no-round", name: "", nodes: [] };
 const currentDoc = () =>
   state.documents.find((d) => d.id === state.current) ||
@@ -735,6 +736,8 @@ function updateBatch() {
   $("batchDelete").disabled = $("batchExclude").disabled = !selected.size;
 }
 $("multiSelect").onclick = () => {
+  captureEditorView();
+  const view = editorViews.get(viewKey());
   if (!multi) {
     multi = true;
     selected.clear();
@@ -743,6 +746,7 @@ $("multiSelect").onclick = () => {
     selected.clear();
   } else selected = new Set(doc().nodes.map((node) => node.id));
   render();
+  restoreEditorView(view);
 };
 $("batchExclude").onclick = () => {
   if (!selected.size) return;
@@ -814,11 +818,79 @@ function copy() {
   if (integrateCurrent()) render();
   return copyText(toMarkdown(doc().nodes));
 }
+function viewKey() {
+  return `${page}:${doc().id}`;
+}
+function captureEditorView() {
+  if (!editing()) return;
+  const field = contentFor(active),
+    range = selection;
+  const path = (node) => {
+    const result = [];
+    while (node && node !== field) {
+      const parent = node.parentNode;
+      if (!parent) return null;
+      result.unshift([...parent.childNodes].indexOf(node));
+      node = parent;
+    }
+    return node === field ? result : null;
+  };
+  let caret = null;
+  if (field && range && field.contains(range.commonAncestorContainer)) {
+    caret = {
+      start: path(range.startContainer),
+      startOffset: range.startOffset,
+      end: path(range.endContainer),
+      endOffset: range.endOffset,
+    };
+  }
+  editorViews.set(viewKey(), {
+    top: document.querySelector("main").scrollTop,
+    active,
+    caret,
+    multi,
+    selected: [...selected],
+  });
+}
+function restoreEditorView(view) {
+  if (!view) {
+    document.querySelector("main").scrollTop = 0;
+    return;
+  }
+  const field = contentFor(view.active);
+  if (field) {
+    field.focus({ preventScroll: true });
+    active = view.active;
+    if (view.caret) {
+      const resolve = (path) =>
+        path?.reduce((node, index) => node?.childNodes[index], field);
+      const start = resolve(view.caret.start),
+        end = resolve(view.caret.end);
+      if (start && end) {
+        const range = document.createRange(),
+          limit = (node) =>
+            node.nodeType === 3 ? node.length : node.childNodes.length;
+        range.setStart(start, Math.min(view.caret.startOffset, limit(start)));
+        range.setEnd(end, Math.min(view.caret.endOffset, limit(end)));
+        const selectedRange = window.getSelection();
+        selectedRange.removeAllRanges();
+        selectedRange.addRange(range);
+        selection = range.cloneRange();
+      }
+    }
+  }
+  const key = viewKey(),
+    main = document.querySelector("main");
+  main.scrollTop = view.top;
+  requestAnimationFrame(() => {
+    if (viewKey() === key && editing()) main.scrollTop = view.top;
+  });
+}
 function switchPage(next, roundId) {
+  if (next === page && (!roundId || roundId === state.current)) return;
   speech.stop();
+  captureEditorView();
   integrateCurrent();
-  multi = false;
-  selected.clear();
   if (next === "preview") previewSource = doc();
   histories.set(doc().id, { history, future });
   if (roundId) {
@@ -831,10 +903,17 @@ function switchPage(next, roundId) {
     history: [],
     future: [],
   });
+  const view = editing() ? editorViews.get(viewKey()) : null;
+  multi = !!view?.multi;
+  selected = new Set(
+    (view?.selected || []).filter((id) => doc().nodes.some((n) => n.id === id)),
+  );
   active = null;
   selection = null;
   closeMenu();
   render();
+  if (editing()) restoreEditorView(view);
+  else document.querySelector("main").scrollTop = 0;
 }
 function fillRounds(select, fallback) {
   const value = select.value;
@@ -884,8 +963,8 @@ function updatePages() {
   $("copyAll").hidden = page !== "common";
   $("copyHierarchy").disabled = $("hierarchyRound").disabled =
     !state.documents.length;
-  $("deleteRound").hidden = page !== "editor";
-  $("deleteRound").disabled = !state.documents.length;
+  $("deleteRound").hidden = false;
+  $("deleteRound").disabled = noSet || !state.documents.length;
   document.querySelector(".keys").hidden = !editing();
   $("paper").setAttribute(
     "aria-label",
@@ -953,7 +1032,8 @@ $("newDoc").onclick = () => {
   changed();
 };
 $("deleteRound").onclick = () => {
-  if (page !== "editor" || !state.documents.length) return;
+  if (noSet || !state.documents.length) return;
+  if (page !== "editor") switchPage("editor");
   integrateCurrent();
   const current = currentDoc(),
     index = state.documents.indexOf(current);
@@ -1120,7 +1200,7 @@ function refreshShortcutHints() {
     ["italic", "italic", "斜体"],
     ["voiceInput", "voice", "语音输入"],
     ["copyAll", "copyAll", "全部复制"],
-    ["deleteRound", "deleteRound", "删除本轮"],
+    ["deleteRound", "deleteRound", "删除"],
   ]) {
     $(id).dataset.shortcutAction = action;
     $(id).dataset.shortcutName = name;
@@ -1363,7 +1443,7 @@ function runShortcut(action) {
   if (["previous", "next"].includes(action))
     return editing() && moveEntry(action === "previous" ? -1 : 1);
   if (action === "deleteRound") {
-    if (page === "editor") $("deleteRound").click();
+    $("deleteRound").click();
     return true;
   }
   if (action === "copyAll") {
@@ -1496,6 +1576,7 @@ function acceptWorkspace(data) {
   history = [];
   future = [];
   histories.clear();
+  editorViews.clear();
   selected.clear();
   multi = false;
   if (!state.template) {

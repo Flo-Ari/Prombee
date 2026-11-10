@@ -109,4 +109,15 @@ class WorkspaceTests(unittest.TestCase):
                     self.assertEqual(response.headers.get_content_type(),'text/javascript')
 
 
+    def test_native_picker_returns_path_or_cancel_and_rejects_invalid_kind(self):
+        calls=[]
+        self.server.pick_path=lambda kind,initial:(calls.append((kind,initial)) or ('/chosen' if kind=='folder' else None))
+        for kind,expected in [('folder','/chosen'),('file',None)]:
+            request=Request(self.url+'/api/picker',data=json.dumps({'kind':kind,'initial':'/initial'}).encode(),method='POST',headers={'Content-Type':'application/json'})
+            with urlopen(request) as response:self.assertEqual(json.load(response),{'path':expected})
+        self.assertEqual(calls,[('folder','/initial'),('file','/initial')])
+        request=Request(self.url+'/api/picker',data=b'{"kind":"invalid"}',method='POST',headers={'Content-Type':'application/json'})
+        with self.assertRaises(HTTPError) as error:urlopen(request)
+        self.assertEqual(error.exception.code,400);error.exception.close()
+
 if __name__=='__main__':unittest.main()

@@ -120,6 +120,13 @@ def main():
     from prombee.floating_windows import WindowsFloating
     floating = WindowsFloating(webview,window,f'http://127.0.0.1:{server.server_port}/',data,lambda:window.destroy())
 
+    def pick_path(kind, initial=''):
+        options = {'directory': initial} if initial and Path(initial).is_dir() else {}
+        if kind == 'file': options['file_types'] = ('TXT (*.txt)',)
+        selected = window.create_file_dialog(webview.FileDialog.FOLDER if kind == 'folder' else webview.FileDialog.OPEN, **options)
+        return selected[0] if selected else None
+    server.pick_path = pick_path
+
     def on_loaded():
         window.run_js(BRIDGE)
 

@@ -217,22 +217,6 @@ class Library:
     def snapshot(self):
         with self.transaction(): return self.read_registry()
 
-    def browse(self, raw_path=None):
-        home = Path.home()
-        path = Path(raw_path).expanduser().resolve() if raw_path else (home / 'Documents' if (home / 'Documents').is_dir() else home)
-        if not path.is_dir(): raise ValueError('文件夹不存在')
-        entries = []
-        for child in path.iterdir():
-            if child.name.startswith('.'): continue
-            try:
-                if child.is_dir(): entries.append({'name': child.name, 'path': str(child.resolve()), 'kind': 'folder'})
-                elif child.is_file() and child.suffix.lower() == '.txt': entries.append({'name': child.name, 'path': str(child.resolve()), 'kind': 'text'})
-            except OSError: continue
-        shortcuts = [{'name': name, 'path': str(folder)} for name, folder in [('主目录', home), ('文档', home / 'Documents'), ('桌面', home / 'Desktop')] if folder.is_dir()]
-        if os.name == 'nt':
-            shortcuts += [{'name': f'{chr(c)}:', 'path': f'{chr(c)}:\\'} for c in range(65, 91) if Path(f'{chr(c)}:\\').is_dir()]
-        return {'path': str(path), 'parent': str(path.parent), 'entries': sorted(entries, key=lambda e: (e['kind'] != 'folder', e['name'].casefold())), 'shortcuts': shortcuts}
-
     def action(self, request):
         action = request.get('action')
         with self.transaction():

@@ -166,11 +166,47 @@ export function containsMarkdown(text) {
     /^.*\|.*\n[ \t]*\|?[ \t]*:?-{3,}/m.test(text)
   );
 }
+// Empty headings are omitted from copy, while stored hierarchy remains untouched.
+export function populatedHeadings(nodes, states = visibility(nodes)) {
+  const populated = new Set(),
+    stack = [];
+  const mark = () => {
+    for (const heading of stack) populated.add(heading.id);
+  };
+  for (const n of nodes) {
+    if (n.kind === "heading") {
+      while (stack.length && stack.at(-1).level >= n.level) stack.pop();
+      stack.push(n);
+    }
+    if (states.get(n.id).excluded) continue;
+    const text = plain(n.html);
+    if (!text.trim()) continue;
+    if (n.kind !== "heading") {
+      mark();
+      continue;
+    }
+    if (markdownHeadings(text).length) {
+      const lines = text.split("\n");
+      if (
+        lines.some(
+          (line, i) =>
+            line.trim() &&
+            !/^ {0,3}#{1,6}(?:[ \t]+|$)/.test(line) &&
+            !/^ {0,3}(?:=+|-+)[ \t]*$/.test(line) &&
+            !/^ {0,3}(?:=+|-+)[ \t]*$/.test(lines[i + 1] || ""),
+        )
+      )
+        mark();
+    } else if (n.raw) mark();
+  }
+  return populated;
+}
 export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
   let count = 0;
   const lines = [],
     stack = [];
-  const states = visibility(nodes);
+  const states = visibility(nodes),
+    populated = populatedHeadings(nodes, states);
   const blank = () => {
     if (lines.length && lines.at(-1) !== "") lines.push("");
   };
@@ -194,7 +230,12 @@ export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
       });
       count = 0;
     }
-    if (index < start || !source.trim()) continue;
+    if (
+      index < start ||
+      !source.trim() ||
+      (n.kind === "heading" && !populated.has(n.id))
+    )
+      continue;
     if (
       n.raw ||
       (authored &&

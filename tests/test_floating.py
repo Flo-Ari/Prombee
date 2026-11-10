@@ -11,7 +11,7 @@ class FloatingTests(unittest.TestCase):
         union,payload=morph_layout(editor,orb,logo)
         self.assertEqual(union,(-1200,100,1770,1120))
         self.assertEqual((union[0]+payload['to']['x'],union[1]+payload['to']['y']),(-1158,173))
-        self.assertEqual((union[0]+payload['from']['x'],union[1]+payload['from']['y']),(336,1002))
+        self.assertEqual((union[0]+payload['from']['x'],union[1]+payload['from']['y']),(341,1004))
         self.assertEqual(payload['editor']['width'],1080)
     def test_animation_preference_round_trip_and_corrupt_file_recovery(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -44,7 +44,7 @@ class FloatingTests(unittest.TestCase):
             restored.save(True);self.assertEqual(FloatingPreferences(folder).direction,'left')
         editor=(0,0,1080,800);orb=(600,400,520,420);logo={'x':42,'y':73}
         _,right=morph_layout(editor,orb,logo,'right');_,left=morph_layout(editor,orb,logo,'left')
-        self.assertEqual(right['from']['x']-left['from']['x'],52)
+        self.assertEqual(right['from']['x']-left['from']['x'],62)
         self.assertEqual(right['to'],left['to'])
 
     def test_fedora_drag_is_one_native_grab_with_no_resize_loop_or_click(self):

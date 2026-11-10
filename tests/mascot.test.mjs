@@ -28,7 +28,10 @@ globalThis.Image = class {
 };
 const gradient = { addColorStop() {} };
 const ctx = new Proxy(
-  { createRadialGradient: () => gradient, createLinearGradient: () => gradient },
+  {
+    createRadialGradient: () => gradient,
+    createLinearGradient: () => gradient,
+  },
   { get: (o, k) => o[k] || (() => {}) },
 );
 const canvas = document.querySelector("canvas");
@@ -75,7 +78,7 @@ test("right-click menu has all scenes; disabling removes flight and automatic sc
   const { api, messages } = start();
   api.showMenu(500, 400);
   const buttons = [...document.querySelectorAll("#menu button")];
-  assert.equal(buttons.length, 9);
+  assert.equal(buttons.length, 8);
   buttons.find((b) => b.textContent === "取消动画").click();
   assert.equal(api.state().enabled, false);
   tick(120_000);
@@ -209,10 +212,10 @@ test("flight direction is selected in the context menu, mirrored and saved", () 
   assert.ok(scales.some(([x, y]) => x === -1 && y === 1));
   api.showMenu(50, 50);
   assert.equal(
-    [...document.querySelectorAll("#menu button")]
-      .find((b) => b.textContent.includes("向左飞行"))
-      .getAttribute("aria-checked"),
-    "true",
+    [...document.querySelectorAll("#menu button")].some((b) =>
+      b.textContent.includes("向左飞行"),
+    ),
+    false,
   );
   [...document.querySelectorAll("#menu button")]
     .find((b) => b.textContent.includes("向右飞行"))
@@ -247,4 +250,53 @@ test("native GTK drag suppresses pointer capture, bridge move packets and accide
   assert.equal(api.state().scene, -1);
   api.destroy();
   delete canvas.setPointerCapture;
+});
+
+test("native full-screen pointer updates remain authoritative outside the companion window", () => {
+  const { api } = start();
+  api.receive("cursor", { x: -4000, y: 2800 });
+  canvas.dispatchEvent(
+    new window.MouseEvent("pointermove", { clientX: 40, clientY: 40 }),
+  );
+  tick(100);
+  assert.deepEqual(api.state().cursor, { x: -4000, y: 2800 });
+  api.receive("cursor", { x: 9000, y: -1200 });
+  tick(200);
+  assert.deepEqual(api.state().cursor, { x: 9000, y: -1200 });
+  api.destroy();
+});
+test("combat rays align with the live bug and blade impact occurs at its tip", async () => {
+  const { combatPose } = await import("../web/mascot.js");
+  for (let t = 3100; t < 11900; t += 41) {
+    const p = combatPose(t),
+      dx = p.target.x - p.muzzle.x,
+      dy = p.target.y - p.muzzle.y;
+    assert.ok(Math.abs(dx * Math.sin(p.angle) - dy * Math.cos(p.angle)) < 1e-8);
+    assert.ok(dx * Math.cos(p.angle) + dy * Math.sin(p.angle) > 0);
+  }
+  const impact = combatPose((3 + 0.52 * 2.7) * 1000);
+  assert.ok(
+    Math.hypot(
+      impact.bladeTip.x - impact.bladeTarget.x,
+      impact.bladeTip.y - impact.bladeTarget.y,
+    ) < 1e-8,
+  );
+});
+test("feeding tokens reach the mouth, idle labels omit names and the menu only offers reversing flight", async () => {
+  const { scenePose, mouthPoint } = await import("../web/mascot.js");
+  const mouth = mouthPoint(scenePose(2, 6500, 6500), 1);
+  assert.ok(Math.abs(mouth.x + 4) < 1e-6);
+  assert.ok(Math.abs(mouth.y - 31) < 1e-6);
+  const { api } = start();
+  api.receive("settings", { enabled: true, direction: "right" });
+  api.showMenu(30, 30);
+  const labels = [...document.querySelectorAll("#menu button")].map(
+    (b) => b.textContent,
+  );
+  assert.deepEqual(
+    labels.filter((s) => s.startsWith("播放待机")),
+    ["播放待机动画 1", "播放待机动画 2", "播放待机动画 3", "播放待机动画 4"],
+  );
+  assert.equal(labels.filter((s) => s.includes("飞行")).length, 1);
+  api.destroy();
 });

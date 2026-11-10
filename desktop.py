@@ -37,6 +37,7 @@ def main():
     gi.require_version('WebKit','6.0')
     gi.require_version('GdkX11','4.0')
     from gi.repository import Gtk,Gdk,Gio,GLib,WebKit,GdkX11
+    import threading
     GLib.set_application_name(app_name())
     server=start_server(ROOT,data)
     url=f'http://127.0.0.1:{server.server_port}/'
@@ -64,9 +65,11 @@ def main():
             header.set_decoration_layout(":minimize,maximize,close")
             header.set_title_widget(Gtk.Label(label=app_name()))
             self.window.set_titlebar(header)
+            server.pick_path = self.pick_path
             self.web=WebKit.WebView()
             self.closing=False
             self.saved_close=False
+            self.file_picker_cancel=None
             manager=self.web.get_user_content_manager()
             manager.register_script_message_handler('clipboard',None)
             manager.connect('script-message-received::clipboard',lambda m,value:Gdk.Display.get_default().get_clipboard().set(value.to_string()))
@@ -114,6 +117,61 @@ def main():
                 self.tries=0
                 GLib.timeout_add(500,self.check)
 
+        def pick_path(self, kind, initial=''):
+            finished = threading.Event()
+            result = {}
+            def begin():
+                cancellable = Gio.Cancellable()
+                self.file_picker_cancel = cancellable
+                if not hasattr(Gtk, 'FileDialog'):
+                    chooser = Gtk.FileChooserNative.new('选择保存位置' if kind == 'folder' else '打开 TXT 词集', self.window,
+                        Gtk.FileChooserAction.SELECT_FOLDER if kind == 'folder' else Gtk.FileChooserAction.OPEN, '选择', '取消')
+                    if initial and Path(initial).is_dir(): chooser.set_current_folder(Gio.File.new_for_path(initial))
+                    if kind == 'file':
+                        file_filter=Gtk.FileFilter();file_filter.set_name('TXT');file_filter.add_pattern('*.txt');file_filter.add_pattern('*.TXT');chooser.add_filter(file_filter)
+                    def complete(chooser, response):
+                        if finished.is_set(): return False
+                        selected=chooser.get_file() if response == Gtk.ResponseType.ACCEPT else None
+                        result['path']=selected.get_path() if selected else None
+                        chooser.destroy();self.file_picker_cancel=None;finished.set()
+                        return False
+                    chooser.connect('response', complete)
+                    cancellable.connect('cancelled',lambda _:GLib.idle_add(complete,chooser,Gtk.ResponseType.CANCEL))
+                    chooser.show()
+                    return False
+                dialog = Gtk.FileDialog()
+                dialog.set_title('选择保存位置' if kind == 'folder' else '打开 TXT 词集')
+                if initial and Path(initial).is_dir(): dialog.set_initial_folder(Gio.File.new_for_path(initial))
+                if kind == 'file':
+                    filters = Gio.ListStore.new(Gtk.FileFilter)
+                    file_filter = Gtk.FileFilter();file_filter.set_name('TXT');file_filter.add_pattern('*.txt');file_filter.add_pattern('*.TXT')
+                    filters.append(file_filter);dialog.set_filters(filters)
+                def done(dialog, response, _):
+                    try:
+                        selected = dialog.select_folder_finish(response) if kind == 'folder' else dialog.open_finish(response)
+                        result['path'] = selected.get_path() if selected else None
+                    except GLib.Error as error:
+                        if error.matches(Gtk.dialog_error_quark(), Gtk.DialogError.DISMISSED) or error.matches(Gtk.dialog_error_quark(), Gtk.DialogError.CANCELLED): result['path'] = None
+                        else: result['error'] = error.message
+                    finally:
+                        self.file_picker_cancel = None
+                        finished.set()
+                try:
+                    if kind == 'folder': dialog.select_folder(self.window, cancellable, done, None)
+                    else: dialog.open(self.window, cancellable, done, None)
+                except Exception as error:
+                    result['error'] = str(error);finished.set()
+                return False
+            def guarded_begin():
+                try: return begin()
+                except Exception as error:
+                    result['error']=str(error);self.file_picker_cancel=None;finished.set()
+                    return False
+            GLib.idle_add(guarded_begin)
+            finished.wait()
+            if 'error' in result: raise ValueError(result['error'])
+            return result.get('path')
+
         def shortcut_hints(self,manager,value):
             try:
                 key=json.loads(value.to_string()).get('collapse','')
@@ -122,6 +180,7 @@ def main():
             except (ValueError,AttributeError):pass
 
         def close_requested(self,window):
+            if self.file_picker_cancel: self.file_picker_cancel.cancel()
             if self.saved_close:
                 return False
             if not self.closing:

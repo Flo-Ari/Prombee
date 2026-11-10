@@ -106,9 +106,9 @@ class WindowsFloating:
         user.SetWindowRgn.argtypes=[W.HWND,W.HRGN,W.BOOL]
         hwnd=int(self.orb.native.Handle.ToInt64())
         if full:user.SetWindowRgn(hwnd,None,True);return
-        gdi.CreateEllipticRgn.argtypes=[C.c_int,C.c_int,C.c_int,C.c_int];gdi.CreateEllipticRgn.restype=W.HRGN
+        gdi.CreateRoundRectRgn.argtypes=[C.c_int]*6;gdi.CreateRoundRectRgn.restype=W.HRGN
         scale=float(self.orb.native._scale);cx=ORB_WIDTH/2;cy=ORB_HEIGHT/2
-        region=gdi.CreateEllipticRgn(round((cx-175)*scale),round((cy-110)*scale),round((cx+175)*scale),round((cy+110)*scale))
+        region=gdi.CreateRoundRectRgn(round((cx-220)*scale),round((cy-175)*scale),round((cx+220)*scale),round((cy+105)*scale),24,24)
         # Ownership of a successful region is transferred to Windows.
         if not user.SetWindowRgn(hwnd,region,True):
             gdi.DeleteObject.argtypes=[W.HGDIOBJ];gdi.DeleteObject(region)

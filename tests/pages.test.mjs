@@ -61,6 +61,7 @@ globalThis.fetch = async (url, options) =>
           json: async () => ({ state: structuredClone(source), revision: 0 }),
         };
 await import("../web/app.js");
+document.queryCommandState = () => false;
 const $ = (id) => document.getElementById(id);
 const { hierarchyNodes, toMarkdown } = await import("../web/core.js");
 const { renderComparison } = await import("../web/review.js");
@@ -99,10 +100,10 @@ test("tabs, historical template import, new round, raw preview and undo work tog
   );
   $("preview").click();
   assert.equal($("editorToolbar").hidden, true);
-  assert.equal($("previewContent").querySelector("h1").textContent, "约束");
+  assert.equal($("previewContent").querySelector("h1"), null);
   $("previewMode").value = "raw";
   $("previewMode").dispatchEvent(new window.Event("change"));
-  assert.equal($("rawMarkdown").textContent, "# 约束\n");
+  assert.equal($("rawMarkdown").textContent, "");
   assert.equal($("rawMarkdown").hidden, false);
   $("compare").click();
   $("compareLeft").value = "r1";
@@ -123,7 +124,7 @@ test("tabs, historical template import, new round, raw preview and undo work tog
   assert.equal(saved.state.template.nodes[0].html, "约束");
   assert.equal(
     toMarkdown(saved.state.documents.find((d) => d.name === "第3轮").nodes),
-    "# 约束\n",
+    "",
   );
   assert.equal(source.documents[0].nodes[1].html, "新正文");
 });
@@ -272,16 +273,8 @@ test("new prompt set requires a selected directory and recent selector follows t
       return { ok: true, json: async () => registry };
     }
     if (url === "/api/library") return { ok: true, json: async () => registry };
-    if (url.startsWith("/api/fs"))
-      return {
-        ok: true,
-        json: async () => ({
-          path: "/chosen",
-          parent: "/",
-          entries: [],
-          shortcuts: [],
-        }),
-      };
+    if (url === "/api/picker")
+      return { ok: true, json: async () => ({ path: "/chosen" }) };
     if (url.startsWith("/api/state?"))
       return {
         ok: true,
@@ -306,7 +299,6 @@ test("new prompt set requires a selected directory and recent selector follows t
   assert.equal($("libraryCreate").disabled, true);
   $("chooseLocation").click();
   await settle();
-  $("folderUse").click();
   assert.equal($("libraryCreate").disabled, false);
   $("libraryCreate").click();
   await settle();
@@ -352,7 +344,9 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
     buttons.slice(0, 2).map((b) => b.id),
     ["multiSelect", "deleteEmpty"],
   );
-  assert.equal(buttons.at(-1).id, "deleteRound");
+  assert.equal($("deleteRound").previousElementSibling, $("newDoc"));
+  assert.equal($("deleteRound").parentElement.tagName, "HEADER");
+  assert.equal($("deleteRound").textContent, "− 删除");
   assert.equal(document.querySelector("#menuContext,.menu-caption"), null);
 });
 
@@ -469,7 +463,10 @@ test("shortcut tab records, validates, saves and activates edited bindings witho
   $("shortcutsTab").click();
   assert.equal($("shortcutsPanel").hidden, false);
   assert.equal($("editorToolbar").hidden, true);
-  assert.equal($("commonTab").nextElementSibling, $("shortcutsTab"));
+  assert.equal(
+    $("commonTab").nextElementSibling.nextElementSibling,
+    $("shortcutsTab"),
+  );
   const input = document.querySelector('[data-action="insert"]');
   input.focus();
   key("k", { ctrlKey: true });
@@ -618,4 +615,44 @@ test("keyboard sorting moves a heading and children as one block and supports ca
   assert.ok(order().indexOf(ids[0]) > order().indexOf(ids[1]));
   $("undo").click();
   assert.deepEqual(order(), original);
+});
+
+test("editing tabs restore independent caret, scroll and multi-selection state", () => {
+  const main = document.querySelector("main");
+  $("editorTab").click();
+  let field = document.querySelector(".content");
+  field.focus();
+  field.textContent = "保存光标和位置";
+  field.dispatchEvent(new window.Event("input", { bubbles: true }));
+  const range = document.createRange();
+  range.setStart(field.firstChild, 2);
+  range.setEnd(field.firstChild, 5);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+  document.dispatchEvent(new window.Event("selectionchange"));
+  const id = field.dataset.id;
+  if ($("multiSelect").getAttribute("aria-pressed") !== "true")
+    $("multiSelect").click();
+  const check = document.querySelector(".row input[type=checkbox]");
+  check.checked = true;
+  check.dispatchEvent(new window.Event("change"));
+  main.scrollTop = 325;
+  $("template").click();
+  main.scrollTop = 140;
+  $("commonTab").click();
+  main.scrollTop = 75;
+  $("preview").click();
+  $("editorTab").click();
+  assert.equal(main.scrollTop, 325);
+  assert.equal(document.activeElement.dataset.id, id);
+  assert.equal(window.getSelection().toString(), "光标和");
+  assert.equal($("multiSelect").getAttribute("aria-pressed"), "true");
+  assert.equal(
+    document.querySelector(".row input[type=checkbox]").checked,
+    true,
+  );
+  $("template").click();
+  assert.equal(main.scrollTop, 140);
+  $("commonTab").click();
+  assert.equal(main.scrollTop, 75);
 });

@@ -86,7 +86,7 @@ class XDesktop:
             _fields_=[('x',C.c_short),('y',C.c_short),('width',C.c_ushort),('height',C.c_ushort)]
         scale=window.get_scale_factor()
         if full:r=Rect(0,0,65535,65535)
-        else:r=Rect(round((ORB_WIDTH/2-110)*scale),round((ORB_HEIGHT/2-85)*scale),round(220*scale),round(170*scale))
+        else:r=Rect(round((ORB_WIDTH/2-220)*scale),round((ORB_HEIGHT/2-175)*scale),round(440*scale),round(280*scale))
         self.shape.XShapeCombineRectangles(self.display,window.get_surface().get_xid(),2,0,0,C.byref(r),1,0,0)
         self.x.XFlush(self.display)
 

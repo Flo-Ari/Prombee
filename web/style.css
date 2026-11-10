@@ -920,16 +920,12 @@ body.dark .fold {
 #previewToolbar button.active {
   border-color: var(--blue);
 }
-/* Inline project and local-folder management. */
+/* Prompt sets and device-local group management. */
 #libraryPanel {
   max-width: 1300px;
   margin: 0 auto;
   padding: 22px;
 }
-.library-toolbar,
-.folder-address,
-.folder-actions,
-#folderShortcuts,
 .location-control,
 .set-actions {
   display: flex;
@@ -1015,32 +1011,6 @@ body.dark .fold {
 .set-actions button,
 .set-actions select {
   font-size: 12px;
-}
-.folder-address input {
-  flex: 1;
-}
-#folderShortcuts {
-  margin: 12px 0;
-}
-#folderEntries {
-  max-height: 320px;
-  overflow: auto;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 8px 0;
-}
-.folder-entry {
-  display: block;
-  border: 0;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-.folder-actions {
-  justify-content: flex-end;
-  margin-top: 14px;
 }
 .muted {
   color: var(--muted);
@@ -1295,4 +1265,11 @@ body.dark .fold {
 #groupsList {
   display: grid;
   gap: 5px;
+}
+
+.header-separator {
+  align-self: center;
+  height: 23px;
+  flex-shrink: 0;
+  margin: 0 3px;
 }

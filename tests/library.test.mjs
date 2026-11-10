@@ -39,18 +39,8 @@ test("group management filters sets, creates inline, assigns metadata and opens 
   };
   const actions = [];
   globalThis.fetch = async (url, options) => {
-    if (url.startsWith("/api/fs"))
-      return {
-        ok: true,
-        json: async () => ({
-          path: "/chosen",
-          parent: "/",
-          entries: [
-            { kind: "text", name: "已有.txt", path: "/chosen/已有.txt" },
-          ],
-          shortcuts: [],
-        }),
-      };
+    if (url === "/api/picker")
+      return { ok: true, json: async () => ({ path: "/chosen/已有.txt" }) };
     if (options) {
       const p = JSON.parse(options.body);
       actions.push(p);
@@ -99,10 +89,7 @@ test("group management filters sets, creates inline, assigns metadata and opens 
   assert.ok(registry.groups.some((g) => g.name === "新组"));
   $("openFile").click();
   await tick();
-  assert.equal($("folderPicker").hidden, false);
-  assert.equal($("folderUse").hidden, true);
-  document.querySelector(".folder-entry").click();
-  await tick();
+  assert.equal($("folderPicker"), null);
   assert.equal(opened, 1);
   assert.equal(actions.at(-1).action, "openSet");
   assert.equal(document.querySelector(".library-toolbar"), null);

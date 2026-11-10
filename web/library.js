@@ -17,10 +17,9 @@ export function createLibraryUI({
 }) {
   let registry = { sets: [], groups: [] },
     groupFilter = "ungrouped",
-    mode = "createSet",
     location = "",
-    folder = "",
-    busy = false;
+    busy = false,
+    picking = false;
   async function request(url, payload) {
     const response = await fetch(
       url,
@@ -116,44 +115,6 @@ export function createLibraryUI({
     if (!e.target.closest(".library-popover,.group-menu,.assign-group"))
       document.querySelector(".library-popover")?.remove();
   });
-  async function browse(path) {
-    const data = await request(
-      "/api/fs" + (path ? "?path=" + encodeURIComponent(path) : ""),
-    );
-    folder = data.path;
-    $("folderPicker").hidden = false;
-    $("folderAddress").value = folder;
-    $("folderUp").disabled = data.parent === folder;
-    $("folderUp").onclick = run(() => browse(data.parent));
-    $("folderUse").hidden = mode === "openSet";
-    $("folderShortcuts").replaceChildren();
-    for (const s of data.shortcuts) {
-      const b = el("button", s.name);
-      b.onclick = run(() => browse(s.path));
-      $("folderShortcuts").append(b);
-    }
-    $("folderEntries").replaceChildren();
-    for (const entry of data.entries) {
-      if (entry.kind === "text" && mode !== "openSet") continue;
-      const b = el(
-        "button",
-        (entry.kind === "folder" ? "▸ " : "TXT  ") + entry.name,
-        "folder-entry",
-      );
-      b.title = entry.path;
-      b.onclick = run(async () => {
-        if (entry.kind === "folder") await browse(entry.path);
-        else {
-          await act(
-            { action: "openSet", path: entry.path, groupId: groupFilter },
-            true,
-          );
-          $("folderPicker").hidden = true;
-        }
-      });
-      $("folderEntries").append(b);
-    }
-  }
   function paint() {
     const selected = getSetId(),
       recent = [...registry.sets].sort((a, b) => b.lastOpened - a.lastOpened);
@@ -285,30 +246,29 @@ export function createLibraryUI({
     $("groupsList").append(row);
     editName(row, "新分组", (name) => act({ action: "createGroup", name }));
   };
-  $("chooseLocation").onclick = run(() => {
-    mode = "createSet";
-    return browse(location);
-  });
-  $("openFile").onclick = run(() => {
-    mode = "openSet";
-    return browse(location);
-  });
-  $("folderGo").onclick = run(() => browse($("folderAddress").value));
-  $("folderAddress").onkeydown = (e) => {
-    if (e.key === "Enter") {
-      $("folderGo").click();
-      e.preventDefault();
+  async function pick(kind) {
+    if (picking) return;
+    picking = true;
+    $("chooseLocation").disabled = $("openFile").disabled = true;
+    try {
+      const result = await request("/api/picker", { kind, initial: location });
+      if (!result.path) return;
+      if (kind === "folder") {
+        location = result.path;
+        $("chosenLocation").textContent = location;
+        $("libraryCreate").disabled = false;
+      } else
+        await act(
+          { action: "openSet", path: result.path, groupId: groupFilter },
+          true,
+        );
+    } finally {
+      picking = false;
+      $("chooseLocation").disabled = $("openFile").disabled = false;
     }
-  };
-  $("folderCancel").onclick = () => {
-    $("folderPicker").hidden = true;
-  };
-  $("folderUse").onclick = () => {
-    location = folder;
-    $("chosenLocation").textContent = folder;
-    $("libraryCreate").disabled = false;
-    $("folderPicker").hidden = true;
-  };
+  }
+  $("chooseLocation").onclick = run(() => pick("folder"));
+  $("openFile").onclick = run(() => pick("file"));
   $("libraryCreate").onclick = run(async () => {
     await act(
       {
@@ -333,10 +293,7 @@ export function createLibraryUI({
       registry = value;
       paint();
     }),
-    begin() {
-      mode = "createSet";
-      $("folderPicker").hidden = true;
-    },
+    begin() {},
     repaint: paint,
   };
 }

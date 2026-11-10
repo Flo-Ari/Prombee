@@ -54,13 +54,12 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(200, shortcuts.load())
             elif path == '/api/speech':
                 self.json(200, speech.status())
-            elif path in ('/api/state', '/api/library', '/api/fs'):
+            elif path in ('/api/state', '/api/library'):
                 try:
                     from urllib.parse import parse_qs
                     query = parse_qs(urlsplit(self.path).query)
                     if path == '/api/state': self.json(200, library.load(query.get('setId', [None])[0]))
-                    elif path == '/api/library': self.json(200, library.snapshot())
-                    else: self.json(200, library.browse(query.get('path', [None])[0]))
+                    else: self.json(200, library.snapshot())
                 except (ValueError, OSError, KeyError) as error:
                     self.json(400, {'error': str(error)})
             elif path=='/api/dev':
@@ -74,7 +73,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts'):
+            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -84,7 +83,15 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                if self.path == '/api/shortcuts':
+                if self.path == '/api/picker':
+                    kind = payload.get('kind')
+                    if kind not in ('folder', 'file'): raise ValueError('文件选择类型无效')
+                    initial = payload.get('initial', '')
+                    if not isinstance(initial, str): raise ValueError('文件位置无效')
+                    from .picker import choose_path
+                    chosen = getattr(self.server, 'pick_path', choose_path)(kind, initial)
+                    result = {'path': chosen}
+                elif self.path == '/api/shortcuts':
                     result = shortcuts.save(payload)
                 elif self.path == '/api/speech':
                     action=payload.get('action')
