@@ -21,11 +21,11 @@ class FloatingPreferences:
     def __init__(self, data):
         self.path = Path(data) / 'floating.json'
         self.enabled = True
-        self.direction = "right"
+        self.direction = "left"
         try:
             saved=json.loads(self.path.read_text(encoding='utf-8'))
             self.enabled=saved.get('enabled') is not False
-            self.direction='left' if saved.get('direction')=='left' else 'right'
+            self.direction='right' if saved.get('direction')=='right' else 'left'
         except (OSError, ValueError, AttributeError):
             pass
 

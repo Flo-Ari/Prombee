@@ -336,3 +336,11 @@ test("native frame pulse can refresh the static logo but never draws a hidden co
   api.destroy();
   delete ctx.drawImage;
 });
+
+test("mascot uses the supplied source bitmap and the new default matches its left-facing pose", () => {
+  localStorage.removeItem("prombee-mascot-direction");
+  const { api } = start();
+  assert.equal(api.state().artworkSource, "bee-source.png");
+  assert.equal(api.state().direction, "left");
+  api.destroy();
+});

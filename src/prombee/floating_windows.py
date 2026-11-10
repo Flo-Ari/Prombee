@@ -68,7 +68,7 @@ class WindowsFloating:
     def emit(self,command,data=None):
         self.orb.run_js('window.prombeeMascot?.receive('+json.dumps(command)+','+json.dumps(data or {})+')')
     def loaded(self):
-        self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction});self.emit('pause');self.ready=True
+        self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction});self.emit('pause')
 
     def track(self):
         while not self.stop.wait(.033):
@@ -81,7 +81,11 @@ class WindowsFloating:
 
     def command(self,msg):
         action=msg.get('action')
-        if action=='collapse':self.collapse()
+        if action=='ready':
+            self.ready=True
+            self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction})
+            if self.mode=='editor':self.emit('pause')
+        elif action=='collapse':self.collapse()
         elif action=='menu':self.input_region(True)
         elif action=='menuClose':self.input_region(False)
         elif action=='scene':

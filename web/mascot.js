@@ -1,5 +1,6 @@
+import { createBeeArt, articulatedMouth, STINGER_TIP } from "./bee-art.js";
 import "./brand.js";
-// Code-drawn mascot: transparent at every scale, independent of editor content.
+// Reference-image mascot: original pixels on an articulated transparent rig.
 export const IDLE_DELAY = 60_000;
 export const MORPH_DURATION = 300;
 export const SCENES = [
@@ -157,11 +158,7 @@ export function combatPose(t) {
   };
 }
 export function mouthPoint(pose, feeding = 1) {
-  const a = feeding * 0.25,
-    tip = {
-      x: 47 + 22 * Math.cos(a) - (31 + feeding * 12) * Math.sin(a),
-      y: 19 + 22 * Math.sin(a) + (31 + feeding * 12) * Math.cos(a),
-    };
+  const tip = articulatedMouth(feeding);
   return {
     x:
       pose.x +
@@ -175,6 +172,7 @@ export function mouthPoint(pose, feeding = 1) {
 }
 export function mountMascot(canvas, menu, send = () => {}) {
   const ctx = canvas.getContext("2d", { alpha: true });
+  const artwork = createBeeArt();
   const logo = new Image();
   logo.src = "logo.svg";
   let width = 520,
@@ -183,7 +181,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     frame = 0,
     last = 0,
     destroyed = false;
-  let direction = "right",
+  let direction = "left",
     nativeDrag = false,
     globalCursor = false;
   let enabled = true,
@@ -195,9 +193,9 @@ export function mountMascot(canvas, menu, send = () => {}) {
   try {
     enabled = localStorage.getItem("prombee-mascot-animations") !== "false";
     direction =
-      localStorage.getItem("prombee-mascot-direction") === "left"
-        ? "left"
-        : "right";
+      localStorage.getItem("prombee-mascot-direction") === "right"
+        ? "right"
+        : "left";
   } catch {}
   let mouse = { x: 360, y: 120 },
     drag = null,
@@ -296,574 +294,26 @@ export function mountMascot(canvas, menu, send = () => {}) {
     line(points, color, 1.1);
     ctx.restore();
   }
-  function wing(t, near, sleep) {
-    const beat = Math.sin(t * 0.125 + (near ? 0 : 0.65)),
-      fold = 1 - sleep;
-    ctx.save();
-    ctx.translate(near ? -14 : -23, -24);
-    ctx.rotate((near ? -0.02 : -0.28) + beat * 0.19 * fold);
-    ctx.scale(1, mix(0.74 + Math.abs(beat) * 0.24, 0.18, sleep));
-    const outline = [
-      [0, 0],
-      [-35, -48],
-      [-109, -111],
-      [-138, -117],
-      [-115, -64],
-      [-62, -18],
-      [-12, 5],
-    ];
-    if (fold > 0.2)
-      for (let i = 1; i <= 3; i++) {
-        ctx.save();
-        ctx.globalAlpha *= (0.075 / i) * fold;
-        ctx.rotate(-i * 0.11);
-        path(outline, "#83ceff");
-        ctx.restore();
-      }
-    const g = ctx.createLinearGradient(-130, -110, -15, 0);
-    g.addColorStop(0, "#d6f6ffb8");
-    g.addColorStop(0.4, "#267debb0");
-    g.addColorStop(0.7, "#0c254de0");
-    g.addColorStop(1, "#071120");
-    path(outline, g, "#75caff", 1.2);
-    path(
-      [
-        [0, 0],
-        [-41, -47],
-        [-138, -117],
-        [-123, -91],
-        [-57, -26],
-      ],
-      "#0a1427",
-      "#a9c4e5",
-      0.8,
-    );
-    ctx.save();
-    ctx.beginPath();
-    outline.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    ctx.closePath();
-    ctx.clip();
-    // Fine honeycomb structure is lit by the load-bearing wing spars.
-    for (let row = 0; row < 8; row++)
-      for (let col = 0; col < 12; col++) {
-        const hx = -130 + col * 11 + (row % 2) * 5.5,
-          hy = -113 + row * 9;
-        path(
-          Array.from({ length: 6 }, (_, i) => [
-            hx + 6 * Math.cos((i * Math.PI) / 3),
-            hy + 6 * Math.sin((i * Math.PI) / 3),
-          ]),
-          null,
-          "#9ad5ff35",
-          0.5,
-        );
-      }
-    ctx.restore();
-    circuit(
-      [
-        [-6, -2],
-        [-42, -21],
-        [-72, -53],
-        [-94, -65],
-        [-130, -110],
-      ],
-      "#57d6ff",
-      1.6,
-    );
-    circuit(
-      [
-        [-22, -14],
-        [-64, -39],
-        [-94, -45],
-        [-120, -66],
-      ],
-      "#b5f0ff",
-      0.8,
-    );
-    line(
-      [
-        [-5, 2],
-        [-59, -15],
-        [-113, -62],
-        [-136, -115],
-      ],
-      "#d6f4ff",
-      1.2,
-    );
-    bolt(-2, 0, 5);
-    ellipse(-2, 0, 3, 3, "#175bb5", "#9cffff", 1);
-    ctx.restore();
-  }
-  function sensor(x, y, radius, t, sleep, target) {
-    ctx.save();
-    ctx.translate(x, y);
-    const points = Array.from({ length: 6 }, (_, i) => [
-      Math.cos((i * Math.PI) / 3) * radius,
-      Math.sin((i * Math.PI) / 3) * radius,
-    ]);
-    path(points, "#030b18", "#829bb9", 0.8);
-    ctx.save();
-    ctx.scale(1, Math.max(0.06, 1 - sleep));
-    ellipse(0, 0, radius * 0.73, radius * 0.73, "#163756", "#366eae", 0.8);
-    const dx = target.x - x,
-      dy = target.y - y,
-      length = Math.sqrt(dx * dx + dy * dy + 1200);
-    const px = (dx / length) * radius * 0.45,
-      py = (dy / length) * radius * 0.38;
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(t * 0.00008);
-    ctx.shadowColor = "#53a5ff";
-    ctx.shadowBlur = 6;
-    ellipse(0, 0, radius * 0.36, radius * 0.36, "#64bbff", "#d6f4ff", 0.7);
-    ctx.shadowBlur = 0;
-    for (let i = 0; i < 6; i++) {
-      const a = (i * Math.PI) / 3;
-      line(
-        [
-          [Math.cos(a) * radius * 0.48, Math.sin(a) * radius * 0.48],
-          [
-            Math.cos(a + 0.3) * radius * 0.67,
-            Math.sin(a + 0.3) * radius * 0.67,
-          ],
-        ],
-        "#b7e0ff",
-        0.6,
-      );
-    }
-    ellipse(-1, -1, radius * 0.1, radius * 0.1, "#fff");
-    ctx.restore();
-    ctx.restore();
-    if (sleep > 0.2)
-      line(
-        [
-          [-radius * 0.6, 0],
-          [radius * 0.6, 0],
-        ],
-        "#6695c5",
-        1.1,
-      );
-    ctx.restore();
-  }
-  function bee(
-    x,
-    y,
-    scale,
-    t,
-    { sleep = 0, energy = 0, sting = 0, alpha = 1 } = {},
-  ) {
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.translate(x, y);
-    ctx.scale(scale, scale);
-    const target = { x: (mouse.x - x) / scale, y: (mouse.y - y) / scale };
-    if (energy > 0) glow(-15, 0, 110, `rgba(55,151,255,${energy * 0.28})`);
-    wing(t, false, sleep);
-    // Carbon skeleton, articulated landing claws, and a telescoping tungsten needle.
-    metal([
-      [-80, -4],
-      [-101, 4],
-      [-108 - sting * 34, 11 + sting * 6],
-      [-87, 17],
-      [-70, 16],
-    ]);
-    path(
-      [
-        [-90, 7],
-        [-108 - sting * 34, 11 + sting * 6],
-        [-87, 11],
-      ],
-      "#eff9ff",
-    );
-    for (let i = 0; i < 3; i++) {
-      const lx = -63 + i * 23,
-        flex = Math.sin(t * 0.004 + i * 0.8) * 2 * (1 - sleep) + sleep * 6;
-      const joints = [
-        [lx, 16],
-        [lx - 11, 29],
-        [lx + 3 + flex, 42],
-        [lx + 14 + flex, 36],
-      ];
-      line(joints, "#040b16", 7);
-      line(joints, "#7189a9", 3);
-      metal(
-        [
-          [lx - 7, 24],
-          [lx - 16, 32],
-          [lx - 2 + flex, 45],
-          [lx + 7 + flex, 40],
-        ],
-        true,
-      );
-      path(
-        [
-          [lx + 4 + flex, 39],
-          [lx + 23 + flex, 30],
-          [lx + 16 + flex, 43],
-        ],
-        "#b7d1ee",
-        "#2c517a",
-        0.8,
-      );
-      circuit(
-        [
-          [lx - 12, 29],
-          [lx + 1 + flex, 41],
-        ],
-        "#42bfff",
-        0.8,
-      );
-      bolt(lx - 10, 29, 2.2);
-    }
-    // Elongated abdomen: blue enamel inserts framed by overlapping silver facets.
-    metal(
-      [
-        [-86, 2],
-        [-65, -25],
-        [-24, -28],
-        [2, -9],
-        [5, 17],
-        [-23, 36],
-        [-62, 29],
-      ],
-      true,
-    );
-    path(
-      [
-        [-82, 3],
-        [-62, -20],
-        [-27, -22],
-        [-3, -7],
-        [-1, 15],
-        [-26, 30],
-        [-60, 23],
-      ],
-      "#07101f",
-      "#547aa1",
-      1,
-    );
-    path(
-      [
-        [-67, -16],
-        [-42, -23],
-        [-21, -13],
-        [-24, 6],
-        [-49, 17],
-        [-72, 10],
-      ],
-      "#084fe5",
-      "#389dff",
-      1.3,
-    );
-    circuit(
-      [
-        [-63, -17],
-        [-43, -20],
-        [-22, -12],
-      ],
-      "#47d9ff",
-      1.2,
-    );
-    metal(
-      [
-        [-39, -25],
-        [-24, -27],
-        [3, -8],
-        [-5, 5],
-        [-22, -6],
-      ],
-      true,
-    );
-    metal(
-      [
-        [-79, 13],
-        [-51, 23],
-        [-28, 12],
-        [-15, 15],
-        [-28, 32],
-        [-61, 27],
-      ],
-      true,
-    );
-    path(
-      [
-        [-22, 6],
-        [-3, -5],
-        [2, 12],
-        [-24, 29],
-        [-31, 27],
-      ],
-      "#094ad1",
-    );
-    circuit(
-      [
-        [-21, 10],
-        [-4, 0],
-        [-1, 10],
-        [-23, 26],
-      ],
-      "#39c4ff",
-      1.4,
-    );
-    for (let i = 0; i < 4; i++)
-      line(
-        [
-          [-59 + i * 5, 17],
-          [-55 + i * 5, 22],
-        ],
-        "#10213b",
-        1.8,
-      );
-    for (const [bx, by] of [
-      [-68, -10],
-      [-53, 25],
-      [-18, 23],
-    ])
-      bolt(bx, by, 1.5);
-    metal([
-      [-25, -23],
-      [-12, -32],
-      [4, -20],
-      [7, -4],
-      [-13, 5],
-      [-29, -9],
-    ]);
-    wing(t, true, sleep);
-    metal(
-      [
-        [-9, -15],
-        [5, -23],
-        [18, -9],
-        [14, 15],
-        [-4, 22],
-        [-16, 4],
-      ],
-      true,
-    );
-    ellipse(1, 1, 9, 11, "#06111f", "#728eac", 2);
-    ellipse(1, 1, 5, 7, "#164990", "#60ceff", 1);
-    // Predator-like three-quarter helmet: two independent recessed optical eyes.
-    metal(
-      [
-        [0, -19],
-        [12, -36],
-        [32, -40],
-        [53, -30],
-        [65, -9],
-        [59, 9],
-        [41, 26],
-        [17, 23],
-        [3, 8],
-      ],
-      true,
-    );
-    path(
-      [
-        [3, -17],
-        [15, -32],
-        [31, -35],
-        [24, -18],
-        [7, -4],
-      ],
-      "#f4f8ff",
-    );
-    path(
-      [
-        [32, -36],
-        [52, -27],
-        [62, -9],
-        [44, -13],
-        [29, -23],
-      ],
-      "#a8bddb",
-      "#e1efff",
-      0.7,
-    );
-    path(
-      [
-        [7, -8],
-        [25, -22],
-        [45, -20],
-        [59, -6],
-        [50, 12],
-        [27, 15],
-        [10, 4],
-      ],
-      "#030c1b",
-      "#5782ab",
-      0.9,
-    );
-    // Angular eye sockets preserve visible pupils for full-screen gaze tracking.
-    path(
-      [
-        [8, -9],
-        [24, -18],
-        [27, -3],
-        [12, 5],
-      ],
-      "#137af4",
-      "#a4edff",
-      0.9,
-    );
-    path(
-      [
-        [31, -16],
-        [51, -13],
-        [56, -5],
-        [40, 8],
-        [30, 3],
-      ],
-      "#197ff6",
-      "#b5f2ff",
-      1,
-    );
-    sensor(19, -7, 6.2, t, sleep, target);
-    sensor(43, -5, 7.4, t, sleep, target);
-    path(
-      [
-        [6, -17],
-        [19, -25],
-        [30, -27],
-        [26, -18],
-        [11, -8],
-      ],
-      "#eff6ff",
-      "#819cb9",
-      0.8,
-    );
-    path(
-      [
-        [29, -27],
-        [51, -23],
-        [61, -12],
-        [48, -15],
-        [31, -18],
-      ],
-      "#edf4ff",
-      "#708cad",
-      0.8,
-    );
-    path(
-      [
-        [10, 9],
-        [27, 12],
-        [42, 7],
-        [55, -1],
-        [56, 9],
-        [40, 23],
-        [21, 21],
-      ],
-      "#b4cbe6",
-      "#eaf5ff",
-      0.9,
-    );
-    path(
-      [
-        [23, 16],
-        [37, 15],
-        [47, 9],
-        [44, 19],
-        [34, 25],
-        [24, 23],
-      ],
-      "#09172b",
-    );
-    circuit(
-      [
-        [11, -25],
-        [24, -32],
-        [30, -28],
-      ],
-      "#4fceff",
-      1.2,
-    );
-    circuit(
-      [
-        [50, 14],
-        [56, 7],
-        [58, 0],
-      ],
-      "#36bdff",
-      1.1,
-    );
-    for (let i = 0; i < 3; i++)
-      line(
-        [
-          [16 + i * 5, 17],
-          [19 + i * 5, 13],
-        ],
-        "#213b5b",
-        1.5,
-      );
-    // Curved mouthparts extend from the jaw, not from the abdomen or a chest emitter.
+  function bee(x, y, scale, t, pose = {}) {
     const feeding =
       scene === 2
         ? ease(clamp((t - sceneStart - 1700) / 800)) *
           ease(clamp((11000 - (t - sceneStart)) / 700))
         : 0;
-    ctx.save();
-    ctx.translate(47, 19);
-    ctx.rotate(feeding * 0.25);
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.bezierCurveTo(19, 9, 20, 21, 22, 31 + feeding * 12);
-    ctx.strokeStyle = "#06101e";
-    ctx.lineWidth = 7;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, -1);
-    ctx.bezierCurveTo(16, 6, 17, 20, 22, 31 + feeding * 12);
-    ctx.strokeStyle = "#aac6e8";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    circuit(
-      [
-        [17, 24 + feeding * 6],
-        [22, 31 + feeding * 12],
-      ],
-      "#42cbff",
-      0.9,
-    );
-    ctx.restore();
-    // Segmented antennae gently lag the body's hover motion.
-    for (const [ax, ay, bx, by] of [
-      [15, -31, 8, -57],
-      [37, -32, 49, -55],
-    ]) {
-      const sway = Math.sin(t * 0.003 + ax) * 1.5 * (1 - sleep);
-      const joint = [
-        [ax, ay],
-        [ax + (bx - ax) * 0.3, ay - 14],
-        [bx + sway, by],
-      ];
-      line(joint, "#030b15", 4.5);
-      line(joint, "#95b0d3", 1.7);
-      for (let i = 1; i < 4; i++) {
-        const f = i / 4;
-        bolt(mix(ax, bx + sway, f), mix(ay, by, f), 0.8);
-      }
-      ellipse(bx + sway, by, 4, 4, "#0d4aac", "#83eaff", 1.3);
-      ellipse(bx + sway, by, 1.7, 1.7, "#e7ffff");
-    }
-    if (sleep > 0.15) {
+    artwork.draw(ctx, x, y, scale, t, { ...pose, feeding }, mouse);
+    if (pose.energy > 0) {
       ctx.save();
-      ctx.globalAlpha *= sleep * 0.68;
-      ellipse(13, 5, 5, 2.8, "#f79bb6");
-      ellipse(47, 10, 5.5, 3, "#f79bb6");
-      ctx.restore();
-    }
-    if (energy > 0) {
-      ctx.save();
-      ctx.globalAlpha *= energy;
+      ctx.globalAlpha *= pose.alpha ?? 1;
+      ctx.globalAlpha *= pose.energy;
       for (let i = 0; i < 2; i++) {
         ctx.beginPath();
-        ctx.strokeStyle = i ? "#b8ecff" : "#398cff";
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = i ? "#a6dfff" : "#468cf0";
+        ctx.lineWidth = 1.2;
         ctx.ellipse(
-          -16,
-          0,
-          95 + i * 10,
-          30 + i * 6,
+          x - 15 * scale,
+          y,
+          95 * scale + i * 9,
+          30 * scale + i * 5,
           t * 0.002 + i,
           0.2,
           Math.PI * 1.85,
@@ -872,7 +322,6 @@ export function mountMascot(canvas, menu, send = () => {}) {
       }
       ctx.restore();
     }
-    ctx.restore();
   }
   function scenery(t) {
     // Windborne silicon petals / grass-like circuit shards, with sparse trails.
@@ -1750,8 +1199,8 @@ export function mountMascot(canvas, menu, send = () => {}) {
         // Freeze the fracture at the stinger's actual contact point. It must
         // not drift with the recovering body or appear behind the opposite end.
         impact = scenePose(3, hit * 1000, sceneStart + hit * 1000, sceneOrigin),
-        tipX = (-108 - impact.sting * 34) * impact.scale,
-        tipY = (11 + impact.sting * 6) * impact.scale,
+        tipX = STINGER_TIP.x * impact.scale,
+        tipY = STINGER_TIP.y * impact.scale,
         x =
           center.x +
           impact.x +
@@ -2122,6 +1571,8 @@ export function mountMascot(canvas, menu, send = () => {}) {
     if (visible && (enabled || morph) && now - last > 40) draw(now);
   }, 16);
   const api = {
+    ready: artwork.ready,
+    inspectArtworkPixel: (x, y) => [...(artwork.inspectPixel(x, y) || [])],
     play,
     showMenu,
     receive(command, data = {}) {
@@ -2147,7 +1598,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       if (command === "settings") {
         enabled = data.enabled !== false;
         nativeDrag = data.nativeDrag === true;
-        direction = data.direction === "left" ? "left" : "right";
+        direction = data.direction === "right" ? "right" : "left";
         scene = -1;
         previousEnvironment = null;
       }
@@ -2177,6 +1628,8 @@ export function mountMascot(canvas, menu, send = () => {}) {
       }
     },
     state: () => ({
+      artworkReady: artwork.loaded(),
+      artworkSource: "bee-source.png",
       enabled,
       direction,
       nativeDrag,
@@ -2212,6 +1665,10 @@ if (document.body.classList.contains("mascot-surface")) {
     document.getElementById("mascotMenu"),
     send,
   );
-  send("ready");
-  window.addEventListener("pywebviewready", () => send("ready"));
+  window.prombeeMascot.ready
+    .then(() => send("ready"))
+    .catch((error) => window.prombeeErrors?.push({ message: error.message }));
+  window.addEventListener("pywebviewready", () =>
+    window.prombeeMascot.ready.then(() => send("ready")),
+  );
 }

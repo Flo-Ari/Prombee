@@ -38,7 +38,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_direction_is_saved_and_head_alignment_tracks_facing(self):
         with tempfile.TemporaryDirectory() as folder:
-            prefs=FloatingPreferences(folder);self.assertEqual(prefs.direction,'right')
+            prefs=FloatingPreferences(folder);self.assertEqual(prefs.direction,'left')
             prefs.save(False,'left');restored=FloatingPreferences(folder)
             self.assertEqual(restored.direction,'left');self.assertFalse(restored.enabled)
             restored.save(True);self.assertEqual(FloatingPreferences(folder).direction,'left')
@@ -46,6 +46,16 @@ class FloatingTests(unittest.TestCase):
         _,right=morph_layout(editor,orb,logo,'right');_,left=morph_layout(editor,orb,logo,'left')
         self.assertEqual(right['from']['x']-left['from']['x'],62)
         self.assertEqual(right['to'],left['to'])
+
+    def test_windows_waits_for_source_artwork_before_marking_companion_ready(self):
+        from types import SimpleNamespace
+        from prombee.floating_windows import WindowsFloating
+        controller=WindowsFloating.__new__(WindowsFloating)
+        controller.ready=False;controller.mode='editor';controller.preferences=SimpleNamespace(enabled=True,direction='left')
+        calls=[];controller.emit=lambda command,value=None:calls.append((command,value))
+        controller.loaded();self.assertFalse(controller.ready)
+        controller.command({'action':'ready'});self.assertTrue(controller.ready)
+        self.assertEqual(calls[-1],('pause',None))
 
     def test_fedora_drag_is_one_native_grab_with_no_resize_loop_or_click(self):
         from types import SimpleNamespace

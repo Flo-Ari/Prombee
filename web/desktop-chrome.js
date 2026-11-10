@@ -58,7 +58,10 @@ function demoAction(action, data) {
     mascot.receive("morph", {
       direction: "close",
       dark: document.body.classList.contains("dark"),
-      from: { x: demoCenter.x + 31, y: demoCenter.y - 6 },
+      from: {
+        x: demoCenter.x + (mascot.state().direction === "left" ? -31 : 31),
+        y: demoCenter.y - 6,
+      },
       to: data.logo,
       editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
     });
@@ -67,7 +70,10 @@ function demoAction(action, data) {
     mascot.receive("morph", {
       direction: "open",
       dark: document.body.classList.contains("dark"),
-      from: { x: demoCenter.x + 31, y: demoCenter.y - 6 },
+      from: {
+        x: demoCenter.x + (mascot.state().direction === "left" ? -31 : 31),
+        y: demoCenter.y - 6,
+      },
       to: logoTarget(),
       editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
     });

@@ -65,9 +65,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
-                kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'}[f.suffix]
+                kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
             else:
                 self.json(404,dict(error='Not found'))
