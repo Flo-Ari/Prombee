@@ -1,3 +1,4 @@
+import { moveSubtree, bindHoldDrag } from "./reorder.js";
 import {
   mountShortcuts,
   DEFAULT_SHORTCUTS,
@@ -50,6 +51,7 @@ let page = "editor",
 let keyboardInsert = false,
   keyboardLevel = 0,
   shortcutBindings = { ...DEFAULT_SHORTCUTS };
+let sorting = null;
 const histories = new Map();
 const emptyRound = { id: "no-round", name: "", nodes: [] };
 const currentDoc = () =>
@@ -217,6 +219,19 @@ function render() {
     row.hidden = folded.has(n.id);
     row.classList.toggle("batch-selected", selected.has(n.id));
     const leading = element("div", "row-leading");
+    const drag = element("button", "drag-handle", "⠿");
+    drag.setAttribute("aria-label", "拖动排序");
+    drag.title = shortcutTitle("拖动排序", "drag", shortcutBindings);
+    leading.append(drag);
+    bindHoldDrag(
+      row,
+      {
+        start: () => beginSort(n.id, false),
+        move: (x, y) => pointerSort(x, y),
+        end: (cancel) => finishSort(cancel),
+      },
+      drag,
+    );
     if (multi) {
       const checkbox = element("input");
       checkbox.type = "checkbox";
@@ -257,16 +272,17 @@ function render() {
     content.spellcheck = false;
     content.dataset.id = n.id;
     content.dataset.placeholder =
-      n.kind === "heading" ? "标题" : "写下一条要求…";
+      n.kind === "heading" ? "标题正文" : "写下一条要求…";
     content.setAttribute("role", "textbox");
     content.setAttribute("aria-multiline", "true");
     content.setAttribute(
       "aria-label",
-      n.kind === "heading" ? `H${n.level} 标题` : "内容条目",
+      n.kind === "heading" ? `H${n.level} 条目` : "正文条目",
     );
     content.innerHTML = cleanHTML(n.html);
     content.onfocus = () => {
       active = n.id;
+      $("headingLevel").value = n.kind === "heading" ? String(n.level) : "0";
     };
     content.addEventListener("beforeinput", () => remember());
     content.addEventListener("input", () => {
@@ -368,23 +384,28 @@ function render() {
   refreshShortcutHints();
 }
 function renumber() {
-  let number = 0;
+  let number = 0,
+    characters = 0;
+  const rows = new Map(
+    [...$("paper").children].map((row) => [row.dataset.id, row]),
+  );
   for (const n of doc().nodes) {
-    const row = [...$("paper").children].find((r) => r.dataset.id === n.id);
+    const row = rows.get(n.id);
     if (!row) continue;
+    const text = plain(n.html);
+    characters += text.length;
+    let marker;
     if (n.kind === "heading") {
       number = 0;
-      row.querySelector(".marker").textContent = "H" + n.level;
-    } else if (n.raw || hasBlockMarkdown(plain(n.html))) {
-      row.querySelector(".marker").textContent = "MD";
+      marker = "H" + n.level;
+    } else if (n.raw || hasBlockMarkdown(text)) {
+      marker = "MD";
       number = 0;
-    } else
-      row.querySelector(".marker").textContent = plain(n.html).trim()
-        ? `${++number}.`
-        : "·";
+    } else marker = text.trim() ? `${++number}.` : "·";
+    const field = row.querySelector(".marker");
+    if (field.textContent !== marker) field.textContent = marker;
   }
-  $("stats").textContent =
-    `${doc().nodes.filter((n) => n.kind === "heading").length} 个标题 · ${doc().nodes.filter((n) => n.kind === "item" && plain(n.html).trim()).length} 个条目 · ${doc().nodes.reduce((s, n) => s + plain(n.html).length, 0)} 字`;
+  $("stats").textContent = `${doc().nodes.length} 个条目 · ${characters} 字`;
 }
 function contentFor(id) {
   return [...document.querySelectorAll(".content")].find(
@@ -581,7 +602,8 @@ function addHeading(level) {
   changed();
 }
 function openMenu(id, anchor) {
-  keyboardInsert = false;
+  keyboardInsert = true;
+  keyboardLevel = 0;
   for (const button of $("headingMenu").querySelectorAll("button")) {
     button.classList.remove("keyboard-choice");
     button.setAttribute("aria-current", "false");
@@ -589,6 +611,7 @@ function openMenu(id, anchor) {
   menuAnchor = id;
   const menu = $("headingMenu");
   menu.hidden = false;
+  selectKeyboardLevel();
   const level = contextLevel(doc().nodes, id);
   for (const button of menu.querySelectorAll("[data-level]")) {
     button.classList.toggle(
@@ -1045,16 +1068,20 @@ $("color").oninput = () => {
   format("foreColor", $("color").value);
 };
 $("headingLevel").onchange = () => {
+  if ($("headingLevel").value === "") return;
   const level = Number($("headingLevel").value),
     n = doc().nodes.find((n) => n.id === active);
-  if (level && n?.kind === "heading") {
-    remember();
-    n.level = level;
-    render();
-    focus(n.id);
-    changed();
-  } else if (level) toast("请先选择一个标题");
-  $("headingLevel").value = "0";
+  if (!n) {
+    $("headingLevel").value = "";
+    return;
+  }
+  remember();
+  n.kind = level ? "heading" : "item";
+  n.level = level || 1;
+  n.collapsed = false;
+  render();
+  focus(n.id);
+  changed();
 };
 $("deleteEmpty").onclick = deleteEmpty;
 $("undo").onclick = undo;
@@ -1065,7 +1092,7 @@ const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
     shortcutBindings = bindings;
     if ($("insertShortcutHint"))
       $("insertShortcutHint").textContent = bindings.insert
-        ? `添加：${displayCombo(bindings.insert)} → 1–6 选择标题 → Enter；直接 Enter 添加条目，Esc 取消。`
+        ? `添加：${displayCombo(bindings.insert)} → 1–6 立即创建；↑↓ 选择，Enter 添加正文，Esc 取消。`
         : "添加快捷键未设置";
     refreshShortcutHints();
     window.webkit?.messageHandlers?.shortcutHints?.postMessage(
@@ -1075,7 +1102,7 @@ const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
 });
 function refreshShortcutHints() {
   for (const [id, action, name] of [
-    ["libraryTab", "library", "新建词集"],
+    ["libraryTab", "library", "词集管理"],
     ["template", "template", "模板"],
     ["newDoc", "newRound", "新建一轮"],
     ["editorTab", "editor", "编写"],
@@ -1104,6 +1131,7 @@ function refreshShortcutHints() {
     [".eye", "exclude", "排除"],
     [".remove", "delete", "删除"],
     [".fold", "fold", null],
+    [".drag-handle", "drag", "拖动排序"],
   ])
     for (const button of $("paper").querySelectorAll(selector))
       button.title = shortcutTitle(
@@ -1149,6 +1177,129 @@ function selectKeyboardLevel() {
     button.classList.toggle("keyboard-choice", chosen);
     button.setAttribute("aria-current", String(chosen));
   }
+}
+function confirmInsert() {
+  const level = keyboardLevel;
+  if (page === "editor" && !state.documents.length) {
+    $("newDoc").click();
+    active = doc().nodes.at(-1)?.id || null;
+    menuAnchor = active;
+  }
+  active = menuAnchor;
+  level ? addHeading(level) : addItem();
+}
+function beginSort(id, keyboard) {
+  if (!id || !editing()) return;
+  closeMenu();
+  const nodes = doc().nodes,
+    index = nodes.findIndex((n) => n.id === id);
+  if (index < 0) return;
+  sorting = {
+    id,
+    keyboard,
+    original: [...nodes],
+    changed: false,
+    historyLength: history.length,
+    previousFuture: [...future],
+  };
+  clearTimeout(saveTimer);
+  active = id;
+  const end = scopeEnd(nodes, index);
+  for (const node of nodes.slice(index, end))
+    contentFor(node.id)?.closest(".row").classList.add("sorting");
+  document.body.classList.add("sorting-active");
+}
+function reorderBefore(targetId, after) {
+  if (!sorting) return;
+  const nodes = doc().nodes;
+  // Capture the original state once; the whole gesture is one undo operation.
+  if (!sorting.changed) {
+    const copy = [...nodes];
+    if (!moveSubtree(copy, sorting.id, targetId, after)) return;
+    remember();
+  }
+  if (!moveSubtree(nodes, sorting.id, targetId, after)) return;
+  sorting.changed = true;
+  const rows = new Map(
+    [...$("paper").children].map((row) => [row.dataset.id, row]),
+  );
+  // Retain the actual editable nodes and pointer capture while changing their order.
+  let previous = null;
+  for (const node of nodes) {
+    const row = rows.get(node.id);
+    const expected = previous ? previous.nextSibling : $("paper").firstChild;
+    if (row !== expected) $("paper").insertBefore(row, expected);
+    previous = row;
+  }
+  renumber();
+}
+function keyboardSort(step) {
+  const nodes = doc().nodes,
+    start = nodes.findIndex((n) => n.id === sorting.id),
+    end = scopeEnd(nodes, start);
+  const level = nodes[start].kind === "heading" ? nodes[start].level : 7;
+  let target;
+  if (step > 0) target = nodes[end];
+  else {
+    // Move past the preceding sibling's complete subtree, keeping its children attached.
+    let i = start - 1;
+    while (i > 0 && nodes[i].kind === "heading" && nodes[i].level > level) i--;
+    if (nodes[start].kind === "heading") {
+      i = start - 1;
+      while (
+        i >= 0 &&
+        !(nodes[i].kind === "heading" && nodes[i].level <= level)
+      )
+        i--;
+    }
+    target = nodes[i];
+  }
+  if (target) {
+    reorderBefore(target.id, step > 0);
+    contentFor(sorting.id)?.scrollIntoView?.({ block: "nearest" });
+  }
+}
+function pointerSort(x, y) {
+  if (!sorting) return;
+  const rows = [
+    ...$("paper").querySelectorAll(".row:not([hidden]):not(.sorting)"),
+  ];
+  const target = rows.find((row) => {
+    const r = row.getBoundingClientRect();
+    return y >= r.top && y <= r.bottom;
+  });
+  if (target) {
+    const r = target.getBoundingClientRect();
+    reorderBefore(target.dataset.id, y > r.top + r.height / 2);
+  }
+  const main = document.querySelector("main"),
+    r = main.getBoundingClientRect();
+  if (y < r.top + 45) main.scrollTop -= 18;
+  else if (y > r.bottom - 45) main.scrollTop += 18;
+}
+function finishSort(cancel = false) {
+  if (!sorting) return;
+  const {
+    id,
+    changed: moved,
+    original,
+    historyLength,
+    previousFuture,
+  } = sorting;
+  sorting = null;
+  document.body.classList.remove("sorting-active");
+  if (cancel && moved) {
+    doc().nodes = original;
+    history.length = historyLength;
+    future = previousFuture;
+  }
+  if (moved) {
+    render();
+    focus(id);
+    if (!cancel || dirty) changed();
+  } else
+    for (const row of $("paper").querySelectorAll(".sorting"))
+      row.classList.remove("sorting");
 }
 function moveEntry(step) {
   const source = document.activeElement?.closest(".content");
@@ -1232,7 +1383,8 @@ function runShortcut(action) {
     return true;
   }
   if (!editing()) return true;
-  if (action === "insert") beginKeyboardInsert();
+  if (action === "drag") beginSort(active, true);
+  else if (action === "insert") beginKeyboardInsert();
   else if (action === "copy") copy();
   else if (action === "undo") undo();
   else if (action === "redo") redo();
@@ -1257,23 +1409,28 @@ document.addEventListener(
       event.target.closest?.(".shortcut-key")
     )
       return;
+    if (sorting?.keyboard) {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown")
+        keyboardSort(event.key === "ArrowUp" ? -1 : 1);
+      else if (event.key === "Enter" || event.key === "Escape")
+        finishSort(event.key === "Escape");
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (keyboardInsert) {
       if (event.key === "Escape") closeMenu();
-      else if (/^[1-6]$/.test(event.key)) {
+      else if (/^[0-6]$/.test(event.key)) {
         keyboardLevel = Number(event.key);
+        confirmInsert();
+      } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        keyboardLevel = (keyboardLevel + (event.key === "ArrowUp" ? 6 : 1)) % 7;
         selectKeyboardLevel();
       } else if (event.key === "Backspace") {
         keyboardLevel = 0;
         selectKeyboardLevel();
-      } else if (event.key === "Enter") {
-        const level = keyboardLevel;
-        if (page === "editor" && !state.documents.length) {
-          $("newDoc").click();
-          active = doc().nodes.at(-1)?.id || null;
-          menuAnchor = active;
-        }
-        level ? addHeading(level) : addItem();
-      } else if (event.key === "Tab") {
+      } else if (event.key === "Enter") confirmInsert();
+      else if (event.key === "Tab") {
         closeMenu();
         return;
       }
@@ -1453,11 +1610,14 @@ try {
 }
 
 let devStamp;
-setInterval(async () => {
+const devPoll = setInterval(async () => {
   try {
     const response = await fetch("/api/dev");
     const value = await response.json();
-    if (!value.enabled) return;
+    if (!value.enabled) {
+      clearInterval(devPoll);
+      return;
+    }
     if (devStamp && devStamp !== value.stamp && !dirty && !saveRunning)
       location.reload();
     else if (!devStamp) devStamp = value.stamp;

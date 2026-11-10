@@ -8,7 +8,7 @@ export const SHORTCUT_GROUPS = [
     id: "header",
     name: "顶部栏",
     actions: [
-      ["library", "词集与项目", "Ctrl+Alt+O"],
+      ["library", "词集管理", "Ctrl+Alt+O"],
       ["template", "模板", "Ctrl+Alt+T"],
       ["newRound", "新建一轮", "Ctrl+Shift+N"],
       ["editor", "编写", "Ctrl+Alt+E"],
@@ -39,16 +39,23 @@ export const SHORTCUT_GROUPS = [
     id: "editor",
     name: "编辑区",
     actions: [
-      ["previous", "上一条目／标题", "ArrowUp"],
-      ["next", "下一条目／标题", "ArrowDown"],
+      ["previous", "上一条目", "ArrowUp"],
+      ["next", "下一条目", "ArrowDown"],
       ["fold", "折叠／展开", "Ctrl+Shift+L"],
       ["insert", "添加", "Ctrl+N"],
+      ["drag", "拖动排序", "Ctrl+Shift+G"],
       ["exclude", "排除本条目", "Ctrl+Shift+E"],
       ["delete", "删除本条目", "Ctrl+Shift+Backspace"],
     ],
   },
   { id: "footer", name: "状态栏", actions: [["save", "保存", "Ctrl+S"]] },
 ];
+SHORTCUT_GROUPS.unshift(
+  SHORTCUT_GROUPS.splice(
+    SHORTCUT_GROUPS.findIndex((g) => g.id === "editor"),
+    1,
+  )[0],
+);
 export const SHORTCUTS = SHORTCUT_GROUPS.flatMap((group) => group.actions);
 export function shortcutTitle(name, action, bindings) {
   return (

@@ -63,13 +63,6 @@ def main():
             header.set_show_title_buttons(True)
             header.set_decoration_layout(":minimize,maximize,close")
             header.set_title_widget(Gtk.Label(label=app_name()))
-            # Keep standard maximize/close controls; minimize uses the bee transition.
-            header.set_decoration_layout(":maximize,close")
-            minimize=Gtk.Button.new_from_icon_name('window-minimize-symbolic')
-            minimize.set_tooltip_text('最小化（Ctrl+M）')
-            self.minimize_button=minimize
-            minimize.connect('clicked',lambda button:self.floating.collapse())
-            header.pack_end(minimize)
             self.window.set_titlebar(header)
             self.web=WebKit.WebView()
             self.closing=False
@@ -84,13 +77,37 @@ def main():
             manager.register_script_message_handler('close',None)
             manager.connect('script-message-received::close',self.close_finished)
             self.window.connect('close-request',self.close_requested)
-            self.web.get_settings().set_enable_developer_extras(True)
+            settings = self.web.get_settings()
+            # WebKitGTK's wheel animator queues high-resolution deltas, producing
+            # input lag (WebKit bug 258926). Let native deltas scroll directly;
+            # explicit CSS smooth scroll for the top/bottom controls still works.
+            settings.set_enable_smooth_scrolling(False)
+            settings.set_enable_developer_extras(True)
             self.web.connect('decide-policy',self.navigation)
             self.window.set_child(self.web)
             manager.register_script_message_handler('mascot',None)
             manager.connect('script-message-received::mascot',lambda m,value:self.floating.command(json.loads(value.to_string())))
             self.web.load_uri(url+'?desktop=gtk&lang='+ui_language())
             self.window.present()
+            # Use GTK's own window-control button, including its native spacing,
+            # hover state and dimensions, and intercept only its primary click.
+            def bind_minimize(widget):
+                if isinstance(widget, Gtk.Button) and widget.has_css_class('minimize'):
+                    self.minimize_button = widget
+                    widget.set_tooltip_text('最小化（Ctrl+M）')
+                    gesture = Gtk.GestureClick()
+                    gesture.set_button(1)
+                    gesture.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+                    def pressed(gesture, count, x, y):
+                        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+                        self.floating.collapse()
+                    gesture.connect('pressed', pressed)
+                    widget.add_controller(gesture)
+                child = widget.get_first_child()
+                while child:
+                    bind_minimize(child)
+                    child = child.get_next_sibling()
+            bind_minimize(header)
             from prombee.floating_gtk import GtkFloating
             self.floating=GtkFloating(self,self.window,self.web,url,data)
             if args.smoke_test:

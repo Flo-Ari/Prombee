@@ -931,15 +931,11 @@ body.dark .fold {
 .folder-actions,
 #folderShortcuts,
 .location-control,
-.set-actions,
-.trash-row {
+.set-actions {
   display: flex;
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
-}
-.library-toolbar {
-  margin-bottom: 18px;
 }
 #libraryStatus {
   color: var(--muted);
@@ -985,12 +981,12 @@ body.dark .fold {
   grid-template-columns: 200px minmax(0, 1fr);
   gap: 18px;
 }
-#projectsList {
+#groupsList {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-#projectsList button {
+#groupsList button {
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1046,14 +1042,6 @@ body.dark .fold {
   justify-content: flex-end;
   margin-top: 14px;
 }
-#trashSection {
-  margin-top: 20px;
-  font-size: 12px;
-}
-.trash-row {
-  justify-content: space-between;
-  padding: 10px 0;
-}
 .muted {
   color: var(--muted);
   font-size: 12px;
@@ -1065,7 +1053,7 @@ body.dark .fold {
   #libraryPanel {
     padding: 12px;
   }
-  #projectsList {
+  #groupsList {
     flex-direction: row;
     flex-wrap: wrap;
   }
@@ -1231,4 +1219,80 @@ body.dark .fold {
 }
 .shortcut-section:first-child {
   margin-top: 12px;
+}
+/* Isolate row layout without clipping large text or editor selection. */
+.row {
+  contain: layout style;
+}
+.drag-handle {
+  width: 18px;
+  min-width: 18px;
+  height: calc(var(--doc-size) * 1.4);
+  min-height: 22px;
+  padding: 0;
+  color: var(--muted);
+  border-color: transparent;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+.drag-handle:hover {
+  background: var(--hover);
+  border-color: var(--line);
+}
+.sorting-active {
+  user-select: none;
+  cursor: grabbing;
+}
+.row.sorting {
+  background: var(--hover);
+  box-shadow: inset 3px 0 #e5b928;
+}
+.group-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  border-radius: 5px;
+}
+.group-row.dragging {
+  opacity: 0.65;
+  background: var(--hover);
+}
+.group-name {
+  flex: 1;
+  text-align: left;
+}
+.groups-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.group-menu {
+  padding: 2px 8px;
+}
+.set-name {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 3px 0;
+  font-weight: 600;
+}
+.library-popover {
+  position: fixed;
+  z-index: 120;
+  display: grid;
+  gap: 4px;
+  min-width: 155px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.library-popover button {
+  text-align: left;
+}
+#groupsList {
+  display: grid;
+  gap: 5px;
 }

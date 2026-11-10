@@ -155,3 +155,31 @@ test('contenteditable multiline paste preserves the first block boundary and Mar
   assert.equal(toMarkdown(normalized),'## 实现要求\n\n- 保留所有原有内容\n- 完成后运行检查\n\n### 输出格式\n\n```md\n# 代码块里的标题\n```\n');
   assert.equal(cleanHTML(cleaned),cleaned);
 });
+
+test("drag sorting retains excluded and collapsed children and rejects self drops", async () => {
+  const { moveSubtree } = await import("../web/reorder.js");
+  const nodes = [
+    { id: "a", kind: "heading", level: 1 },
+    { id: "body", kind: "item", level: 1 },
+    {
+      id: "nested",
+      kind: "heading",
+      level: 2,
+      collapsed: true,
+      excluded: true,
+    },
+    { id: "child", kind: "item", level: 1 },
+    { id: "b", kind: "heading", level: 1 },
+    { id: "bbody", kind: "item", level: 1 },
+  ];
+  const before = structuredClone(nodes);
+  assert.equal(moveSubtree(nodes, "a", "child", true), false);
+  assert.deepEqual(nodes, before);
+  assert.equal(moveSubtree(nodes, "a", "b", true), true);
+  assert.deepEqual(
+    nodes.map((n) => n.id),
+    ["b", "bbody", "a", "body", "nested", "child"],
+  );
+  assert.equal(moveSubtree(nodes, "a", "b"), true);
+  assert.deepEqual(nodes, before);
+});

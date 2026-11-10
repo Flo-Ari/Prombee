@@ -1,4 +1,4 @@
-"""Local projects and self-contained UTF-8 TXT prompt sets."""
+"""Local groups and self-contained UTF-8 TXT prompt sets."""
 from pathlib import Path
 from html import escape
 from html.parser import HTMLParser
@@ -6,7 +6,6 @@ from contextlib import contextmanager
 import hashlib
 import json
 import os
-import shutil
 import tempfile
 import time
 import uuid
@@ -137,7 +136,27 @@ class Library:
                 path = self.data_dir / '当前词集.txt'
                 if not path.exists(): atomic_write(path, encode_workspace(package['state'], package['revision']))
                 entry = self.entry(path)
-                self.write_registry({'version': 1, 'active': entry['id'], 'sets': [entry], 'projects': [], 'trash': []})
+                self.write_registry({'version': 2, 'active': entry['id'], 'sets': [entry], 'groups': [{'id': 'ungrouped', 'name': '未分组', 'pinned': False}]})
+            self.migrate_registry()
+
+    def migrate_registry(self):
+        value = self.read_registry()
+        if value.get('version') == 2: return
+        # Keep the original registry and archived files intact for manual recovery.
+        backup = self.data_dir / 'library-v1-backup.json'
+        if not backup.exists(): atomic_write(backup, json.dumps(value, ensure_ascii=False, indent=2))
+        value['groups'] = [{'id': 'ungrouped', 'name': '未分组', 'pinned': False}] + [
+            {'id': p['id'], 'name': p['name'], 'pinned': False} for p in value.pop('projects', [])]
+        for entry in value['sets']:
+            entry['groupId'] = entry.pop('projectId', None) or 'ungrouped'
+        value.pop('trash', None)
+        value['version'] = 2
+        self.write_registry(value)
+
+    def group_id(self, registry, requested):
+        group_id = requested or 'ungrouped'
+        if not any(g['id'] == group_id for g in registry['groups']): raise ValueError('分组不存在')
+        return group_id
 
     @contextmanager
     def transaction(self):
@@ -155,8 +174,8 @@ class Library:
     def write_registry(self, value):
         atomic_write(self.registry, json.dumps(value, ensure_ascii=False, indent=2))
 
-    def entry(self, path, project_id=None):
-        return {'id': str(uuid.uuid4()), 'name': path.stem, 'path': str(path.resolve()), 'projectId': project_id, 'lastOpened': time.time()}
+    def entry(self, path, group_id="ungrouped"):
+        return {'id': str(uuid.uuid4()), 'name': path.stem, 'path': str(path.resolve()), 'groupId': group_id, 'lastOpened': time.time()}
 
     def find(self, registry, set_id=None):
         entry = next((s for s in registry['sets'] if s['id'] == (set_id or registry['active'])), None)
@@ -223,13 +242,14 @@ class Library:
                 if not request.get('folder') or not folder.is_dir(): raise ValueError('请先选择保存位置')
                 name = safe_name(request.get('name', ''))
                 name = safe_name(name[:-4] if name.lower().endswith('.txt') else name)
+                group_id = self.group_id(registry, request.get('groupId'))
                 path = folder / (name + '.txt')
                 if path.exists(): raise ValueError('同名文件已存在，未覆盖')
                 state = json.loads(json.dumps(self.seed))
                 with path.open('x', encoding='utf-8', newline='\n') as output:
                     output.write(encode_workspace(state, 0))
                 entry = self.entry(path)
-                entry['projectId'] = next((p['id'] for p in registry['projects'] if Path(p['path']) == folder), None)
+                entry['groupId'] = group_id
                 registry['sets'].append(entry); registry['active'] = entry['id']
             elif action in ('openSet', 'activateSet'):
                 if action == 'openSet':
@@ -239,28 +259,29 @@ class Library:
                     self.read_entry(candidate)
                     if entry is None:
                         entry = candidate
-                        entry['projectId'] = next((p['id'] for p in registry['projects'] if Path(p['path']) == path.parent), None)
+                        entry['groupId'] = self.group_id(registry, request.get('groupId'))
                         registry['sets'].append(entry)
                 else: entry = self.find(registry, request.get('id')); self.read_entry(entry)
                 entry['lastOpened'] = time.time(); registry['active'] = entry['id']
-            elif action in ('createProject', 'openProject'):
-                if not request.get('folder'): raise ValueError('请先选择保存位置')
-                folder = Path(request['folder']).expanduser().resolve()
-                if not folder.is_dir(): raise ValueError('文件夹不存在')
-                if action == 'createProject':
-                    name = safe_name(request.get('name', ''))
-                    folder = folder / name
-                    folder.mkdir(exist_ok=False)
-                else: name = folder.name
-                project = next((p for p in registry['projects'] if p['path'] == str(folder)), None)
-                if project is None:
-                    project = {'id': str(uuid.uuid4()), 'name': name, 'path': str(folder)}
-                    registry['projects'].append(project)
-                for path in folder.iterdir():
-                    if path.is_file() and path.suffix.lower() == '.txt' and not any(s['path'] == str(path.resolve()) for s in registry['sets']):
-                        registry['sets'].append(self.entry(path, project['id']))
-                for entry in registry['sets']:
-                    if Path(entry['path']).parent == folder: entry['projectId'] = project['id']
+            elif action == 'createGroup':
+                registry['groups'].append({'id': str(uuid.uuid4()), 'name': safe_name(request.get('name', '')), 'pinned': False})
+            elif action in ('renameGroup', 'pinGroup', 'deleteGroup'):
+                group = next((g for g in registry['groups'] if g['id'] == request.get('id')), None)
+                if group is None: raise ValueError('分组不存在')
+                if action == 'pinGroup': group['pinned'] = not group.get('pinned', False)
+                else:
+                    if group['id'] == 'ungrouped': raise ValueError('未分组不可重命名或删除')
+                    if action == 'renameGroup': group['name'] = safe_name(request.get('name', ''))
+                    else:
+                        registry['groups'].remove(group)
+                        for entry in registry['sets']:
+                            if entry['groupId'] == group['id']: entry['groupId'] = 'ungrouped'
+            elif action == 'reorderGroups':
+                ids = request.get('ids', [])
+                if len(ids) != len(registry['groups']) or set(ids) != {g['id'] for g in registry['groups']}:
+                    raise ValueError('分组顺序无效')
+                by_id = {g['id']: g for g in registry['groups']}
+                registry['groups'] = [by_id[i] for i in ids]
             elif action == 'renameSet':
                 entry = self.find(registry, request.get('id'))
                 old = Path(entry['path'])
@@ -271,33 +292,14 @@ class Library:
                     if target.exists(): raise ValueError('同名文件已存在，未覆盖')
                     with self.file_lock(old): old.rename(target)
                 entry.update(name=name, path=str(target))
-            elif action == 'moveSet':
+            elif action == 'assignGroup':
                 entry = self.find(registry, request.get('id'))
-                project = next((p for p in registry['projects'] if p['id'] == request.get('projectId')), None)
-                if project is None: raise ValueError('请选择项目')
-                old = Path(entry['path']); target = Path(project['path']) / old.name
-                if target != old:
-                    if target.exists(): raise ValueError('项目中已有同名文件，未覆盖')
-                    with self.file_lock(old): shutil.move(str(old), str(target))
-                entry.update(path=str(target), projectId=project['id'])
+                entry['groupId'] = self.group_id(registry, request.get('groupId'))
             elif action == 'deleteSet':
                 entry = self.find(registry, request.get('id'))
-                trash = self.data_dir / 'Trash'; trash.mkdir(exist_ok=True)
-                target = trash / (entry['id'] + '.txt')
-                with self.file_lock(entry['path']): shutil.move(entry['path'], target)
-                registry['trash'].append({**entry, 'trashPath': str(target), 'deletedAt': time.time()})
+                # Removing a registration never deletes the user's standalone TXT file.
                 registry['sets'].remove(entry)
                 if registry['active'] == entry['id']: registry['active'] = registry['sets'][0]['id'] if registry['sets'] else None
-            elif action == 'restoreSet':
-                entry = next((s for s in registry['trash'] if s['id'] == request.get('id')), None)
-                if entry is None: raise ValueError('回收站中没有该词集')
-                target = Path(entry['path'])
-                if target.exists(): raise ValueError('原位置已有同名文件，请先移开该文件')
-                if not target.parent.is_dir(): raise ValueError('原文件夹不存在，请先恢复文件夹')
-                shutil.move(entry['trashPath'], target)
-                registry['trash'].remove(entry)
-                registry['sets'].append({k: v for k, v in entry.items() if k not in ('trashPath', 'deletedAt')})
-                registry['active'] = entry['id']
             else: raise ValueError('未知操作')
             self.write_registry(registry)
             return registry

@@ -248,8 +248,7 @@ test("new prompt set requires a selected directory and recent selector follows t
     sets: [
       { id: "old", name: "原词集", path: "/chosen/原词集.txt", lastOpened: 1 },
     ],
-    projects: [],
-    trash: [],
+    groups: [{ id: "ungrouped", name: "未分组", pinned: false }],
   };
   globalThis.fetch = async (url, options) => {
     if (url === "/api/library" && options) {
@@ -405,7 +404,7 @@ const key = (key, options = {}, target = document.activeElement) => {
   target.dispatchEvent(event);
   return event;
 };
-test("Ctrl+N then level and Enter adds a heading; plain Enter adds an item; Escape cancels", () => {
+test("Ctrl+N digits immediately create a heading; arrows select; Enter adds body; Escape cancels", () => {
   $("editorTab").click();
   $("newDoc").click();
   let fields = [...document.querySelectorAll(".content")];
@@ -416,12 +415,7 @@ test("Ctrl+N then level and Enter adds a heading; plain Enter adds an item; Esca
   key("n", { ctrlKey: true });
   assert.equal($("headingMenu").hidden, false);
   key("3", { ctrlKey: true });
-  assert.ok(
-    document
-      .querySelector('[data-level="3"]')
-      .classList.contains("keyboard-choice"),
-  );
-  key("Enter");
+  assert.equal($("headingMenu").hidden, true);
   assert.equal(
     document.activeElement.closest(".row").classList.contains("h3"),
     true,
@@ -436,7 +430,7 @@ test("Ctrl+N then level and Enter adds a heading; plain Enter adds an item; Esca
   );
   assert.equal(document.querySelectorAll(".content").length, count + 1);
   key("n", { ctrlKey: true });
-  key("6");
+  key("ArrowDown");
   key("Escape");
   assert.equal(document.querySelectorAll(".content").length, count + 1);
   assert.equal($("headingMenu").hidden, true);
@@ -447,13 +441,11 @@ test("up and down switch visible entries, preserve text and skip folded children
   fields.at(-1).focus();
   key("n", { ctrlKey: true });
   key("1");
-  key("Enter");
   const firstId = document.activeElement.dataset.id;
   key("n", { ctrlKey: true });
   key("Enter");
   key("n", { ctrlKey: true });
   key("1");
-  key("Enter");
   const secondId = document.activeElement.dataset.id;
   document.querySelector(`.row[data-id="${firstId}"] .fold`).click();
   const visible = [
@@ -516,7 +508,7 @@ test("shortcut sections follow component positions, have one redo, and tooltips 
   const sections = [...document.querySelectorAll(".shortcut-section")];
   assert.deepEqual(
     sections.map((section) => section.querySelector("h3").textContent),
-    ["窗口栏", "顶部栏", "编辑工具栏", "编辑区", "状态栏"],
+    ["编辑区", "窗口栏", "顶部栏", "编辑工具栏", "状态栏"],
   );
   assert.equal(document.querySelectorAll('[data-action="redo"]').length, 1);
   assert.equal(document.querySelector('[data-action="redoAlt"]'), null);
@@ -528,7 +520,7 @@ test("shortcut sections follow component positions, have one redo, and tooltips 
   for (const [action, value, options] of [
     ["insert", "n", { ctrlKey: true, altKey: true }],
     ["exclude", "q", { ctrlKey: true, shiftKey: true }],
-    ["delete", "g", { ctrlKey: true, shiftKey: true }],
+    ["delete", "x", { ctrlKey: true, shiftKey: true }],
     ["theme", "j", { ctrlKey: true, altKey: true }],
   ]) {
     const input = document.querySelector(`[data-action="${action}"]`);
@@ -547,7 +539,7 @@ test("shortcut sections follow component positions, have one redo, and tooltips 
   );
   assert.equal(
     document.querySelector(".row-action.remove").title,
-    "删除（Ctrl+Shift+G）",
+    "删除（Ctrl+Shift+X）",
   );
   $("theme").dispatchEvent(
     new window.MouseEvent("mouseover", { bubbles: true }),
@@ -561,4 +553,69 @@ test("shortcut sections follow component positions, have one redo, and tooltips 
   $("resetShortcuts").click();
   await $("saveShortcuts").onclick();
   $("editorTab").click();
+});
+
+test("level selector converts body to every heading level and back without losing content", () => {
+  $("editorTab").click();
+  const field = document.querySelector(".content");
+  field.focus();
+  const id = field.dataset.id,
+    text = field.innerHTML;
+  for (const value of ["0", "1", "6", "3", "0"]) {
+    $("headingLevel").value = value;
+    $("headingLevel").dispatchEvent(new window.Event("change"));
+    const row = document.querySelector(`.row[data-id="${id}"]`);
+    assert.equal(
+      row.classList.contains(value === "0" ? "item" : "h" + value),
+      true,
+    );
+    assert.equal(row.querySelector(".content").innerHTML, text);
+  }
+});
+test("mouse-opened add menu accepts arrows and creates the selected level on Enter", () => {
+  $("editorTab").click();
+  document.querySelector(".add-heading").click();
+  key("ArrowDown");
+  key("ArrowDown");
+  assert.equal(
+    document.querySelector('[data-level="2"]').getAttribute("aria-current"),
+    "true",
+  );
+  key("Enter");
+  assert.equal(
+    document.activeElement.closest(".row").classList.contains("h2"),
+    true,
+  );
+});
+test("keyboard sorting moves a heading and children as one block and supports cancel and undo", () => {
+  $("editorTab").click();
+  document.querySelector(".content").focus();
+  // Ensure two independent sibling subtrees at the tail.
+  let ids = [];
+  for (const text of ["排序 A", "排序 B"]) {
+    const fields = [...document.querySelectorAll(".content")];
+    fields.at(-1).focus();
+    key("n", { ctrlKey: true });
+    key("1");
+    const heading = document.activeElement;
+    heading.textContent = text;
+    heading.dispatchEvent(new window.Event("input", { bubbles: true }));
+    ids.push(heading.dataset.id);
+  }
+  const order = () =>
+    [...document.querySelectorAll("#paper .row")].map((row) => row.dataset.id);
+  const original = order();
+  document.querySelector(`.content[data-id="${ids[0]}"]`).focus();
+  key("g", { ctrlKey: true, shiftKey: true });
+  key("ArrowDown");
+  assert.ok(order().indexOf(ids[0]) > order().indexOf(ids[1]));
+  key("Escape");
+  assert.deepEqual(order(), original);
+  document.querySelector(`.content[data-id="${ids[0]}"]`).focus();
+  key("g", { ctrlKey: true, shiftKey: true });
+  key("ArrowDown");
+  key("Enter");
+  assert.ok(order().indexOf(ids[0]) > order().indexOf(ids[1]));
+  $("undo").click();
+  assert.deepEqual(order(), original);
 });

@@ -60,3 +60,27 @@ test("persistent buttons navigate the current scroll panel and obey reduced moti
   assert.equal(calls.length, 2);
   dom.window.close();
 });
+
+test("scrolling inside a visibility region does not rewrite button attributes", () => {
+  const dom = new JSDOM(
+    '<main></main><nav><button data-edge="up"></button><button data-edge="down"></button></nav>',
+  );
+  const main = dom.window.document.querySelector("main"),
+    nav = dom.window.document.querySelector("nav");
+  Object.defineProperties(main, {
+    scrollTop: { value: 200, writable: true },
+    scrollHeight: { value: 2000 },
+    clientHeight: { value: 400 },
+  });
+  const controller = mountEdgeNavigation(nav, () => main),
+    observer = new dom.window.MutationObserver(() => {});
+  observer.observe(nav, { subtree: true, attributes: true });
+  for (let i = 0; i < 100; i++) {
+    main.scrollTop++;
+    controller.update();
+  }
+  assert.equal(observer.takeRecords().length, 0);
+  controller.dispose();
+  observer.disconnect();
+  dom.window.close();
+});

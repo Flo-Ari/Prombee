@@ -1,9 +1,10 @@
+import { bindHoldDrag } from "./reorder.js";
 const $ = (id) => document.getElementById(id);
 const el = (tag, text, cls) => {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (cls) node.className = cls;
-  return node;
+  const n = document.createElement(tag);
+  if (text !== undefined) n.textContent = text;
+  if (cls) n.className = cls;
+  return n;
 };
 export function createLibraryUI({
   beforeAction,
@@ -14,11 +15,12 @@ export function createLibraryUI({
   showEditor,
   onLocation = () => {},
 }) {
-  let registry = { sets: [], projects: [], trash: [] },
+  let registry = { sets: [], groups: [] },
+    groupFilter = "ungrouped",
     mode = "createSet",
     location = "",
     folder = "",
-    projectFilter = "";
+    busy = false;
   async function request(url, payload) {
     const response = await fetch(
       url,
@@ -34,28 +36,22 @@ export function createLibraryUI({
     if (!response.ok) throw new Error(value.error || "操作失败");
     return value;
   }
-  const report = (error) => {
-    $("libraryStatus").textContent = error.message;
-    notify(error.message);
-  };
   const run = (fn) => async () => {
     try {
       await fn();
     } catch (error) {
-      report(error);
+      $("libraryStatus").textContent = error.message;
+      notify(error.message);
     }
   };
-  let busy = false;
   async function act(payload, open = false) {
     if (busy) return;
     busy = true;
     document.body.inert = true;
     try {
       await beforeAction();
-      $("libraryStatus").textContent = "正在处理…";
       const oldId = getSetId();
       registry = await request("/api/library", payload);
-      paint();
       if (open || (oldId && !registry.sets.some((s) => s.id === oldId))) {
         if (registry.active) {
           await onOpen(
@@ -67,192 +63,241 @@ export function createLibraryUI({
         } else onEmpty();
       }
       paint();
-      $("libraryStatus").textContent = "已完成";
+      $("libraryStatus").textContent = "";
     } finally {
       busy = false;
       document.body.inert = false;
     }
   }
-  function setMode(next) {
-    mode = next;
-    location = "";
-    $("folderPicker").hidden = true;
-    const names = {
-      createSet: "新建词集",
-      createProject: "新建项目",
-      openSet: "打开 TXT 词集",
-      openProject: "打开项目文件夹",
+  function editName(parent, value, commit, cancel = () => paint()) {
+    const input = el("input");
+    input.value = value;
+    input.setAttribute("aria-label", "名称");
+    parent.replaceChildren(input);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (input.value.trim()) run(() => commit(input.value.trim()))();
+      else cancel();
     };
-    $("libraryFormTitle").textContent = names[mode];
-    $("libraryNameLabel").hidden = mode.startsWith("open");
-    $("libraryName").value = "";
-    $("libraryName").placeholder =
-      mode === "createProject" ? "项目名称" : "词集名称";
-    $("chosenLocation").textContent =
-      mode === "openSet" ? "选择设备上的 TXT 文件" : "尚未选择保存位置";
-    $("chooseLocation").textContent = mode.startsWith("open")
-      ? "浏览设备"
-      : "选择保存位置";
-    $("libraryCreate").hidden = mode === "openSet";
-    $("libraryCreate").textContent =
-      mode === "createSet"
-        ? "创建词集"
-        : mode === "createProject"
-          ? "创建项目"
-          : "打开项目";
-    $("libraryCreate").disabled = true;
-    document
-      .querySelectorAll("[data-library-mode]")
-      .forEach((button) =>
-        button.classList.toggle("active", button.dataset.libraryMode === mode),
-      );
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish();
+      }
+      if (e.key === "Escape") {
+        done = true;
+        cancel();
+      }
+    };
+    input.onblur = finish;
+    input.focus();
+    input.select();
   }
+  function popup(anchor, items) {
+    document.querySelector(".library-popover")?.remove();
+    const box = el("div", undefined, "library-popover");
+    for (const [label, callback] of items) {
+      const b = el("button", label);
+      b.onclick = () => {
+        box.remove();
+        run(callback)();
+      };
+      box.append(b);
+    }
+    document.body.append(box);
+    const r = anchor.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(r.left, innerWidth - 180)) + "px";
+    box.style.top =
+      Math.min(r.bottom + 4, innerHeight - box.offsetHeight - 8) + "px";
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest(".library-popover,.group-menu,.assign-group"))
+      document.querySelector(".library-popover")?.remove();
+  });
   async function browse(path) {
     const data = await request(
       "/api/fs" + (path ? "?path=" + encodeURIComponent(path) : ""),
     );
     folder = data.path;
     $("folderPicker").hidden = false;
-    $("folderAddress").value = data.path;
-    $("folderUp").disabled = data.parent === data.path;
+    $("folderAddress").value = folder;
+    $("folderUp").disabled = data.parent === folder;
     $("folderUp").onclick = run(() => browse(data.parent));
     $("folderUse").hidden = mode === "openSet";
-    $("folderUse").textContent =
-      mode === "openProject" ? "选择此项目文件夹" : "保存到此文件夹";
     $("folderShortcuts").replaceChildren();
-    for (const shortcut of data.shortcuts) {
-      const button = el("button", shortcut.name);
-      button.onclick = run(() => browse(shortcut.path));
-      $("folderShortcuts").append(button);
+    for (const s of data.shortcuts) {
+      const b = el("button", s.name);
+      b.onclick = run(() => browse(s.path));
+      $("folderShortcuts").append(b);
     }
     $("folderEntries").replaceChildren();
     for (const entry of data.entries) {
       if (entry.kind === "text" && mode !== "openSet") continue;
-      const button = el(
+      const b = el(
         "button",
         (entry.kind === "folder" ? "▸ " : "TXT  ") + entry.name,
         "folder-entry",
       );
-      button.title = entry.path;
-      button.onclick = run(async () => {
+      b.title = entry.path;
+      b.onclick = run(async () => {
         if (entry.kind === "folder") await browse(entry.path);
         else {
-          await act({ action: "openSet", path: entry.path }, true);
+          await act(
+            { action: "openSet", path: entry.path, groupId: groupFilter },
+            true,
+          );
           $("folderPicker").hidden = true;
         }
       });
-      $("folderEntries").append(button);
+      $("folderEntries").append(b);
     }
-    if (!$("folderEntries").children.length)
-      $("folderEntries").append(el("p", "此文件夹暂无可选内容", "muted"));
   }
   function paint() {
-    const selected = getSetId();
+    const selected = getSetId(),
+      recent = [...registry.sets].sort((a, b) => b.lastOpened - a.lastOpened);
+    if (!registry.groups?.some((g) => g.id === groupFilter))
+      groupFilter = "ungrouped";
     $("recentSets").replaceChildren();
-    const recent = [...registry.sets].sort(
-      (a, b) => b.lastOpened - a.lastOpened,
-    );
-    for (const set of recent
-      .slice(0, 12)
-      .concat(recent.slice(12).filter((s) => s.id === selected))) {
-      const option = el("option", set.name);
-      option.value = set.id;
-      option.title = set.path;
-      $("recentSets").append(option);
+    for (const s of recent.filter((s, i) => i < 12 || s.id === selected)) {
+      const o = el("option", s.name);
+      o.value = s.id;
+      o.title = s.path;
+      $("recentSets").append(o);
     }
     $("recentSets").value = selected || "";
-    onLocation(registry.sets.find((set) => set.id === selected));
-    $("recentSets").disabled = !registry.sets.length;
-    $("projectsList").replaceChildren();
-    const all = el("button", "全部词集");
-    all.classList.toggle("active", !projectFilter);
-    all.onclick = () => {
-      projectFilter = "";
-      paint();
-    };
-    $("projectsList").append(all);
-    for (const project of registry.projects) {
-      const button = el("button", "▸ " + project.name);
-      button.title = project.path;
-      button.classList.toggle("active", projectFilter === project.id);
-      button.onclick = () => {
-        projectFilter = project.id;
+    $("recentSets").disabled = !recent.length;
+    onLocation(recent.find((s) => s.id === selected));
+    $("groupsList").replaceChildren();
+    const groups = [...(registry.groups || [])].sort(
+      (a, b) => Number(!!b.pinned) - Number(!!a.pinned),
+    );
+    for (const g of groups) {
+      const row = el("div", undefined, "group-row");
+      row.dataset.id = g.id;
+      const name = el("button", (g.pinned ? "⌖ " : "") + g.name, "group-name");
+      name.classList.toggle("active", groupFilter === g.id);
+      name.onclick = () => {
+        groupFilter = g.id;
         paint();
       };
-      $("projectsList").append(button);
+      const menu = el("button", "⋯", "group-menu");
+      menu.setAttribute("aria-label", "编辑分组：" + g.name);
+      menu.onclick = () =>
+        popup(menu, [
+          [
+            g.pinned ? "取消置顶" : "置顶",
+            () => act({ action: "pinGroup", id: g.id }),
+          ],
+          ...(g.id === "ungrouped"
+            ? []
+            : [
+                [
+                  "重命名",
+                  () =>
+                    editName(row, g.name, (name) =>
+                      act({ action: "renameGroup", id: g.id, name }),
+                    ),
+                ],
+                ["删除", () => act({ action: "deleteGroup", id: g.id })],
+              ]),
+        ]);
+      row.append(name, menu);
+      $("groupsList").append(row);
+      let moved = false;
+      bindHoldDrag(row, {
+        holdSelector: ".group-name",
+        start: () => {
+          row.classList.add("dragging");
+          moved = false;
+        },
+        move: (_, y) => {
+          const other = [...$("groupsList").children].find(
+            (n) =>
+              n !== row &&
+              y >= n.getBoundingClientRect().top &&
+              y <= n.getBoundingClientRect().bottom,
+          );
+          if (!other) return;
+          const target = groups.find((g) => g.id === other.dataset.id);
+          if (!!target?.pinned !== !!g.pinned) return;
+          const below =
+            y >
+            other.getBoundingClientRect().top +
+              other.getBoundingClientRect().height / 2;
+          $("groupsList").insertBefore(row, below ? other.nextSibling : other);
+          moved = true;
+        },
+        end: (cancel) => {
+          row.classList.remove("dragging");
+          if (cancel) {
+            paint();
+            return;
+          }
+          if (moved)
+            run(() =>
+              act({
+                action: "reorderGroups",
+                ids: [...$("groupsList").children].map((n) => n.dataset.id),
+              }),
+            )();
+        },
+      });
     }
     $("setsList").replaceChildren();
-    for (const set of recent.filter(
-      (s) => !projectFilter || s.projectId === projectFilter,
+    for (const s of recent.filter(
+      (s) => (s.groupId || "ungrouped") === groupFilter,
     )) {
       const row = el("div", undefined, "set-row"),
-        info = el("div", undefined, "set-info");
-      const name = el("input");
-      name.value = set.name;
-      name.setAttribute("aria-label", "词集名称：" + set.name);
-      const path = el("small", set.path);
-      info.append(name, path);
-      const open = el("button", set.id === selected ? "当前词集" : "打开");
-      open.onclick = run(() =>
-        act({ action: "activateSet", id: set.id }, true),
-      );
-      const rename = el("button", "重命名");
-      rename.onclick = run(() =>
-        act({ action: "renameSet", id: set.id, name: name.value }),
-      );
-      const remove = el("button", "删除");
-      remove.title = "移入词集回收站，可恢复";
-      remove.onclick = run(() => act({ action: "deleteSet", id: set.id }));
-      const actions = el("div", undefined, "set-actions");
-      actions.append(open, rename, remove);
-      if (registry.projects.length) {
-        const project = el("select");
-        project.setAttribute("aria-label", "加入项目：" + set.name);
-        for (const p of registry.projects) {
-          const option = el("option", p.name);
-          option.value = p.id;
-          project.append(option);
-        }
-        if (set.projectId) project.value = set.projectId;
-        const move = el("button", "加入项目");
-        move.title = "将此 TXT 文件移动到项目文件夹";
-        move.onclick = run(() =>
-          act({ action: "moveSet", id: set.id, projectId: project.value }),
+        info = el("div", undefined, "set-info"),
+        name = el("button", s.name, "set-name");
+      name.title = "打开词集";
+      name.onclick = run(() => act({ action: "activateSet", id: s.id }, true));
+      info.append(name, el("small", s.path));
+      const actions = el("div", undefined, "set-actions"),
+        group = el("button", "分组", "assign-group");
+      group.onclick = () =>
+        popup(
+          group,
+          groups.map((g) => [
+            g.name,
+            () => act({ action: "assignGroup", id: s.id, groupId: g.id }),
+          ]),
         );
-        actions.append(project, move);
-      }
+      const rename = el("button", "重命名");
+      rename.onclick = () =>
+        editName(info, s.name, (name) =>
+          act({ action: "renameSet", id: s.id, name }),
+        );
+      const remove = el("button", "删除");
+      remove.title = "从词集管理移除，保留 TXT 文件";
+      remove.onclick = run(() => act({ action: "deleteSet", id: s.id }));
+      actions.append(group, rename, remove);
       row.append(info, actions);
       $("setsList").append(row);
     }
     if (!$("setsList").children.length)
-      $("setsList").append(
-        el("p", "暂无词集，可新建或打开 TXT 文件。", "muted"),
-      );
-    $("trashList").replaceChildren();
-    for (const set of registry.trash) {
-      const row = el("div", undefined, "trash-row");
-      const restore = el("button", "恢复");
-      restore.onclick = run(() =>
-        act({ action: "restoreSet", id: set.id }, true),
-      );
-      row.append(el("span", set.name), restore);
-      $("trashList").append(row);
-    }
-    if (!registry.trash.length)
-      $("trashList").append(el("p", "回收站为空", "muted"));
+      $("setsList").append(el("p", "此分组暂无词集", "muted"));
   }
-  for (const button of document.querySelectorAll("[data-library-mode]"))
-    button.onclick = () => setMode(button.dataset.libraryMode);
-  $("chooseLocation").onclick = run(() =>
-    browse(
-      location || registry.projects.find((p) => p.id === projectFilter)?.path,
-    ),
-  );
+  $("newGroup").onclick = () => {
+    const row = el("div", undefined, "group-row");
+    $("groupsList").append(row);
+    editName(row, "新分组", (name) => act({ action: "createGroup", name }));
+  };
+  $("chooseLocation").onclick = run(() => {
+    mode = "createSet";
+    return browse(location);
+  });
+  $("openFile").onclick = run(() => {
+    mode = "openSet";
+    return browse(location);
+  });
   $("folderGo").onclick = run(() => browse($("folderAddress").value));
-  $("folderAddress").onkeydown = (event) => {
-    if (event.key === "Enter") {
+  $("folderAddress").onkeydown = (e) => {
+    if (e.key === "Enter") {
       $("folderGo").click();
-      event.preventDefault();
+      e.preventDefault();
     }
   };
   $("folderCancel").onclick = () => {
@@ -266,8 +311,13 @@ export function createLibraryUI({
   };
   $("libraryCreate").onclick = run(async () => {
     await act(
-      { action: mode, name: $("libraryName").value, folder: location },
-      mode === "createSet",
+      {
+        action: "createSet",
+        name: $("libraryName").value,
+        folder: location,
+        groupId: groupFilter,
+      },
+      true,
     );
     location = "";
     $("libraryCreate").disabled = true;
@@ -276,7 +326,6 @@ export function createLibraryUI({
   $("recentSets").onchange = run(() =>
     act({ action: "activateSet", id: $("recentSets").value }, true),
   );
-  setMode(mode);
   return {
     refresh: run(async () => {
       const value = await request("/api/library");
@@ -285,7 +334,8 @@ export function createLibraryUI({
       paint();
     }),
     begin() {
-      setMode("createSet");
+      mode = "createSet";
+      $("folderPicker").hidden = true;
     },
     repaint: paint,
   };

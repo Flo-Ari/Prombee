@@ -35,3 +35,11 @@ class ShortcutsTests(unittest.TestCase):
             value['redo']=''
             store.path.write_text(json.dumps(value),encoding='utf-8')
             self.assertEqual(store.load()['bindings']['redo'],'Ctrl+Y')
+
+    def test_new_drag_binding_migrates_without_resetting_custom_settings(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder);mapping={name:'' for name in IDS if name!='drag'}
+            mapping['insert']='Ctrl+K';store.path.write_text(json.dumps(mapping),encoding='utf-8')
+            loaded=store.load()['bindings'];self.assertEqual(loaded['insert'],'Ctrl+K');self.assertEqual(loaded['drag'],'Ctrl+Shift+G')
+            mapping['delete']='Ctrl+Shift+G';store.path.write_text(json.dumps(mapping),encoding='utf-8')
+            self.assertEqual(store.load()['bindings']['drag'],'')

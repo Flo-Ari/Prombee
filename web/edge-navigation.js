@@ -24,6 +24,7 @@ export function mountEdgeNavigation(root, resolveScroller) {
       : {};
     for (const button of buttons) {
       const shown = !!state[button.dataset.edge];
+      if (button.dataset.visible === String(shown)) continue;
       button.dataset.visible = String(shown);
       button.setAttribute("aria-hidden", String(!shown));
       button.tabIndex = shown ? 0 : -1;
