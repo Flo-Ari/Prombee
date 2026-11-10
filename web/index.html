@@ -21,13 +21,13 @@
       <select id="recentSets" aria-label="最近使用的提示词集"></select>
       <span class="separator header-separator" aria-hidden="true"></span>
       <button id="template" role="tab" aria-controls="editorPanel">模板</button>
-      <button id="newDoc" title="新建一轮 Ctrl+Shift+N">＋ 新建</button
-      ><button id="deleteRound">− 删除</button
-      ><select id="documents" aria-label="切换文档"></select
-      ><span class="separator header-separator" aria-hidden="true"></span>
       <button id="editorTab" role="tab" aria-controls="editorPanel">
         编写
       </button>
+      <button id="newDoc" title="新建一轮 Ctrl+Shift+N">＋ 新建</button>
+      <select id="documents" aria-label="切换文档"></select>
+      <button id="deleteRound">− 删除</button>
+      <span class="separator header-separator" aria-hidden="true"></span>
       <button id="compare" role="tab" aria-controls="comparePanel">
         历史对比</button
       ><button id="preview" role="tab" aria-controls="previewPanel">
@@ -40,9 +40,10 @@
       <button id="shortcutsTab" role="tab" aria-controls="shortcutsPanel">
         快捷键
       </button>
+      <button id="floatingButton">悬浮球</button>
       <div class="spacer"></div>
       <button id="theme" aria-label="主题" title="主题">☾</button
-      ><button id="copy" class="primary">复制提示词</button>
+      ><button id="copy">复制提示词</button>
     </header>
     <div
       id="editorToolbar"
@@ -50,6 +51,25 @@
       role="toolbar"
       aria-label="文字格式"
     >
+      <button
+        id="voiceInput"
+        aria-pressed="false"
+        aria-label="语音输入"
+        title="语音输入"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          aria-hidden="true"
+        >
+          <rect x="9" y="2" width="6" height="12" rx="3" />
+          <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+        </svg>
+      </button>
       <button id="multiSelect">多选</button>
       <button id="deleteEmpty" title="清理整份提示词的空条目">删除空项</button>
       <button id="undo" title="撤销 Ctrl+Z" aria-label="撤销">↶</button>
@@ -69,8 +89,7 @@
         max="96"
         value="14"
         aria-label="字号"
-      /><span class="separator"></span
-      ><button id="bold" title="粗体 Ctrl+B"><b>B</b></button
+      /><button id="bold" title="粗体 Ctrl+B"><b>B</b></button
       ><button id="italic" title="斜体 Ctrl+I"><i>I</i></button
       ><label class="color-control" title="文字颜色"
         ><span>A</span
@@ -94,9 +113,6 @@
         <span id="selectedCount"></span><button id="batchExclude">排除</button
         ><button id="batchDelete">删除</button>
       </div>
-      <button id="voiceInput" aria-pressed="false" title="语音输入">
-        语音输入
-      </button>
       <textarea
         id="speechResult"
         aria-label="听写结果"

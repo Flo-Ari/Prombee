@@ -1,11 +1,10 @@
 """GTK transparent desktop companion; X11 also works through XWayland."""
-import base64
 import ctypes as C
 import ctypes.util
 import json
 import math
 from .branding import app_name, ui_language
-from .floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT, morph_layout
+from .floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
 
 
 class ClientData(C.Union):
@@ -104,7 +103,7 @@ class GtkFloating:
         self.menu_open=False;self.drag_press=None;self.drag_started=False;self.last_cursor=None
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
-        self.transition=0;self.completed_morphs=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None;self.layout=None
+        self.completed_switches=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None
         self.x=XDesktop()
         self.orb=Gtk.Window(title=app_name())
         app.add_window(self.orb)
@@ -140,12 +139,12 @@ class GtkFloating:
             self.hidden_by_user=False
         elif self.mode=='editor' and not self.hidden_by_user:
             # Also handle taskbar / WM keyboard minimization. Restore without focus
-            # so WebKit can capture a valid frame before hiding the editor.
+            # before immediately hiding the editor.
             self.window.unminimize()
             self.collapse()
 
     def orb_state_changed(self,surface,_):
-        if self.mode in ('orb','closing','opening'):
+        if self.mode=='orb':
             if surface.get_state() & self.Gdk.ToplevelState.MINIMIZED:
                 self.orb.unminimize()
             if not surface.get_state() & self.Gdk.ToplevelState.ABOVE:
@@ -156,9 +155,9 @@ class GtkFloating:
         self.view.evaluate_javascript(js,-1,None,None,None,None,None)
 
     def track(self):
-        if self.mode in ('orb', 'opening', 'closing'):
+        if self.mode=='orb':
             # Transparent-view remaps can suspend WebKit's frame clock. A native
-            # pulse keeps the same 300 ms timeline; JS skips it while RAF is live.
+            # pulse keeps flight alive; JS skips it while RAF is live.
             self.emit('frame')
         if self.mode=='orb':
             x,y=self.x.cursor(self.orb.get_scale_factor());r=self.x.position(self.orb)
@@ -206,8 +205,6 @@ class GtkFloating:
         elif action=='sceneEnd':
             self.x.input_region(self.orb)
         elif action=='open':self.open()
-        elif action=='morphDone':
-            self.completed_morphs+=1;self.finished(msg.get('direction'))
         elif action=='hide':self.hide()
         elif action=='settings':
             self.preferences.save(msg.get('enabled',True),msg.get('direction'))
@@ -216,70 +213,22 @@ class GtkFloating:
     def collapse(self):
         if self.mode!='editor':return
         if not self.ready:self.pending=True;return
-        self.hidden_by_user=False
-        self.transition+=1;self.mode='preparing'
-        self.editor.evaluate_javascript('JSON.stringify(window.prombeeLogoTarget())',-1,None,None,None,self.got_logo,None)
-
-    def got_logo(self,view,result,_):
-        try:
-            logo=json.loads(view.evaluate_javascript_finish(result).to_string())
-            self.editor_rect=self.x.position(self.window)
-            self.top=self.window.get_height()-self.editor.get_height()
-            logo['y']+=self.top
-            if not self.orb_rect:
-                x,y,w,h=self.editor_rect
-                self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
-            self.layout,self.payload=morph_layout(self.editor_rect,self.orb_rect,logo,self.preferences.direction)
-            self.payload['top']=self.top
-            self.payload['dark']=logo.get('dark',False)
-            self.editor.get_snapshot(self.WebKit.SnapshotRegion.VISIBLE,self.WebKit.SnapshotOptions.NONE,None,self.captured,None)
-        except Exception:
-            self.mode='editor';self.window.present();raise
-
-    def captured(self,view,result,_):
-        texture=view.get_snapshot_finish(result)
-        self.payload['snapshot']='data:image/png;base64,'+base64.b64encode(texture.save_to_png_bytes().get_data()).decode()
-        self.orb.present();self.x.move(self.orb,self.layout);self.x.above(self.orb)
-        # Wait a frame for the compositor and canvas to adopt the expanded bounds.
-        self.GLib.timeout_add(50,self.animate_close)
-
-    def animate_close(self):
-        self.x.move(self.orb,self.layout)
-        self.x.input_region(self.orb,True)
-        self.emit('morph',{**self.payload,'direction':'close'})
-        self.window.set_visible(False);self.mode='closing';self.watchdog('closing');return False
+        self.hidden_by_user=False;self.menu_open=False
+        if not self.orb_rect:
+            x,y,w,h=self.x.position(self.window)
+            self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
+        self.mode='orb';self.completed_switches+=1
+        self.orb.present();self.x.move(self.orb,self.orb_rect);self.x.above(self.orb)
+        self.x.input_region(self.orb);self.emit('show');self.window.set_visible(False)
 
     def open(self):
         if self.mode!='orb':
             if self.mode=='editor':self.window.present()
             return
-        self.menu_open=False
-        self.orb_rect=self.x.position(self.orb)
-        # Recalculate union if the user dragged the companion between transitions.
-        logo={'x':self.payload['to']['x']+self.layout[0]-self.editor_rect[0], 'y':self.payload['to']['y']+self.layout[1]-self.editor_rect[1]}
-        self.layout,new=morph_layout(self.editor_rect,self.orb_rect,logo,self.preferences.direction);self.payload.update(new)
-        self.x.move(self.orb,self.layout);self.transition+=1;self.mode='opening'
-        self.GLib.timeout_add(50,self.animate_open)
-
-    def animate_open(self):
-        self.x.move(self.orb,self.layout)
-        self.x.input_region(self.orb,True)
-        self.emit('morph',{**self.payload,'direction':'open'});self.watchdog('opening');return False
-
-    def watchdog(self,mode):
-        token=self.transition
-        def finish():
-            if self.mode==mode and self.transition==token:self.finished('open' if mode=='opening' else 'close')
-            return False
-        self.GLib.timeout_add(2000,finish)
-
-    def finished(self,direction):
-        if direction=='close' and self.mode=='closing':
-            self.menu_open=False
-            self.x.move(self.orb,self.orb_rect);self.emit('show');self.mode='orb'
-            self.x.input_region(self.orb)
-        elif direction=='open' and self.mode=='opening':
-            self.window.unminimize();self.window.present();self.orb.set_visible(False);self.emit('pause');self.mode='editor'
+        self.menu_open=False;self.orb_rect=self.x.position(self.orb)
+        self.mode='editor';self.completed_switches+=1
+        self.window.unminimize();self.window.present()
+        self.orb.set_visible(False);self.emit('pause')
 
     def hide(self):
         self.menu_open=False;self.hidden_by_user=True;self.mode='hidden'

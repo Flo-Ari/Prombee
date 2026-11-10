@@ -16,7 +16,8 @@ export function bindSpeech({
     stopping = false;
   const paint = (value) => {
     running = value;
-    button.textContent = value ? "停止听写" : "语音输入";
+    button.setAttribute("aria-label", value ? "停止听写" : "语音输入");
+    button.dataset.shortcutName = value ? "停止听写" : "语音输入";
     button.setAttribute("aria-pressed", String(value));
   };
   const action = async (name) => {

@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bindSpeech } from "../web/speech.js";
+import { JSDOM } from "jsdom";
+const createButton = () =>
+  new JSDOM(`<button><svg></svg></button>`).window.document.querySelector(
+    "button",
+  );
 test("online recognition runs first and commits final text", async () => {
   let instance,
     results = [];
@@ -13,7 +18,7 @@ test("online recognition runs first and commits final text", async () => {
       this.onend();
     }
   }
-  const button = { setAttribute() {} };
+  const button = createButton();
   const controller = bindSpeech({
     button,
     Recognition,
@@ -29,11 +34,12 @@ test("online recognition runs first and commits final text", async () => {
   });
   await controller.stop();
   assert.deepEqual(results, ["在线识别"]);
-  assert.equal(button.textContent, "语音输入");
+  assert.equal(button.getAttribute("aria-label"), "语音输入");
+  assert.ok(button.querySelector("svg"));
 });
 test("unavailable browser recognition tries system once and stops it", async () => {
   let actions = [];
-  const button = { setAttribute() {} };
+  const button = createButton();
   const controller = bindSpeech({
     button,
     Recognition: null,
@@ -56,17 +62,45 @@ test("unavailable browser recognition tries system once and stops it", async () 
   assert.deepEqual(actions, ["start", "stop"]);
 });
 
-test('network failure preserves final words and then activates system fallback', async () => {
-  let instance, focused=0, actions=[], texts=[];
-  class Recognition { constructor(){instance=this;} start(){} }
-  const button={setAttribute(){}};
-  const controller=bindSpeech({button,Recognition,capture:()=>({focus:()=>focused++}),commit:(target,text)=>texts.push(text),notify:()=>{},request:async(url,options)=>{
-    const action=JSON.parse(options.body).action;actions.push(action);return{ok:true,json:async()=>({state:action==='start'?'listening':'idle'})};
-  }});
+test("network failure preserves final words and then activates system fallback", async () => {
+  let instance,
+    focused = 0,
+    actions = [],
+    texts = [];
+  class Recognition {
+    constructor() {
+      instance = this;
+    }
+    start() {}
+  }
+  const button = createButton();
+  const controller = bindSpeech({
+    button,
+    Recognition,
+    capture: () => ({ focus: () => focused++ }),
+    commit: (target, text) => texts.push(text),
+    notify: () => {},
+    request: async (url, options) => {
+      const action = JSON.parse(options.body).action;
+      actions.push(action);
+      return {
+        ok: true,
+        json: async () => ({
+          state: action === "start" ? "listening" : "idle",
+        }),
+      };
+    },
+  });
   await button.onclick();
-  instance.onresult({resultIndex:0,results:[Object.assign([{transcript:'保留'}],{isFinal:true})]});
-  instance.onerror({error:'network'});instance.onend();
-  await new Promise(resolve=>setTimeout(resolve,0));
-  assert.deepEqual(texts,['保留']);assert.equal(focused,1);
-  await controller.stop();assert.deepEqual(actions,['start','stop']);
+  instance.onresult({
+    resultIndex: 0,
+    results: [Object.assign([{ transcript: "保留" }], { isFinal: true })],
+  });
+  instance.onerror({ error: "network" });
+  instance.onend();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(texts, ["保留"]);
+  assert.equal(focused, 1);
+  await controller.stop();
+  assert.deepEqual(actions, ["start", "stop"]);
 });

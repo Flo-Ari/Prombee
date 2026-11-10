@@ -161,7 +161,7 @@ def main():
             deadline=time.monotonic()+5
             while floating.mode!='editor' and time.monotonic()<deadline:time.sleep(.05)
             assert floating.mode=='editor','Expand did not finish'
-            assert floating.completed_morphs==2,'Native animation renderer did not complete both transitions'
+            assert floating.completed_switches==2,'Native window switching did not complete both directions'
             result['floatingRoundTrip']=True
             marker = 'Prombee Windows 测试 🐝'
             clipboard_text(marker)

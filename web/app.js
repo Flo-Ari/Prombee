@@ -796,6 +796,15 @@ function deleteEmpty() {
   render();
   changed();
 }
+let copyFeedbackTimer;
+function copiedFeedback() {
+  clearTimeout(copyFeedbackTimer);
+  $("copy").classList.add("copied");
+  copyFeedbackTimer = setTimeout(
+    () => $("copy").classList.remove("copied"),
+    1400,
+  );
+}
 async function copyText(text) {
   try {
     if (window.webkit?.messageHandlers?.clipboard) {
@@ -803,6 +812,7 @@ async function copyText(text) {
     } else {
       await navigator.clipboard.writeText(text);
     }
+    copiedFeedback();
     toast("已复制提示词");
   } catch {
     const t = element("textarea");
@@ -811,6 +821,7 @@ async function copyText(text) {
     t.select();
     const ok = document.execCommand("copy");
     t.remove();
+    if (ok) copiedFeedback();
     toast(ok ? "已复制提示词" : "复制失败，请选中文字后按 Ctrl+C");
   }
 }
@@ -1095,6 +1106,8 @@ $("copyHierarchy").onclick = () => {
   toast(`已复制${source.name}的标题层级，可撤销`);
 };
 $("copy").onclick = copy;
+$("floatingButton").onclick = () =>
+  window.dispatchEvent(new window.Event("prombee-minimize"));
 $("theme").onclick = () => {
   state.dark = !state.dark;
   applyTheme();
@@ -1190,6 +1203,7 @@ function refreshShortcutHints() {
     ["preview", "preview", "预览"],
     ["commonTab", "common", "常用提示词"],
     ["shortcutsTab", "settings", "快捷键"],
+    ["floatingButton", "collapse", "悬浮球"],
     ["theme", "theme", "主题"],
     ["copy", "copy", "复制提示词"],
     ["multiSelect", "multi", $("multiSelect").textContent],
@@ -1228,7 +1242,7 @@ document.addEventListener("mouseover", (event) => {
   const button = event.target.closest?.("[data-shortcut-action]");
   if (button)
     button.title = shortcutTitle(
-      ["multiSelect", "voiceInput"].includes(button.id)
+      button.id === "multiSelect"
         ? button.textContent.trim()
         : button.dataset.shortcutName,
       button.dataset.shortcutAction,

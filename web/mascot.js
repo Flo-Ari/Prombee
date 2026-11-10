@@ -2,7 +2,6 @@ import { createBeeArt, articulatedMouth, STINGER_TIP } from "./bee-art.js";
 import "./brand.js";
 // Reference-image mascot: original pixels on an articulated transparent rig.
 export const IDLE_DELAY = 60_000;
-export const MORPH_DURATION = 300;
 export const SCENES = [
   { name: "机甲除虫", duration: 16_000 },
   { name: "低功耗休眠", duration: 14_000 },
@@ -199,8 +198,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
   } catch {}
   let mouse = { x: 360, y: 120 },
     drag = null,
-    suppressClick = false,
-    morph = null;
+    suppressClick = false;
   let currentPose = flightPose(performance.now()),
     sceneOrigin = currentPose,
     previousEnvironment = null;
@@ -1275,52 +1273,6 @@ export function mountMascot(canvas, menu, send = () => {}) {
       ctx.restore();
     }
   }
-  function drawMorph(now) {
-    const m = morph,
-      p = ease(clamp((now - m.started) / MORPH_DURATION)),
-      v = m.direction === "open" ? p : 1 - p;
-    const hx = mix(m.from.x, m.to.x, v),
-      hy = mix(m.from.y, m.to.y, v),
-      scale = mix(0.04, 1, v);
-    const r = m.editor;
-    ctx.save();
-    ctx.globalAlpha = clamp(v * 3);
-    ctx.translate(hx, hy);
-    ctx.scale(scale, scale);
-    ctx.translate(-m.to.x, -m.to.y);
-    ctx.shadowColor = "#183b6240";
-    ctx.shadowBlur = 30;
-    ctx.fillStyle = m.dark ? "#111" : "#fff";
-    ctx.beginPath();
-    ctx.roundRect(r.x, r.y, r.width, r.height, 12 * (1 - v));
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    if (m.image?.complete && m.image.naturalWidth)
-      ctx.drawImage(
-        m.image,
-        r.x,
-        r.y + (m.top || 0),
-        r.width,
-        r.height - (m.top || 0),
-      );
-    ctx.restore();
-    const beeScale = mix(1, 0.18, v);
-    ctx.save();
-    ctx.translate(hx, hy);
-    const facing = direction === "left" ? -1 : 1;
-    ctx.scale(facing, 1);
-    const pointer = mouse;
-    mouse = { x: (mouse.x - hx) * facing, y: mouse.y - hy };
-    bee(-31 * beeScale, 6 * beeScale, beeScale, now, {
-      alpha: 1 - clamp((v - 0.68) / 0.32),
-    });
-    mouse = pointer;
-    ctx.restore();
-    if (p >= 1) {
-      morph = null;
-      send("morphDone", { direction: m.direction });
-    }
-  }
   function tick(now) {
     if (destroyed) return;
     frame = requestAnimationFrame(tick);
@@ -1329,14 +1281,10 @@ export function mountMascot(canvas, menu, send = () => {}) {
   function draw(now) {
     if (destroyed) return;
     if (!visible) return;
-    if (!enabled && !morph && now - last < 1000 / 12) return;
+    if (!enabled && now - last < 1000 / 12) return;
     last = now;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    if (morph) {
-      drawMorph(now);
-      return;
-    }
     if (!enabled) {
       if (logo.complete)
         ctx.drawImage(logo, center.x - 40, center.y - 40, 80, 80);
@@ -1528,7 +1476,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       canvas.releasePointerCapture?.(e.pointerId);
     },
     click: () => {
-      if (suppressClick || morph) return;
+      if (suppressClick) return;
       nextIdle = performance.now() + IDLE_DELAY;
       send("open");
     },
@@ -1568,7 +1516,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
   // A single fallback draws only when RAF has stopped, without accumulating RAF callbacks.
   const fallback = setInterval(() => {
     const now = performance.now();
-    if (visible && (enabled || morph) && now - last > 40) draw(now);
+    if (visible && enabled && now - last > 40) draw(now);
   }, 16);
   const api = {
     ready: artwork.ready,
@@ -1614,18 +1562,6 @@ export function mountMascot(canvas, menu, send = () => {}) {
         visible = false;
         closeMenu();
       }
-      if (command === "morph") {
-        visible = true;
-        scene = -1;
-        previousEnvironment = null;
-        closeMenu();
-        resize();
-        morph = { ...data, started: performance.now() };
-        if (data.snapshot) {
-          morph.image = new Image();
-          morph.image.src = data.snapshot;
-        }
-      }
     },
     state: () => ({
       artworkReady: artwork.loaded(),
@@ -1635,7 +1571,6 @@ export function mountMascot(canvas, menu, send = () => {}) {
       nativeDrag,
       scene,
       visible,
-      morphing: !!morph,
       nextIdle,
       pose: { ...currentPose },
       cursor: { ...mouse },

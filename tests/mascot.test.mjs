@@ -92,28 +92,17 @@ test("right-click menu has all scenes; disabling removes flight and automatic sc
   assert.equal(api.state().enabled, true);
   api.destroy();
 });
-test("both morph directions complete in 300 ms, once only, even with all animations disabled", () => {
+test("show and pause switch visibility immediately, including static-logo mode", () => {
   const { api, messages } = start();
   api.receive("settings", { enabled: false });
-  for (const direction of ["open", "close"]) {
-    const began = now;
-    api.receive("morph", {
-      direction,
-      from: { x: 400, y: 300 },
-      to: { x: 24, y: 40 },
-      editor: { x: 0, y: 0, width: 520, height: 420 },
-    });
-    tick(began + 299);
-    assert.equal(api.state().morphing, true);
-    tick(began + 300);
-    assert.equal(api.state().morphing, false);
-    assert.equal(
-      messages.filter(
-        (m) => m.action === "morphDone" && m.direction === direction,
-      ).length,
-      1,
-    );
-  }
+  api.receive("pause");
+  assert.equal(api.state().visible, false);
+  api.receive("show");
+  assert.equal(api.state().visible, true);
+  assert.equal(
+    messages.some((m) => m.action === "morphDone"),
+    false,
+  );
   api.destroy();
 });
 test("hidden mascot pauses; showing it restarts the 60-second idle timer", () => {
@@ -301,23 +290,16 @@ test("feeding tokens reach the mouth, idle labels omit names and the menu only o
   api.destroy();
 });
 
-test("native frame pulse finishes a 300 ms morph when RAF and browser timers stop", () => {
-  const { api, messages } = start();
-  api.receive("morph", {
-    direction: "open",
-    from: { x: 250, y: 210 },
-    to: { x: 30, y: 40 },
-    editor: { x: 0, y: 0, width: 520, height: 420 },
-  });
-  now = 150;
+test("native frame pulse keeps flight advancing when RAF and browser timers stop", () => {
+  const { api } = start();
+  api.receive("show");
+  now = 100;
   api.receive("frame");
-  assert.equal(api.state().morphing, true);
-  now = 300;
+  const before = api.state().pose;
+  now = 200;
   api.receive("frame");
-  assert.equal(api.state().morphing, false);
-  now = 350;
-  api.receive("frame");
-  assert.equal(messages.filter((m) => m.action === "morphDone").length, 1);
+  assert.notDeepEqual(api.state().pose, before);
+  assert.equal(api.state().last, 200);
   api.destroy();
 });
 

@@ -233,7 +233,7 @@ test("folding changes visibility only; contextual add has item first and keeps a
   assert.equal(document.querySelectorAll(".row").length, 3);
   assert.equal($("headingMenu").hidden, true);
   assert.equal(document.querySelector("#editorToolbar #addItem"), null);
-  assert.equal($("editorToolbar").querySelector("button").id, "multiSelect");
+  assert.equal($("editorToolbar").querySelector("button").id, "voiceInput");
   $("preview").click();
   assert.equal($("previewToolbar").querySelector("select"), null);
   $("previewRaw").click();
@@ -341,10 +341,10 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
   assert.equal(roundName(), "第1轮");
   const buttons = [...$("editorToolbar").querySelectorAll("button")];
   assert.deepEqual(
-    buttons.slice(0, 2).map((b) => b.id),
-    ["multiSelect", "deleteEmpty"],
+    buttons.slice(0, 3).map((b) => b.id),
+    ["voiceInput", "multiSelect", "deleteEmpty"],
   );
-  assert.equal($("deleteRound").previousElementSibling, $("newDoc"));
+  assert.equal($("deleteRound").previousElementSibling, $("documents"));
   assert.equal($("deleteRound").parentElement.tagName, "HEADER");
   assert.equal($("deleteRound").textContent, "− 删除");
   assert.equal(document.querySelector("#menuContext,.menu-caption"), null);
@@ -655,4 +655,25 @@ test("editing tabs restore independent caret, scroll and multi-selection state",
   assert.equal(main.scrollTop, 140);
   $("commonTab").click();
   assert.equal(main.scrollTop, 75);
+});
+
+test("header follows editor and floating entry order; successful copy fills its button", async () => {
+  assert.equal($("editorTab").previousElementSibling, $("template"));
+  assert.equal($("floatingButton").previousElementSibling, $("shortcutsTab"));
+  assert.equal($("size").nextElementSibling, $("bold"));
+  assert.ok($("voiceInput").querySelector("svg"));
+  assert.equal($("voiceInput").textContent.trim(), "");
+  let minimized = false;
+  window.addEventListener(
+    "prombee-minimize",
+    () => {
+      minimized = true;
+    },
+    { once: true },
+  );
+  $("floatingButton").click();
+  assert.equal(minimized, true);
+  $("copy").classList.remove("copied");
+  await $("copy").onclick();
+  assert.equal($("copy").classList.contains("copied"), true);
 });

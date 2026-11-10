@@ -3,16 +3,9 @@ from pathlib import Path
 import tempfile
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from prombee.floating import morph_layout, FloatingPreferences
+from prombee.floating import FloatingPreferences
 
 class FloatingTests(unittest.TestCase):
-    def test_head_alignment_across_negative_monitor_coordinates(self):
-        editor=(-1200,100,1080,800);orb=(50,800,520,420);logo={'x':42,'y':73}
-        union,payload=morph_layout(editor,orb,logo)
-        self.assertEqual(union,(-1200,100,1770,1120))
-        self.assertEqual((union[0]+payload['to']['x'],union[1]+payload['to']['y']),(-1158,173))
-        self.assertEqual((union[0]+payload['from']['x'],union[1]+payload['from']['y']),(341,1004))
-        self.assertEqual(payload['editor']['width'],1080)
     def test_animation_preference_round_trip_and_corrupt_file_recovery(self):
         with tempfile.TemporaryDirectory() as folder:
             prefs=FloatingPreferences(folder);self.assertTrue(prefs.enabled)
@@ -42,10 +35,6 @@ class FloatingTests(unittest.TestCase):
             prefs.save(False,'left');restored=FloatingPreferences(folder)
             self.assertEqual(restored.direction,'left');self.assertFalse(restored.enabled)
             restored.save(True);self.assertEqual(FloatingPreferences(folder).direction,'left')
-        editor=(0,0,1080,800);orb=(600,400,520,420);logo={'x':42,'y':73}
-        _,right=morph_layout(editor,orb,logo,'right');_,left=morph_layout(editor,orb,logo,'left')
-        self.assertEqual(right['from']['x']-left['from']['x'],62)
-        self.assertEqual(right['to'],left['to'])
 
     def test_windows_waits_for_source_artwork_before_marking_companion_ready(self):
         from types import SimpleNamespace
@@ -122,3 +111,28 @@ class FloatingTests(unittest.TestCase):
         calls.clear();control.mode='hidden'
         control.orb_state_changed(SimpleNamespace(get_state=lambda:1),None)
         self.assertEqual(calls,[])
+
+    def test_both_hosts_switch_synchronously_without_snapshots_or_timers(self):
+        from types import SimpleNamespace
+        import threading
+        from prombee.floating_gtk import GtkFloating
+        from prombee.floating_windows import WindowsFloating
+        for cls in (GtkFloating, WindowsFloating):
+            calls=[]
+            def window(name):
+                return SimpleNamespace(x=0,y=0,width=1080,height=800,
+                    present=lambda:calls.append(name+' show'),show=lambda:calls.append(name+' show'),
+                    hide=lambda:calls.append(name+' hide'),set_visible=lambda value:calls.append(name+(' show' if value else ' hide')),
+                    unminimize=lambda:None)
+            control=cls.__new__(cls)
+            control.window=window('editor');control.orb=window('orb')
+            control.mode='editor';control.ready=True;control.orb_rect=None;control.completed_switches=0
+            control.lock=threading.RLock()
+            control.x=SimpleNamespace(position=lambda w:(w.x,w.y,w.width,w.height),move=lambda *args:None,above=lambda *args:None,input_region=lambda *args:None)
+            control.place=lambda *args:None;control.input_region=lambda *args:None
+            control.emit=lambda command,*args:calls.append(command)
+            control.collapse()
+            self.assertEqual(control.mode,'orb');self.assertIn('editor hide',calls);self.assertIn('show',calls)
+            control.open()
+            self.assertEqual(control.mode,'editor');self.assertEqual(control.completed_switches,2)
+            self.assertEqual(calls[-2:],['orb hide','pause'])

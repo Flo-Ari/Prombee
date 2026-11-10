@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT/'src'))
 from prombee.server import start_server
-from prombee.floating import MORPH_MS
+from prombee.floating import SWITCH_DURATION_MS
 from prombee.branding import app_name, ui_language
 
 
@@ -238,15 +238,15 @@ def main():
                 self.floating_stage=1;self.floating.open()
             elif self.floating_stage==1 and self.floating.mode=='editor':
                 assert self.window.get_visible() and not self.floating.orb.get_visible()
-                if self.floating.completed_morphs!=2:
+                if self.floating.completed_switches!=2:
                     self.floating.view.evaluate_javascript("JSON.stringify({state:window.prombeeMascot?.state(),errors:window.prombeeErrors,size:[innerWidth,innerHeight],visibility:document.visibilityState})",-1,None,None,None,self.floating_failed,None)
                     return False
-                print('FLOATING_OK '+json.dumps({'roundTrip':True,'rendererCompleted':2,'durationMs':MORPH_MS}),flush=True)
+                print('FLOATING_OK '+json.dumps({'roundTrip':True,'switches':2,'durationMs':SWITCH_DURATION_MS}),flush=True)
                 self.quit();return False
             return True
 
         def floating_failed(self,view,result_value,_):
-            print('FLOATING_ERROR '+self.floating.mode+' completed='+str(self.floating.completed_morphs)+' '+view.evaluate_javascript_finish(result_value).to_string(),flush=True)
+            print('FLOATING_ERROR '+self.floating.mode+' completed='+str(self.floating.completed_switches)+' '+view.evaluate_javascript_finish(result_value).to_string(),flush=True)
             result[0]=1;self.quit()
 
         def snapshot(self,view,async_result,user_data):

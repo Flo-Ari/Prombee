@@ -792,22 +792,25 @@ body.dark[data-page="common"] #paper {
   background: var(--paper);
   border-color: var(--line);
 }
-#editorTab {
-  background: linear-gradient(to top, #2563eb 0 24%, var(--paper) 24% 100%);
+#editorTab,
+#copy {
+  background: var(--paper);
   border-color: #2563eb;
   color: #2563eb;
   font-weight: 650;
   box-shadow: 0 2px 6px #2563eb20;
 }
-#editorTab[aria-selected="true"] {
+#editorTab[aria-selected="true"],
+#copy.copied {
   background: #2563eb;
   color: #fff;
 }
-body.dark #editorTab:not([aria-selected="true"]) {
+body.dark #editorTab:not([aria-selected="true"]),
+body.dark #copy:not(.copied) {
   color: #93bcff;
 }
 #deleteRound {
-  margin-left: auto;
+  margin-left: 0;
 }
 header {
   flex-wrap: wrap;
@@ -1272,4 +1275,20 @@ body.dark .fold {
   height: 23px;
   flex-shrink: 0;
   margin: 0 3px;
+}
+
+#voiceInput {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  padding: 6px;
+}
+#size {
+  margin-right: 3px;
+}
+#copy {
+  transition:
+    background-color 0.16s,
+    color 0.16s;
 }

@@ -55,33 +55,11 @@ function demoAction(action, data) {
     demo.hidden = false;
     demoCenter ||= { x: innerWidth / 2, y: innerHeight / 2 };
     mascot.receive("anchor", demoCenter);
-    mascot.receive("morph", {
-      direction: "close",
-      dark: document.body.classList.contains("dark"),
-      from: {
-        x: demoCenter.x + (mascot.state().direction === "left" ? -31 : 31),
-        y: demoCenter.y - 6,
-      },
-      to: data.logo,
-      editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
-    });
+    mascot.receive("show");
   }
-  if (action === "open")
-    mascot.receive("morph", {
-      direction: "open",
-      dark: document.body.classList.contains("dark"),
-      from: {
-        x: demoCenter.x + (mascot.state().direction === "left" ? -31 : 31),
-        y: demoCenter.y - 6,
-      },
-      to: logoTarget(),
-      editor: { x: 0, y: 0, width: innerWidth, height: innerHeight },
-    });
-  if (action === "morphDone") {
-    if (data.direction === "open") {
-      demo.hidden = true;
-      mascot.receive("pause");
-    } else mascot.receive("show");
+  if (action === "open") {
+    demo.hidden = true;
+    mascot.receive("pause");
   }
   if (action === "drag") {
     demoCenter = {
