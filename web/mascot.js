@@ -1583,8 +1583,21 @@ export function mountMascot(canvas, menu, send = () => {}) {
     if (u >= hit) {
       const p = clamp((u - hit) / 0.24),
         fade = 1 - ease(clamp((u - 5) / 2)),
-        x = center.x - 22,
-        y = center.y;
+        // Freeze the fracture at the stinger's actual contact point. It must
+        // not drift with the recovering body or appear behind the opposite end.
+        impact = scenePose(3, hit * 1000, sceneStart + hit * 1000, sceneOrigin),
+        tipX = (-89 - impact.sting * 23) * impact.scale,
+        tipY = (10 + impact.sting * 4) * impact.scale,
+        x =
+          center.x +
+          impact.x +
+          tipX * Math.cos(impact.rotation) -
+          tipY * Math.sin(impact.rotation),
+        y =
+          center.y +
+          impact.y +
+          tipX * Math.sin(impact.rotation) +
+          tipY * Math.cos(impact.rotation);
       ctx.save();
       ctx.globalAlpha *= fade;
       ctx.beginPath();
