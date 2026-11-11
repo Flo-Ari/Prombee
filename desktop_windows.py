@@ -150,6 +150,9 @@ def main():
                 result['diagnostics'] = json.loads(window.run_js("JSON.stringify({status:document.getElementById('status')?.textContent,errors:window.prombeeErrors,userAgent:navigator.userAgent,resources:performance.getEntriesByType('resource').map(e=>({name:e.name,type:e.initiatorType,size:e.transferSize}))})"))
                 raise AssertionError(state)
             assert state['title'] == app_name(), state
+            destinations=server.other.snapshot()
+            assert isinstance(destinations['windows'],list) and isinstance(destinations['applications'],list)
+            result['destinations']={key:len(destinations[key]) for key in ('windows','applications')}
             deadline=time.monotonic()+10
             while not floating.ready and time.monotonic()<deadline:time.sleep(.05)
             assert floating.ready,'Floating window did not load'

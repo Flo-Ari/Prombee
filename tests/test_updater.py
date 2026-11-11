@@ -28,11 +28,14 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(version_key('v0.9.10'),(0,9,10));self.assertIsNone(version_key('v0.9.5-beta'))
         self.assertIsNone(choose_asset(['../../arbitrary.exe'],'0.9.5','windows'))
         self.updater.mode='rpm'
-        releases=[self.release('0.9.5'),self.release('0.9.6')]
+        from prombee import __version__
+        major,minor,patch_version=version_key(__version__)
+        next_version=f'{major}.{minor}.{patch_version+1}'
+        releases=[self.release(next_version),self.release(f'{major}.{minor}.{patch_version+2}')]
         releases[1]['assets'].pop() # Incomplete upload is not offered.
         self.updater.fetch=lambda url,limit:json.dumps(releases).encode()
         self.updater.check()
-        self.assertEqual(self.updater.snapshot()['latest'],'0.9.5')
+        self.assertEqual(self.updater.snapshot()['latest'],next_version)
         self.assertEqual(self.updater.snapshot()['status'],'available')
     def prepare(self,raw=b'verified package'):
         self.updater.candidate={'version':'0.9.5','name':'prombee-0.9.5-1.fc44.noarch.rpm','manifest':'Prombee-0.9.5-SHA256.txt'}

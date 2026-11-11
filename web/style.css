@@ -1353,3 +1353,42 @@ body.dark .fold {
   height: 8px;
   accent-color: #2563eb;
 }
+
+header #documents,
+header #recentSets,
+#editorToolbar #font,
+#editorToolbar #headingLevel {
+  height: 33px;
+  min-height: 33px;
+  box-sizing: border-box;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.setting-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.setting-switch input {
+  accent-color: #2563eb;
+  width: 16px;
+  height: 16px;
+}
+.copy-jump-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+#copyJumpTarget {
+  flex: 1;
+  min-width: 180px;
+  max-width: 540px;
+  height: 33px;
+}
+#copyJumpUrlRow input {
+  width: min(520px, 100%);
+  margin: 0 0 12px 8px;
+}

@@ -71,6 +71,8 @@ def main():
             self.saved_close=False
             self.file_picker_cancel=None
             manager=self.web.get_user_content_manager()
+            manager.register_script_message_handler('clipboardWrite',None)
+            manager.connect('script-message-received::clipboardWrite',self.clipboard_write)
             manager.register_script_message_handler('clipboard',None)
             manager.connect('script-message-received::clipboard',lambda m,value:Gdk.Display.get_default().get_clipboard().set(value.to_string()))
             manager.register_script_message_handler('shortcutHints',None)
@@ -172,6 +174,14 @@ def main():
             if 'error' in result: raise ValueError(result['error'])
             return result.get('path')
 
+        def clipboard_write(self,manager,value):
+            request=json.loads(value.to_string())
+            ok=True
+            try:Gdk.Display.get_default().get_clipboard().set(request['text'])
+            except Exception:ok=False
+            response=json.dumps({'id':request['id'],'ok':ok})
+            self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard',{detail:"+response+"}))",-1,None,None,None,None,None)
+
         def shortcut_hints(self,manager,value):
             try:
                 key=json.loads(value.to_string()).get('collapse','')
@@ -216,6 +226,9 @@ def main():
                 if not value['ready']:
                     GLib.timeout_add(500,self.check);return
                 assert value['title']==app_name() and value['rows']>0 and value['clipped']==0,value
+                destinations=server.other.snapshot()
+                assert isinstance(destinations['windows'],list) and isinstance(destinations['applications'],list)
+                print('TARGETS_OK '+json.dumps({key:len(destinations[key]) for key in ('windows','applications')}),flush=True)
                 print('DESKTOP_OK '+json.dumps(value,ensure_ascii=False),flush=True)
                 if args.floating_smoke_test:
                     self.floating_stage=0;self.floating_tries=0

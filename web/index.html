@@ -85,8 +85,8 @@
         </svg>
       </button>
       <button id="multiSelect">多选</button>
-      <button id="deleteEmpty" aria-pressed="false" title="复制时删除空项">
-        删除空项
+      <button id="deleteEmpty" aria-pressed="false" title="复制时排除空项">
+        排除空项
       </button>
       <button id="undo" title="撤销 Ctrl+Z" aria-label="撤销">↶</button>
       <button id="redo" title="重做 Ctrl+Shift+Z" aria-label="重做">↷</button>
@@ -187,8 +187,40 @@
       <button id="updatesTab" role="tab" aria-controls="updatesPanel">
         更新
       </button>
+      <button id="otherTab" role="tab" aria-controls="otherPanel">其他</button>
     </div>
     <main>
+      <section
+        id="otherPanel"
+        class="settings-card"
+        role="tabpanel"
+        aria-label="其他设置"
+        hidden
+      >
+        <h2>其他</h2>
+        <label class="setting-switch"
+          ><input id="copyJumpEnabled" type="checkbox" />复制提示词后跳转</label
+        >
+        <div class="copy-jump-target">
+          <label for="copyJumpTarget">跳转目标</label
+          ><select id="copyJumpTarget" aria-label="跳转目标"></select
+          ><button id="refreshJumpTargets">刷新</button>
+        </div>
+        <label id="copyJumpUrlRow" hidden
+          >网页地址
+          <input
+            id="copyJumpUrl"
+            type="url"
+            placeholder="https://"
+            aria-label="网页地址"
+        /></label>
+        <p class="muted">
+          窗口列表包含系统可识别的已打开窗口，浏览器页面以窗口当前标签为准。
+        </p>
+        <button id="saveOtherSettings" class="primary">保存</button>
+        <p id="otherStatus" role="status" aria-live="polite"></p>
+      </section>
+
       <section
         id="floatingPanel"
         class="settings-card"

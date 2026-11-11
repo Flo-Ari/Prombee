@@ -711,3 +711,63 @@ test("empty-entry filtering is a persistent copy option and never deletes editor
   await $("copy").onclick();
   assert.match(copied.at(-1), /1\. /);
 });
+
+test("cut without text selection copies only this entry and preserves children; undo restores it", async () => {
+  $("editorTab").click();
+  $("newDoc").click();
+  const heading = document.querySelector(".content");
+  heading.focus();
+  heading.textContent = "剪切标题";
+  heading.dispatchEvent(new window.Event("input", { bubbles: true }));
+  const row = heading.closest(".row"),
+    id = heading.dataset.id,
+    count = document.querySelectorAll(".row").length;
+  const childIds = [...document.querySelectorAll(".content")]
+    .slice(1)
+    .map((n) => n.dataset.id);
+  window.getSelection().removeAllRanges();
+  const range = document.createRange();
+  range.selectNodeContents(heading);
+  range.collapse(true);
+  window.getSelection().addRange(range);
+  const copies = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (text) => copies.push(text) },
+  });
+  assert.equal(key("x", { ctrlKey: true }).defaultPrevented, true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.match(copies[0], /^#+ 剪切标题\n$/);
+  assert.equal(document.querySelectorAll(".row").length, count - 1);
+  for (const childId of childIds)
+    assert.ok(document.querySelector(`.content[data-id="${childId}"]`));
+  $("undo").click();
+  assert.ok(document.querySelector(`.content[data-id="${id}"]`));
+  const restored = document.querySelector(`.content[data-id="${id}"]`);
+  restored.focus();
+  const selected = document.createRange();
+  selected.selectNodeContents(restored);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(selected);
+  assert.equal(key("x", { ctrlKey: true }).defaultPrevented, false);
+  assert.equal(document.querySelectorAll(".row").length, count);
+  selected.collapse(true);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(selected);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: async () => {
+        throw Error("denied");
+      },
+    },
+  });
+  document.execCommand = () => false;
+  key("x", { ctrlKey: true });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(document.querySelector(`.content[data-id="${id}"]`));
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (text) => copies.push(text) },
+  });
+});

@@ -26,7 +26,7 @@ export const SHORTCUT_GROUPS = [
     name: "编辑工具栏",
     actions: [
       ["multi", "多选／全选", "Ctrl+Shift+M"],
-      ["deleteEmpty", "删除空项", "Ctrl+Alt+K"],
+      ["deleteEmpty", "排除空项", "Ctrl+Alt+K"],
       ["undo", "撤销", "Ctrl+Z"],
       ["redo", "重做", "Ctrl+Shift+Z"],
       ["bold", "粗体", "Ctrl+B"],
@@ -46,6 +46,7 @@ export const SHORTCUT_GROUPS = [
       ["drag", "拖动排序", "Ctrl+Shift+G"],
       ["exclude", "排除本条目", "Ctrl+Shift+E"],
       ["delete", "删除本条目", "Ctrl+Shift+Backspace"],
+      ["cutEntry", "剪切本条目（未选文字）", "Ctrl+X"],
     ],
   },
   { id: "footer", name: "状态栏", actions: [["save", "保存", "Ctrl+S"]] },

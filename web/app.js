@@ -1,3 +1,4 @@
+import { mountOtherSettings } from "./other.js";
 import { mountUpdates } from "./updates.js";
 import { moveSubtree, bindHoldDrag } from "./reorder.js";
 import {
@@ -49,7 +50,7 @@ let multi = false,
   selected = new Set();
 let page = "editor",
   previewSource = null;
-const settingsPages = ["shortcuts", "floating", "updates"];
+const settingsPages = ["shortcuts", "floating", "updates", "other"];
 let lastSettingsPage = "shortcuts";
 let keyboardInsert = false,
   keyboardLevel = 0,
@@ -807,26 +808,105 @@ function copiedFeedback() {
     1400,
   );
 }
-async function copyText(text) {
-  try {
-    if (window.webkit?.messageHandlers?.clipboard) {
-      window.webkit.messageHandlers.clipboard.postMessage(text);
-    } else {
-      await navigator.clipboard.writeText(text);
+function nativeClipboard(text) {
+  return new Promise((resolve, reject) => {
+    const id = uid();
+    const done = (event) => {
+      if (event.detail?.id !== id) return;
+      cleanup();
+      event.detail.ok ? resolve() : reject(Error("剪贴板写入失败"));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener("prombee-clipboard", done);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(Error("剪贴板写入超时"));
+    }, 3000);
+    window.addEventListener("prombee-clipboard", done);
+    try {
+      window.webkit.messageHandlers.clipboardWrite.postMessage(
+        JSON.stringify({ id, text }),
+      );
+    } catch (error) {
+      cleanup();
+      reject(error);
     }
-    copiedFeedback();
-    toast("已复制提示词");
+  });
+}
+async function copyText(text, { jump = true, quiet = false } = {}) {
+  let success = false;
+  try {
+    if (window.webkit?.messageHandlers?.clipboardWrite)
+      await nativeClipboard(text);
+    else if (window.pywebview?.api?.clipboard)
+      await window.pywebview.api.clipboard(text);
+    else await navigator.clipboard.writeText(text);
+    success = true;
   } catch {
+    const previous = document.activeElement,
+      ranges = [...Array(window.getSelection().rangeCount)].map((_, i) =>
+        window.getSelection().getRangeAt(i).cloneRange(),
+      );
     const t = element("textarea");
     t.value = text;
     document.body.append(t);
     t.select();
-    const ok = document.execCommand("copy");
-    t.remove();
-    if (ok) copiedFeedback();
-    toast(ok ? "已复制提示词" : "复制失败，请选中文字后按 Ctrl+C");
+    try {
+      success = document.execCommand("copy");
+    } catch {
+    } finally {
+      t.remove();
+      previous?.focus();
+      const selected = window.getSelection();
+      selected.removeAllRanges();
+      for (const range of ranges) selected.addRange(range);
+    }
+  }
+  if (!success) {
+    toast("复制失败，条目已保留");
+    return false;
+  }
+  if (!quiet) {
+    copiedFeedback();
+    toast("已复制提示词");
+  }
+  if (jump) {
+    try {
+      await otherUI.afterCopy();
+    } catch (error) {
+      toast("已复制，" + error.message);
+    }
+  }
+  return true;
+}
+let cutRunning = false;
+async function cutEntry(id) {
+  if (cutRunning) return;
+  const current = doc(),
+    node = current.nodes.find((n) => n.id === id);
+  if (!node) return;
+  const snapshot = JSON.stringify(node);
+  cutRunning = true;
+  try {
+    const text = toMarkdown([{ ...node, excluded: false }], {
+      removeEmpty: false,
+    });
+    if (!(await copyText(text, { jump: false, quiet: true }))) return;
+    // Keep new edits intact if focus/content changed while the clipboard was pending.
+    if (
+      !editing() ||
+      doc() !== current ||
+      JSON.stringify(current.nodes.find((n) => n.id === id)) !== snapshot
+    )
+      return;
+    deleteNode(id, false);
+  } finally {
+    cutRunning = false;
   }
 }
+
 function copy() {
   if (integrateCurrent()) render();
   return copyText(toMarkdown(doc().nodes, copyOptions()));
@@ -960,6 +1040,7 @@ function updatePages() {
   $("shortcutsPanel").hidden = page !== "shortcuts";
   $("floatingPanel").hidden = page !== "floating";
   $("updatesPanel").hidden = page !== "updates";
+  $("otherPanel").hidden = page !== "other";
   $("settingsToolbar").hidden = !settingsPages.includes(page);
   $("settingsTab").setAttribute(
     "aria-selected",
@@ -969,6 +1050,7 @@ function updatePages() {
     ["shortcutsTab", "shortcuts"],
     ["floatingButton", "floating"],
     ["updatesTab", "updates"],
+    ["otherTab", "other"],
   ]) {
     $(id).setAttribute("aria-selected", String(page === target));
   }
@@ -1208,6 +1290,12 @@ $("floatingButton").onclick = () => {
   switchPage("floating");
 };
 const updaterUI = mountUpdates({ beforeInstall: flushWorkspace });
+const otherUI = mountOtherSettings();
+$("otherTab").onclick = () => {
+  lastSettingsPage = "other";
+  switchPage("other");
+  otherUI.show();
+};
 $("updatesTab").onclick = () => {
   lastSettingsPage = "updates";
   switchPage("updates");
@@ -1216,6 +1304,7 @@ $("updatesTab").onclick = () => {
 $("settingsTab").onclick = () => {
   switchPage(lastSettingsPage);
   if (lastSettingsPage === "updates") updaterUI.show();
+  if (lastSettingsPage === "other") otherUI.show();
 };
 const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
   onChange: (bindings) => {
@@ -1244,7 +1333,7 @@ function refreshShortcutHints() {
     ["theme", "theme", "主题"],
     ["copy", "copy", "复制提示词"],
     ["multiSelect", "multi", $("multiSelect").textContent],
-    ["deleteEmpty", "deleteEmpty", "删除空项"],
+    ["deleteEmpty", "deleteEmpty", "排除空项"],
     ["undo", "undo", "撤销"],
     ["redo", "redo", "重做"],
     ["bold", "bold", "粗体"],
@@ -1470,6 +1559,12 @@ function moveEntry(step) {
   return true;
 }
 function runShortcut(action) {
+  if (action === "cutEntry") {
+    const field = document.activeElement?.closest?.(".content");
+    if (!editing() || !field || window.getSelection()?.toString()) return false;
+    cutEntry(field.dataset.id);
+    return true;
+  }
   if (action === "collapse") {
     window.dispatchEvent(new window.Event("prombee-minimize"));
     return true;

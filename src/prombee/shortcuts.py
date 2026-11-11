@@ -5,7 +5,7 @@ from pathlib import Path
 from .library import atomic_write
 from .filelock import exclusive_file_lock
 
-IDS={'drag','library','deleteRound','collapse','copyAll','insert','newRound','previous','next','save','copy','undo','redo','bold','italic','multi','exclude','delete','deleteEmpty','fold','preview','compare','editor','template','common','settings','theme','voice'}
+IDS={'cutEntry','drag','library','deleteRound','collapse','copyAll','insert','newRound','previous','next','save','copy','undo','redo','bold','italic','multi','exclude','delete','deleteEmpty','fold','preview','compare','editor','template','common','settings','theme','voice'}
 PATTERN=re.compile(r'^(Ctrl\+)?(Alt\+)?(Shift\+)?([A-Z0-9]|F([1-9]|1[0-2])|Arrow(Up|Down)|Backspace|Delete|Enter|Space|Home|End|PageUp|PageDown|Escape)$')
 
 def validate(value):
@@ -32,6 +32,8 @@ class Shortcuts:
                 if not value.get('redo'):value['redo']=alternate
             if isinstance(value,dict) and 'drag' not in value:
                 value['drag']='' if 'Ctrl+Shift+G' in value.values() else 'Ctrl+Shift+G'
+            if isinstance(value,dict) and 'cutEntry' not in value:
+                value['cutEntry']='' if 'Ctrl+X' in value.values() else 'Ctrl+X'
             value=validate(value)
         except (OSError,ValueError,TypeError):value={}
         return {'bindings':value}

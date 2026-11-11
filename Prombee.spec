@@ -1,9 +1,10 @@
 # Build from repository root: work/build-venv/bin/python -m PyInstaller Prombee.spec --noconfirm
 from pathlib import Path
+import shutil
 root=Path(SPECPATH)
 processes=Path('/usr/libexec/webkitgtk-6.0')
 a=Analysis([str(root/'desktop.py')],pathex=[str(root/'src')],
-    binaries=[(str(f),'webkit-processes') for f in processes.iterdir() if f.is_file()],
+    binaries=[(str(f),'webkit-processes') for f in processes.iterdir() if f.is_file()] + ([(shutil.which('xprop'),'.')] if shutil.which('xprop') else []),
     datas=[(str(root/'web'),'web'),(str(root/'seed.json'),'.'),(str(root/'LICENSE'),'.'),(str(root/'NOTICE'),'.')],
     hiddenimports=['gi.repository.Gtk','gi.repository.Gdk','gi.repository.GdkX11','gi.repository.WebKit','gi.repository.JavaScriptCore'],
     hookspath=[str(root/'scripts')],

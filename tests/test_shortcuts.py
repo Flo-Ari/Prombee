@@ -43,3 +43,11 @@ class ShortcutsTests(unittest.TestCase):
             loaded=store.load()['bindings'];self.assertEqual(loaded['insert'],'Ctrl+K');self.assertEqual(loaded['drag'],'Ctrl+Shift+G')
             mapping['delete']='Ctrl+Shift+G';store.path.write_text(json.dumps(mapping),encoding='utf-8')
             self.assertEqual(store.load()['bindings']['drag'],'')
+
+    def test_cut_entry_migration_preserves_existing_bindings_and_avoids_conflicts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder);value={name:'' for name in IDS if name!='cutEntry'}
+            value['insert']='Ctrl+K';store.path.write_text(json.dumps(value),encoding='utf-8')
+            loaded=store.load()['bindings'];self.assertEqual(loaded['cutEntry'],'Ctrl+X');self.assertEqual(loaded['insert'],'Ctrl+K')
+            value['bold']='Ctrl+X';store.path.write_text(json.dumps(value),encoding='utf-8')
+            loaded=store.load()['bindings'];self.assertEqual(loaded['cutEntry'],'');self.assertEqual(loaded['bold'],'Ctrl+X')
