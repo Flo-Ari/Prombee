@@ -8,7 +8,7 @@ export const SHORTCUT_GROUPS = [
     id: "header",
     name: "顶部栏",
     actions: [
-      ["library", "词集管理", "Ctrl+Alt+O"],
+      ["library", "文件", "Ctrl+Alt+O"],
       ["template", "模板", "Ctrl+Alt+T"],
       ["newRound", "新建一轮", "Ctrl+Shift+N"],
       ["deleteRound", "删除本轮", ""],
@@ -16,7 +16,7 @@ export const SHORTCUT_GROUPS = [
       ["compare", "历史", "Ctrl+Alt+D"],
       ["preview", "预览", "Ctrl+Alt+P"],
       ["common", "常用", "Ctrl+Alt+U"],
-      ["settings", "快捷键设置", "Ctrl+Alt+H"],
+      ["settings", "设置", "Ctrl+Alt+H"],
       ["theme", "主题", "Ctrl+Shift+J"],
       ["copy", "复制提示词", "Ctrl+Shift+C"],
     ],

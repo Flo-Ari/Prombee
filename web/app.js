@@ -1,3 +1,4 @@
+import { mountUpdates } from "./updates.js";
 import { moveSubtree, bindHoldDrag } from "./reorder.js";
 import {
   mountShortcuts,
@@ -48,6 +49,8 @@ let multi = false,
   selected = new Set();
 let page = "editor",
   previewSource = null;
+const settingsPages = ["shortcuts", "floating", "updates"];
+let lastSettingsPage = "shortcuts";
 let keyboardInsert = false,
   keyboardLevel = 0,
   shortcutBindings = { ...DEFAULT_SHORTCUTS };
@@ -955,6 +958,20 @@ function updatePages() {
   document.body.dataset.page = page;
   $("libraryPanel").hidden = page !== "library";
   $("shortcutsPanel").hidden = page !== "shortcuts";
+  $("floatingPanel").hidden = page !== "floating";
+  $("updatesPanel").hidden = page !== "updates";
+  $("settingsToolbar").hidden = !settingsPages.includes(page);
+  $("settingsTab").setAttribute(
+    "aria-selected",
+    String(settingsPages.includes(page)),
+  );
+  for (const [id, target] of [
+    ["shortcutsTab", "shortcuts"],
+    ["floatingButton", "floating"],
+    ["updatesTab", "updates"],
+  ]) {
+    $(id).setAttribute("aria-selected", String(page === target));
+  }
   for (const id of [
     "template",
     "editorTab",
@@ -966,7 +983,7 @@ function updatePages() {
     "copy",
   ])
     $(id).disabled = noSet;
-  $("copy").hidden = ["library", "shortcuts"].includes(page);
+  $("copy").hidden = ["library", ...settingsPages].includes(page);
   $("editorToolbar").hidden = !editing();
   $("editorPanel").hidden = !editing();
   $("previewToolbar").hidden = page !== "preview";
@@ -1109,7 +1126,7 @@ $("copyHierarchy").onclick = () => {
   toast(`已复制${source.name}的标题层级，可撤销`);
 };
 $("copy").onclick = copy;
-$("floatingButton").onclick = () =>
+$("enterFloating").onclick = () =>
   window.dispatchEvent(new window.Event("prombee-minimize"));
 $("theme").onclick = () => {
   state.dark = !state.dark;
@@ -1182,7 +1199,24 @@ $("headingLevel").onchange = () => {
 $("deleteEmpty").onclick = deleteEmpty;
 $("undo").onclick = undo;
 $("redo").onclick = redo;
-$("shortcutsTab").onclick = () => switchPage("shortcuts");
+$("shortcutsTab").onclick = () => {
+  lastSettingsPage = "shortcuts";
+  switchPage("shortcuts");
+};
+$("floatingButton").onclick = () => {
+  lastSettingsPage = "floating";
+  switchPage("floating");
+};
+const updaterUI = mountUpdates({ beforeInstall: flushWorkspace });
+$("updatesTab").onclick = () => {
+  lastSettingsPage = "updates";
+  switchPage("updates");
+  updaterUI.show();
+};
+$("settingsTab").onclick = () => {
+  switchPage(lastSettingsPage);
+  if (lastSettingsPage === "updates") updaterUI.show();
+};
 const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
   onChange: (bindings) => {
     shortcutBindings = bindings;
@@ -1198,15 +1232,15 @@ const shortcutsUI = mountShortcuts($("shortcutsPanel"), {
 });
 function refreshShortcutHints() {
   for (const [id, action, name] of [
-    ["libraryTab", "library", "词集管理"],
+    ["libraryTab", "library", "文件"],
     ["template", "template", "模板"],
-    ["newDoc", "newRound", "新建一轮"],
+    ["newDoc", "newRound", "新建"],
     ["editorTab", "editor", "编写"],
     ["compare", "compare", "历史"],
     ["preview", "preview", "预览"],
     ["commonTab", "common", "常用"],
-    ["shortcutsTab", "settings", "快捷键"],
-    ["floatingButton", "collapse", "悬浮球"],
+    ["settingsTab", "settings", "设置"],
+    ["enterFloating", "collapse", "进入悬浮球"],
     ["theme", "theme", "主题"],
     ["copy", "copy", "复制提示词"],
     ["multiSelect", "multi", $("multiSelect").textContent],
@@ -1445,7 +1479,7 @@ function runShortcut(action) {
     return true;
   }
   if (action === "settings") {
-    switchPage("shortcuts");
+    $("settingsTab").click();
     return true;
   }
   if (action === "theme") {
@@ -1475,7 +1509,7 @@ function runShortcut(action) {
     switchPage(action);
     return true;
   }
-  if (action === "copy" && !["library", "shortcuts"].includes(page)) {
+  if (action === "copy" && !["library", ...settingsPages].includes(page)) {
     copy();
     return true;
   }

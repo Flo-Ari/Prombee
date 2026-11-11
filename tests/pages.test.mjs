@@ -351,7 +351,7 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
   );
   assert.equal($("deleteRound").previousElementSibling, $("documents"));
   assert.equal($("deleteRound").parentElement.tagName, "HEADER");
-  assert.equal($("deleteRound").textContent, "− 删除");
+  assert.equal($("deleteRound").textContent, "−");
   assert.equal(document.querySelector("#menuContext,.menu-caption"), null);
 });
 
@@ -468,10 +468,7 @@ test("shortcut tab records, validates, saves and activates edited bindings witho
   $("shortcutsTab").click();
   assert.equal($("shortcutsPanel").hidden, false);
   assert.equal($("editorToolbar").hidden, true);
-  assert.equal(
-    $("commonTab").nextElementSibling.nextElementSibling,
-    $("shortcutsTab"),
-  );
+  assert.equal($("settingsTab").nextElementSibling, $("theme"));
   const input = document.querySelector('[data-action="insert"]');
   input.focus();
   key("k", { ctrlKey: true });
@@ -663,7 +660,7 @@ test("editing tabs restore independent caret, scroll and multi-selection state",
 });
 
 test("header follows editor and floating entry order; successful copy fills its button", async () => {
-  assert.equal($("editorTab").previousElementSibling, $("template"));
+  assert.equal($("template").previousElementSibling, $("editorTab"));
   assert.equal($("floatingButton").previousElementSibling, $("shortcutsTab"));
   assert.equal($("size").nextElementSibling, $("bold"));
   assert.ok($("voiceInput").querySelector("svg"));
@@ -676,7 +673,10 @@ test("header follows editor and floating entry order; successful copy fills its 
     },
     { once: true },
   );
+  $("settingsTab").click();
   $("floatingButton").click();
+  assert.equal($("floatingPanel").hidden, false);
+  $("enterFloating").click();
   assert.equal(minimized, true);
   $("copy").classList.remove("copied");
   await $("copy").onclick();

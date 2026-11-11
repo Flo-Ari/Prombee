@@ -196,3 +196,21 @@ test('template hierarchy includes excluded ancestors and excluded descendants wi
  const copy=hierarchyNodes(source);
  assert.deepEqual(copy.filter(n=>n.kind==='heading').map(n=>n.html),['被排除的父级','子级']);assert.ok(copy.every(n=>!n.excluded));
 });
+
+test("copy filter disabled preserves empty headings, heading markers and empty ordered entries", () => {
+  const nodes = [
+    heading("a", 1, "只有标题"),
+    item("blank", ""),
+    heading("b", 2, ""),
+    item("body", "正文"),
+    heading("leaf", 3, "空分支"),
+    item("hidden", "不复制", true),
+  ];
+  const text = toMarkdown(nodes, { removeEmpty: false });
+  assert.equal(text, "# 只有标题\n1. \n\n## \n1. 正文\n\n### 空分支\n");
+  assert.equal(
+    toMarkdown(nodes, { removeEmpty: true }),
+    "# 只有标题\n1. 正文\n",
+  );
+  assert.equal(nodes.length, 6);
+});

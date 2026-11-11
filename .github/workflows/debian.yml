@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -20,11 +19,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build distribution-native package
-        run: python3 scripts/build_deb.py --version 0.9.3
+        run: python3 scripts/build_deb.py --version 0.9.4
       - name: Install and smoke test
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb dbus-x11 desktop-file-utils ./dist/prombee_0.9.3_all.deb
+          sudo apt-get install -y xvfb dbus-x11 desktop-file-utils ./dist/prombee_0.9.4_all.deb
           desktop-file-validate /usr/share/applications/prombee.desktop
           # Hosted Ubuntu blocks unprivileged user namespaces. This override applies only to this isolated CI smoke process, never to the installed launcher.
           timeout 90s xvfb-run -a dbus-run-session -- env GTK_A11Y=none WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 XDG_DATA_HOME="$RUNNER_TEMP/prombee-smoke" WEBKIT_DISABLE_COMPOSITING_MODE=1 prombee --floating-smoke-test
@@ -39,10 +38,3 @@ jobs:
         with:
           name: Prombee-source-history
           path: dist/Prombee-source.bundle
-      - name: Publish release package
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --title "Prombee $GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME"
-          gh release upload "$GITHUB_REF_NAME" dist/*.deb --clobber

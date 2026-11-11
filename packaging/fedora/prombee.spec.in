@@ -8,6 +8,7 @@ Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 Requires:       python3 >= 3.10
 Requires:       python3-gobject
+Requires:       polkit
 Requires:       gtk4
 Requires:       webkitgtk6.0
 Requires:       xorg-x11-server-Xwayland

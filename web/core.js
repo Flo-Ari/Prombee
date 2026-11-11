@@ -236,7 +236,7 @@ export function toMarkdown(
     if (
       index < start ||
       (removeEmpty && !source.trim()) ||
-      (n.kind === "heading" && !populated.has(n.id))
+      (removeEmpty && n.kind === "heading" && !populated.has(n.id))
     )
       continue;
     if (
