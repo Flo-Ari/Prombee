@@ -18,12 +18,12 @@ class OtherTests(unittest.TestCase):
     def setUp(self):self.temp=tempfile.TemporaryDirectory();self.path=Path(self.temp.name);self.targets=Targets();self.store=OtherSettings(self.path,self.targets)
     def tearDown(self):self.temp.cleanup()
     def test_disabled_does_not_activate_and_setting_survives_restart_without_changing_prompts(self):
-        prompt=self.path/'prompt.txt';prompt.write_text('提示词')
+        prompt=self.path/'prompt.txt';prompt.write_text('提示词',encoding='utf-8')
         self.assertEqual(self.store.jump(),{'jumped':False})
         self.store.save({'enabled':True,'target':{'kind':'window','id':'win:1','name':'forged'}})
         self.assertEqual(self.store.load()['target']['name'],'Existing page')
         self.assertEqual(OtherSettings(self.path,self.targets).jump(),{'jumped':True})
-        self.assertEqual(self.targets.activations[0]['id'],'win:1');self.assertEqual(prompt.read_text(),'提示词')
+        self.assertEqual(self.targets.activations[0]['id'],'win:1');self.assertEqual(prompt.read_text(encoding='utf-8'),'提示词')
         self.store.save({'enabled':False,'target':self.store.load()['target']});self.store.jump();self.assertEqual(len(self.targets.activations),1)
     def test_only_registered_apps_or_http_pages_can_be_saved(self):
         for target in [{'kind':'application','id':'/tmp/command'},{'kind':'url','url':'file:///tmp/command'},{'kind':'url','url':'javascript:alert(1)'}]:
