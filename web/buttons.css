@@ -1,0 +1,260 @@
+/* 一般按钮样式 — .一般按钮样式 / .button-standard
+   Raised face and physical press, reference supplied by user: Uiverse.io / Voxybuns. */
+:root {
+  --button-face: var(--paper);
+  --button-outline: #7387a4;
+  --button-depth: #536b8c;
+  --button-radius: 7px;
+  --button-fill-color: #2563eb;
+  --button-fill-text: #fff;
+  --switch-face: #edf2f9;
+  --switch-edge: #9aaac0;
+}
+body.dark {
+  --button-face: var(--paper);
+  --button-outline: #66768e;
+  --button-depth: #39465a;
+  --switch-face: #242b35;
+  --switch-edge: #111820;
+}
+.button-standard.一般按钮样式 {
+  border: 1px solid var(--button-outline);
+  border-radius: var(--button-radius);
+  background: var(--button-face);
+  color: var(--text);
+  box-shadow: 0 3px 0 var(--button-depth);
+  transform: translateY(-1px);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    background-color 0.12s;
+}
+.button-standard.一般按钮样式:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 var(--button-depth);
+  background: var(--hover);
+  color: var(--blue);
+}
+.button-standard.一般按钮样式:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 var(--button-depth);
+}
+.button-standard.一般按钮样式:is(
+    .selected-tab,
+    .selected,
+    .active,
+    [aria-selected="true"]
+  ) {
+  border-color: var(--blue);
+  color: var(--blue);
+  box-shadow: 0 3px 0 var(--blue);
+}
+.button-standard.一般按钮样式:disabled {
+  transform: none;
+  box-shadow: 0 1px 0 var(--button-depth);
+}
+
+/* 状态类样式 — .状态类样式 / .button-state
+   Two hinged faces, reference supplied by user: Uiverse.io / r7chardgh. */
+.button-state.状态类样式 {
+  position: relative;
+  min-height: 33px;
+  padding-right: 49px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--text);
+  text-align: left;
+  isolation: isolate;
+}
+.button-state.状态类样式::before,
+.button-state.状态类样式::after {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 11px sans-serif;
+  background: var(--switch-face);
+  border-bottom: 3px solid var(--switch-edge);
+  box-shadow: 0 1px 0 var(--button-depth);
+  transform-style: preserve-3d;
+  transition:
+    transform 0.15s,
+    color 0.15s;
+  pointer-events: none;
+}
+.button-state.状态类样式::before {
+  content: "○";
+  right: 24px;
+  color: var(--text);
+  transform-origin: right;
+  transform: translateY(-50%) perspective(70px) rotateX(10deg);
+}
+.button-state.状态类样式::after {
+  content: "●";
+  right: 6px;
+  color: var(--muted);
+  transform-origin: left;
+  transform: translateY(-50%) perspective(70px) rotateX(10deg) rotateY(-45deg);
+}
+.button-state.状态类样式:is(
+    [aria-pressed="true"],
+    .active,
+    :has(input:checked)
+  )::before {
+  transform: translateY(-50%) perspective(70px) rotateX(10deg) rotateY(45deg);
+  color: var(--muted);
+}
+.button-state.状态类样式:is(
+    [aria-pressed="true"],
+    .active,
+    :has(input:checked)
+  )::after {
+  transform: translateY(-50%) perspective(70px) rotateX(10deg);
+  color: var(--blue);
+}
+.button-state.状态类样式:is([aria-pressed="true"], .active) {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: var(--paper);
+}
+.button-state.状态类样式.compact-state {
+  padding: 0;
+  isolation: isolate;
+  background: transparent;
+  border: 0;
+  text-align: center;
+}
+.button-state.状态类样式.compact-state::before,
+.button-state.状态类样式.compact-state::after {
+  content: "";
+  height: calc(100% - 3px);
+  width: 50%;
+  z-index: -1;
+}
+.button-state.状态类样式.compact-state::before {
+  right: 50%;
+}
+.button-state.状态类样式.compact-state::after {
+  right: 0;
+}
+.setting-switch.状态类样式 {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 6px 54px 6px 10px;
+  cursor: pointer;
+}
+.setting-switch.状态类样式 input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+.setting-switch.状态类样式:has(input:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* 填充类按钮样式 — .填充类按钮样式 / .button-fill
+   Broken frame and full-color fill, reference supplied by user: Uiverse.io / cssbuttons-io. */
+.button-fill.填充类按钮样式,
+#editorTab.brand.填充类按钮样式,
+#copy.填充类按钮样式 {
+  position: relative;
+  isolation: isolate;
+  border: 2px solid var(--blue);
+  border-radius: 0;
+  background: transparent;
+  color: var(--blue);
+  box-shadow: none;
+  overflow: visible;
+  transition: color 0.25s;
+}
+.button-fill.填充类按钮样式::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: var(--button-fill-color);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+  z-index: -1;
+  pointer-events: none;
+}
+.button-fill.填充类按钮样式::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--paper), var(--paper)) 12px 0/24px 2px no-repeat,
+    linear-gradient(var(--paper), var(--paper)) right 30px bottom 0/24px 2px
+      no-repeat,
+    linear-gradient(var(--paper), var(--paper)) right 10px bottom 0/10px 2px
+      no-repeat;
+  transition: background-size 0.25s;
+}
+.button-fill.填充类按钮样式:is(
+    :hover,
+    :focus-visible,
+    .copied,
+    [aria-selected="true"]
+  )::before {
+  transform: scaleX(1);
+}
+.button-fill.填充类按钮样式:is(
+    :hover,
+    :focus-visible,
+    .copied,
+    [aria-selected="true"]
+  )::after {
+  background-size:
+    0 2px,
+    0 2px,
+    0 2px;
+}
+.button-fill.填充类按钮样式:is(
+    :hover,
+    :focus-visible,
+    .copied,
+    [aria-selected="true"]
+  ),
+#editorTab.brand.填充类按钮样式[aria-selected="true"],
+#copy.填充类按钮样式.copied {
+  color: var(--button-fill-text);
+  background: transparent;
+  box-shadow: none;
+}
+#editorTab.brand.填充类按钮样式 strong {
+  color: inherit;
+}
+.button-fill.填充类按钮样式:disabled::before {
+  transform: scaleX(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .一般按钮样式,
+  .状态类样式::before,
+  .状态类样式::after,
+  .填充类按钮样式,
+  .填充类按钮样式::before,
+  .填充类按钮样式::after {
+    transition: none;
+  }
+}
+
+#editorTab.brand.填充类按钮样式:disabled,
+#copy.填充类按钮样式:disabled {
+  color: var(--blue);
+}
+
+#voiceInput.button-state {
+  width: 76px;
+  min-width: 76px;
+  justify-content: flex-start;
+  padding-left: 10px;
+}

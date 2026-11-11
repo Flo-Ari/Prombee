@@ -1,0 +1,268 @@
+/* app-bar — shared appearance of the window header and every page tool bar.
+   Change these variables to restyle both bars together. */
+:root {
+  --app-bar-background: var(--paper);
+  --app-bar-color: var(--text);
+  --app-bar-gap: 7px;
+  --app-bar-padding: 10px 14px;
+  --app-bar-sidebar-width: 180px;
+}
+body.dark {
+  --app-bar-background: var(--paper);
+  --app-bar-color: var(--text);
+}
+.app-bar {
+  background: var(--app-bar-background);
+  color: var(--app-bar-color);
+  border: 0;
+}
+header.window-chrome.app-bar {
+  border-bottom: 0;
+}
+.toolbar.app-bar {
+  border: 0;
+  gap: var(--app-bar-gap);
+  padding: var(--app-bar-padding);
+  background: var(--app-bar-background);
+}
+.window-chrome {
+  flex-wrap: nowrap;
+  padding: var(--app-bar-padding);
+  gap: var(--app-bar-gap);
+  user-select: none;
+}
+.window-chrome .window-header {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--app-bar-gap);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.window-header > * {
+  flex-shrink: 0;
+}
+.window-header .spacer {
+  flex: 1 0 10px;
+  align-self: stretch;
+  min-height: 38px;
+}
+/* Native-style window controls intentionally have no button frames. */
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.window-controls button {
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  height: 31px;
+  width: 42px;
+  padding: 0;
+  background: transparent;
+  font: 16px sans-serif;
+  color: inherit;
+  box-shadow: none;
+}
+.window-controls button:hover {
+  background: var(--hover);
+  color: var(--blue);
+}
+.window-controls #closeWindow:hover {
+  background: #e5484d;
+  color: white;
+}
+@media (max-width: 1190px) {
+  header.window-chrome {
+    padding: 10px 10px 10px 14px;
+    gap: var(--app-bar-gap);
+  }
+  .window-chrome .window-header {
+    gap: var(--app-bar-gap);
+  }
+}
+@media (max-width: 760px) {
+  header.window-chrome {
+    flex-wrap: nowrap;
+    padding: 8px;
+    gap: 7px;
+  }
+  .window-chrome .brand {
+    flex: 0 0 auto;
+  }
+  .window-chrome .window-header > * {
+    order: 0;
+  }
+  .window-chrome .window-header .spacer {
+    display: block;
+  }
+  .window-controls {
+    gap: 3px;
+  }
+  .window-controls button {
+    width: 30px;
+  }
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+.workspace > main {
+  min-width: 0;
+}
+.tool-rail {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+}
+.bar-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 2px;
+  min-height: 24px;
+  border-radius: 0;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.bar-grip:active {
+  cursor: grabbing;
+}
+.bar-grip.save-failed {
+  color: #b42318;
+}
+.workspace[data-dock="left"] .tool-rail {
+  width: var(--app-bar-sidebar-width);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.workspace[data-dock="left"] .toolbar.app-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  overflow: visible;
+  padding: 4px 12px 14px;
+  gap: 7px;
+}
+.workspace[data-dock="left"] .toolbar > button,
+.workspace[data-dock="left"] .toolbar > select,
+.workspace[data-dock="left"] .toolbar > input,
+.workspace[data-dock="left"] .toolbar > .color-control {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.workspace[data-dock="left"] .toolbar .separator {
+  width: 100%;
+  height: 1px;
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+.workspace[data-dock="left"] .toolbar .spacer {
+  display: none;
+}
+.workspace[data-dock="left"] .toolbar label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.workspace[data-dock="left"] #batchControls,
+.workspace[data-dock="left"] #hierarchyControls {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.workspace[data-dock="left"] #hierarchyControls select {
+  width: 100%;
+}
+.workspace[data-dock="left"] #compareToolbar label {
+  padding: 0;
+  display: flex;
+  border: 0;
+}
+.workspace[data-dock="left"] #compareToolbar select {
+  width: 100%;
+  max-width: none;
+}
+.workspace[data-dock="left"] #compareToolbar .toolbar-note {
+  display: block;
+}
+.workspace[data-dock="top"] {
+  flex-direction: column;
+}
+.workspace[data-dock="top"] .tool-rail {
+  position: relative;
+  display: block;
+  max-height: 45%;
+  overflow-y: auto;
+}
+.workspace[data-dock="top"] .bar-grip {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 20px;
+  height: 100%;
+  z-index: 1;
+}
+.workspace[data-dock="top"] .toolbar:not(#compareToolbar) {
+  padding-left: 32px;
+}
+.workspace[data-dock="top"] .toolbar {
+  flex: 1;
+  min-width: 0;
+}
+.dock-target {
+  display: none;
+  position: absolute;
+  z-index: 25;
+  pointer-events: none;
+  border: 2px dashed var(--blue);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--paper) 88%, var(--blue));
+  color: var(--blue);
+  font-size: 12px;
+  padding: 12px;
+  opacity: 0.65;
+}
+.workspace[data-dragging="true"] .dock-target {
+  display: block;
+}
+.dock-target[data-position="left"] {
+  top: 5px;
+  left: 5px;
+  bottom: 5px;
+  width: 148px;
+}
+.dock-target[data-position="top"] {
+  top: 5px;
+  left: 170px;
+  right: 5px;
+  height: 85px;
+}
+.dock-target.dock-active {
+  opacity: 1;
+  border-style: solid;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dock-target {
+    transition: opacity 0.12s;
+  }
+}
+
+.workspace[data-dock="left"] :is(#font, #size, #headingLevel, #voiceInput) {
+  width: 100%;
+  max-width: none;
+}

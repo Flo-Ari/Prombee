@@ -43,6 +43,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
     from .floating import FloatingPreferences
     floating = FloatingPreferences(data_dir)
 
+    from .layout import LayoutPreferences
+    layout = LayoutPreferences(data_dir)
+
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
             self.send_response(status)
@@ -60,7 +63,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
         def do_GET(self):
             path=unquote(urlsplit(self.path).path)
-            if path == '/api/floating':
+            if path == '/api/layout':
+                self.json(200, layout.load())
+            elif path == '/api/floating':
                 self.json(200, floating.reload())
             elif path == '/api/other':
                 try:self.json(200, other.load() if urlsplit(self.path).query == 'preferences=1' else other.snapshot())
@@ -82,7 +87,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/updates.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -90,7 +95,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker', '/api/update', '/api/other', '/api/floating'):
+            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker', '/api/update', '/api/other', '/api/floating', '/api/layout'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -100,7 +105,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                if self.path == '/api/floating':
+                if self.path == '/api/layout':
+                    result = layout.save(payload)
+                elif self.path == '/api/floating':
                     result = floating.set_orb_enabled(payload.get('enabled'))
                     callback = getattr(self.server, 'floating_changed', None)
                     if callback: callback()

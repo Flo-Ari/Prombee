@@ -1,3 +1,5 @@
+import { mountButtonStyles } from "./buttons.js";
+import { mountBars } from "./bars.js";
 import { mountOtherSettings } from "./other.js";
 import { mountUpdates } from "./updates.js";
 import { moveSubtree, bindHoldDrag } from "./reorder.js";
@@ -30,6 +32,8 @@ import { renderMarkdown, renderComparison } from "./review.js";
 import { bindSpeech } from "./speech.js";
 import { createLibraryUI } from "./library.js";
 const $ = (id) => document.getElementById(id);
+const bars = mountBars();
+mountButtonStyles();
 let state,
   revision = 0,
   active = null,
@@ -1094,6 +1098,7 @@ function updatePages() {
       currentDoc().id,
   );
   fillRounds($("compareRight"), currentDoc().id);
+  bars.show(page);
   if (page === "preview") updatePreview();
   if (page === "compare") updateComparison();
 }

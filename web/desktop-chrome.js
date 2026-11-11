@@ -43,11 +43,11 @@ for (const control of dragRegion.querySelectorAll(
 )) {
   control.addEventListener("mousedown", (event) => event.stopPropagation());
 }
-dragRegion.addEventListener("mousedown", (event) => {
+chrome.addEventListener("mousedown", (event) => {
   if (event.button !== 0 || interactive(event.target)) return;
   if (native) post("windowDrag");
 });
-dragRegion.addEventListener("dblclick", (event) => {
+chrome.addEventListener("dblclick", (event) => {
   if (event.button === 0 && !interactive(event.target))
     chrome.querySelector("#maximizeWindow").click();
 });
