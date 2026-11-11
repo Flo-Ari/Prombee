@@ -60,7 +60,8 @@ def main():
             self.window=Gtk.ApplicationWindow(application=self,title=app_name())
             self.window.set_default_size(1080,800)
             self.window.set_size_request(640,450)
-            self.window.set_decorated(False)
+            # Keep GTK client-side resize edges while the visible title bar lives in WebKit.
+            self.window.set_titlebar(Gtk.Box())
             server.pick_path = self.pick_path
             self.web=WebKit.WebView()
             self.closing=False
