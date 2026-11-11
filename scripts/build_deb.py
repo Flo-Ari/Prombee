@@ -40,7 +40,7 @@ def ar_member(name, content, timestamp):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', default='0.9.2')
+    parser.add_argument('--version', default='0.9.3')
     parser.add_argument('--output', type=Path, default=ROOT / 'dist')
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9][0-9A-Za-z.+~:-]*', args.version):

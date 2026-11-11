@@ -968,6 +968,26 @@ export function mountMascot(canvas, menu, send = () => {}) {
     }
     ctx.restore();
   }
+  let sleepGlyph;
+  function sleepZ(x, y, size) {
+    if (!sleepGlyph) {
+      sleepGlyph = document.createElement("canvas");
+      sleepGlyph.width = sleepGlyph.height = 32;
+      const glyph = sleepGlyph.getContext("2d");
+      glyph.font = '600 20px "Microsoft YaHei",sans-serif';
+      glyph.fillStyle = "#83a7d1";
+      glyph.textAlign = "center";
+      glyph.fillText("Z", 16, 24);
+    }
+    const scale = size / 20;
+    ctx.drawImage(
+      sleepGlyph,
+      x - 16 * scale,
+      y - 24 * scale,
+      32 * scale,
+      32 * scale,
+    );
+  }
   function sleep(t) {
     const u = t / 1000;
     if (u > 1.5 && u < 12) {
@@ -975,13 +995,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       for (let i = 0; i < 3; i++) {
         const p = (u * 0.32 + i / 3) % 1;
         ctx.globalAlpha = Math.sin(p * Math.PI) * ease(clamp((u - 1.5) / 1));
-        text(
-          "Z",
-          center.x + 51 + p * 32,
-          center.y - 12 - p * 61,
-          11 + p * 9,
-          "#83a7d1",
-        );
+        sleepZ(center.x + 51 + p * 32, center.y - 12 - p * 61, 11 + p * 9);
       }
       ctx.restore();
     }
@@ -1532,7 +1546,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
       // The host's frame pulse only draws when the renderer's own clock is stale.
       if (command === "frame" && visible) {
         const now = performance.now();
-        if (now - last > 24) draw(now);
+        if (now - last > 12) draw(now);
       }
       if (command === "interaction") nextIdle = performance.now() + IDLE_DELAY;
       if (

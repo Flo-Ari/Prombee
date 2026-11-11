@@ -86,6 +86,7 @@ test("template cloning keeps fresh heading IDs and empty bodies, with no exclusi
 
 test("tabs, historical template import, new round, raw preview and undo work together", async () => {
   assert.equal(document.querySelectorAll("dialog").length, 0);
+  $("deleteEmpty").click();
   $("template").click();
   assert.equal($("hierarchyControls").hidden, false);
   $("hierarchyRound").value = "r1";
@@ -199,6 +200,10 @@ test("batch selection cycles, exclusion and subtree deletion can be undone", () 
   );
   $("multiSelect").click();
   assert.equal($("multiSelect").textContent, "取消全选");
+  $("batchExclude").click();
+  assert.equal(document.querySelectorAll(".row.excluded").length, 2);
+  $("batchExclude").click();
+  assert.equal(document.querySelectorAll(".row.excluded").length, 0);
   $("batchExclude").click();
   assert.equal(document.querySelectorAll(".row.excluded").length, 2);
   $("undo").click();
@@ -676,4 +681,33 @@ test("header follows editor and floating entry order; successful copy fills its 
   $("copy").classList.remove("copied");
   await $("copy").onclick();
   assert.equal($("copy").classList.contains("copied"), true);
+});
+
+test("empty-entry filtering is a persistent copy option and never deletes editor rows", async () => {
+  $("editorTab").click();
+  $("newDoc").click();
+  const count = document.querySelectorAll(".row").length;
+  if ($("deleteEmpty").getAttribute("aria-pressed") === "true")
+    $("deleteEmpty").click();
+  const copied = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (text) => copied.push(text) },
+  });
+  await $("copy").onclick();
+  assert.match(copied.at(-1), /1\. /);
+  $("deleteEmpty").click();
+  assert.equal($("deleteEmpty").getAttribute("aria-pressed"), "true");
+  await $("copy").onclick();
+  assert.equal(copied.at(-1), "");
+  assert.equal(document.querySelectorAll(".row").length, count);
+  $("preview").click();
+  $("editorTab").click();
+  assert.equal($("deleteEmpty").getAttribute("aria-pressed"), "true");
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.equal(saved.state.removeEmptyOnCopy, true);
+  $("deleteEmpty").click();
+  assert.equal($("deleteEmpty").getAttribute("aria-pressed"), "false");
+  await $("copy").onclick();
+  assert.match(copied.at(-1), /1\. /);
 });

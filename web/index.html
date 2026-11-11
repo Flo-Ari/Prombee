@@ -28,13 +28,12 @@
       <select id="documents" aria-label="切换文档"></select>
       <button id="deleteRound">− 删除</button>
       <span class="separator header-separator" aria-hidden="true"></span>
-      <button id="compare" role="tab" aria-controls="comparePanel">
-        历史对比</button
+      <button id="compare" role="tab" aria-controls="comparePanel">历史</button
       ><button id="preview" role="tab" aria-controls="previewPanel">
         预览
       </button>
       <button id="commonTab" role="tab" aria-controls="editorPanel">
-        常用提示词
+        常用
       </button>
       <span class="separator header-separator" aria-hidden="true"></span>
       <button id="shortcutsTab" role="tab" aria-controls="shortcutsPanel">
@@ -71,7 +70,9 @@
         </svg>
       </button>
       <button id="multiSelect">多选</button>
-      <button id="deleteEmpty" title="清理整份提示词的空条目">删除空项</button>
+      <button id="deleteEmpty" aria-pressed="false" title="复制时删除空项">
+        删除空项
+      </button>
       <button id="undo" title="撤销 Ctrl+Z" aria-label="撤销">↶</button>
       <button id="redo" title="重做 Ctrl+Shift+Z" aria-label="重做">↷</button>
       <span class="separator"></span>
@@ -125,7 +126,7 @@
         <label
           >历史层级
           <select id="hierarchyRound" aria-label="历史层级轮次"></select></label
-        ><button id="copyHierarchy">复制层级</button>
+        ><button id="copyHierarchy">更新层级</button>
       </div>
     </div>
     <div
@@ -144,7 +145,7 @@
       id="compareToolbar"
       class="toolbar"
       role="toolbar"
-      aria-label="历史对比设置"
+      aria-label="历史设置"
       hidden
     >
       <label

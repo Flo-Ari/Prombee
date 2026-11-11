@@ -201,7 +201,10 @@ export function populatedHeadings(nodes, states = visibility(nodes)) {
   }
   return populated;
 }
-export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
+export function toMarkdown(
+  nodes,
+  { start = 0, end = nodes.length, removeEmpty = true } = {},
+) {
   let count = 0;
   const lines = [],
     stack = [];
@@ -232,12 +235,12 @@ export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
     }
     if (
       index < start ||
-      !source.trim() ||
+      (removeEmpty && !source.trim()) ||
       (n.kind === "heading" && !populated.has(n.id))
     )
       continue;
     if (
-      n.raw ||
+      (n.raw && source.trim()) ||
       (authored &&
         (headings.length || (n.kind !== "heading" && hasBlockMarkdown(source))))
     ) {
@@ -261,11 +264,11 @@ export function toMarkdown(nodes, { start = 0, end = nodes.length } = {}) {
   while (lines.at(-1) === "") lines.pop();
   return lines.length ? lines.join("\n") + "\n" : "";
 }
-export function subtreeMarkdown(nodes, id) {
+export function subtreeMarkdown(nodes, id, options = {}) {
   const start = nodes.findIndex((n) => n.id === id);
   return start < 0
     ? ""
-    : toMarkdown(nodes, { start, end: scopeEnd(nodes, start) });
+    : toMarkdown(nodes, { ...options, start, end: scopeEnd(nodes, start) });
 }
 export function makeNode(kind = "item", level = 1, html = "") {
   return { id: uid(), kind, level, html };

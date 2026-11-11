@@ -35,7 +35,7 @@ const ctx = new Proxy(
   { get: (o, k) => o[k] || (() => {}) },
 );
 const canvas = document.querySelector("canvas");
-canvas.getContext = () => ctx;
+dom.window.HTMLCanvasElement.prototype.getContext = () => ctx;
 Object.defineProperties(canvas, {
   clientWidth: { value: 520 },
   clientHeight: { value: 420 },

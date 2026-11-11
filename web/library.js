@@ -63,6 +63,10 @@ export function createLibraryUI({
       }
       paint();
       $("libraryStatus").textContent = "";
+    } catch (error) {
+      // Restore the editable card after a failed rename without removing the set.
+      paint();
+      throw error;
     } finally {
       busy = false;
       document.body.inert = false;

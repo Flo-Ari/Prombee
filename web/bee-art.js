@@ -95,6 +95,7 @@ export function createBeeArt() {
     alpha = new Image();
   let texture = null,
     body = null;
+  const pieces = new Map();
   const ready = Promise.all(
     [source, alpha].map(
       (image) =>
@@ -139,6 +140,35 @@ export function createBeeArt() {
       polygon(bc, outline);
       bc.fill();
     }
+    for (const outline of [
+      FAR_WING,
+      NEAR_WING,
+      MOUTH,
+      ...EYES.map((e) => e.outline),
+    ]) {
+      const x = Math.max(
+          0,
+          Math.floor(Math.min(...outline.map((p) => p[0]))) - 6,
+        ),
+        y = Math.max(0, Math.floor(Math.min(...outline.map((p) => p[1]))) - 6),
+        right = Math.min(
+          1536,
+          Math.ceil(Math.max(...outline.map((p) => p[0]))) + 6,
+        ),
+        bottom = Math.min(
+          1024,
+          Math.ceil(Math.max(...outline.map((p) => p[1]))) + 6,
+        );
+      const canvas = document.createElement("canvas");
+      canvas.width = right - x;
+      canvas.height = bottom - y;
+      const pc = canvas.getContext("2d");
+      pc.translate(-x, -y);
+      polygon(pc, outline);
+      pc.clip();
+      pc.drawImage(texture, 0, 0);
+      pieces.set(outline, { canvas, x, y });
+    }
     return true;
   });
   source.src = BEE_SOURCE;
@@ -149,9 +179,8 @@ export function createBeeArt() {
     ctx.rotate(angle);
     ctx.scale(1, yscale);
     ctx.translate(-pivot[0], -pivot[1]);
-    polygon(ctx, outline);
-    ctx.clip();
-    ctx.drawImage(texture, 0, 0);
+    const part = pieces.get(outline);
+    ctx.drawImage(part.canvas, part.x, part.y);
     ctx.restore();
   };
   function draw(
@@ -203,9 +232,23 @@ export function createBeeArt() {
         ctx.fillStyle = `rgba(4,15,30,${sleep * 0.96})`;
         ctx.fill();
       }
-      ctx.globalAlpha *= 1 - sleep;
-      ctx.translate((dx / length) * 5, (dy / length) * 4);
-      ctx.drawImage(texture, 0, 0);
+      if (sleep < 0.999) {
+        ctx.globalAlpha *= 1 - sleep;
+        ctx.translate((dx / length) * 5, (dy / length) * 4);
+        // Bounded source reads avoid compositing the entire 1536×1024 texture.
+        const part = pieces.get(eye.outline);
+        ctx.drawImage(
+          texture,
+          part.x,
+          part.y,
+          part.canvas.width,
+          part.canvas.height,
+          part.x,
+          part.y,
+          part.canvas.width,
+          part.canvas.height,
+        );
+      }
       ctx.restore();
     }
     // Blush belongs only to the explicitly requested sleep animation.

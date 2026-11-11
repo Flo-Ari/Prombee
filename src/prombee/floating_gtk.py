@@ -131,7 +131,7 @@ class GtkFloating:
         self.orb.connect("map",lambda orb:self.x.above(orb))
         self.orb.get_surface().connect("notify::state",self.orb_state_changed)
         self.window.get_surface().connect("notify::state",self.editor_state_changed)
-        self.GLib.timeout_add(33,self.track)
+        self.GLib.timeout_add(17,self.track)
 
     def editor_state_changed(self,surface,_):
         minimized=bool(surface.get_state() & self.Gdk.ToplevelState.MINIMIZED)

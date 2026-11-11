@@ -113,4 +113,28 @@ class LibraryTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.library.action({'action':'openSet','path':str(path)})
         self.assertEqual(path.read_text(encoding='utf-8'),text)
 
+
+    def test_rename_index_failure_restores_old_file_and_registration(self):
+        from unittest.mock import patch
+        package=self.library.load(); entry=package['set']; old=Path(entry['path']); raw=old.read_bytes()
+        with patch.object(self.library, 'write_registry', side_effect=OSError('disk full')):
+            with self.assertRaises(OSError): self.library.action({'action':'renameSet','id':entry['id'],'name':'新名称'})
+        self.assertEqual(old.read_bytes(),raw)
+        self.assertFalse(old.with_name('新名称.txt').exists())
+        self.assertEqual(self.library.load()['set']['id'],entry['id'])
+
+    def test_interrupted_rename_recovers_and_keeps_identity_group_and_saving(self):
+        reg=self.library.action({'action':'createGroup','name':'迭代组'})
+        group=reg['groups'][-1]['id']
+        reg=self.library.action({'action':'createSet','folder':str(self.folder),'name':'旧名称','groupId':group})
+        entry=self.library.find(reg);old=Path(entry['path']);target=old.with_name('新名称.txt');raw=old.read_bytes()
+        (self.data/'.rename-pending.json').write_text(json.dumps({'id':entry['id'],'old':str(old),'target':str(target)}))
+        old.rename(target)
+        restored=Library(ROOT,self.data,valid).load()
+        self.assertEqual(restored['set']['id'],entry['id']);self.assertEqual(restored['set']['groupId'],group)
+        self.assertEqual(restored['set']['path'],str(target));self.assertEqual(target.read_bytes(),raw)
+        state=copy.deepcopy(restored['state']);state['documents'][0]['nodes'][1]['html']='重命名后继续保存'
+        self.library.save({'state':state,'setId':entry['id'],'baseRevision':restored['revision'],'baseFingerprint':restored['fingerprint']})
+        self.assertEqual(Library(ROOT,self.data,valid).load()['state'],state)
+
 if __name__=='__main__':unittest.main()

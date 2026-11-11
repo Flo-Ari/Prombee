@@ -352,7 +352,8 @@ function render() {
       const copyBranch = element("button", "row-action copy-branch", "复制");
       copyBranch.title = "复制当前条目及其子层级（含 Markdown 标题）";
       copyBranch.setAttribute("aria-label", "复制此条目及其子层级");
-      copyBranch.onclick = () => copyText(subtreeMarkdown(doc().nodes, n.id));
+      copyBranch.onclick = () =>
+        copyText(subtreeMarkdown(doc().nodes, n.id, copyOptions()));
       controls.append(copyBranch);
     }
     controls.append(plus, eye, remove);
@@ -751,11 +752,13 @@ $("multiSelect").onclick = () => {
 $("batchExclude").onclick = () => {
   if (!selected.size) return;
   remember();
+  const excluded = !doc()
+    .nodes.filter((node) => selected.has(node.id))
+    .every((node) => node.excluded);
   for (const node of doc().nodes)
-    if (selected.has(node.id)) node.excluded = true;
+    if (selected.has(node.id)) node.excluded = excluded;
   render();
   changed();
-  toast("已排除所选条目及下级，可撤销");
 };
 $("batchDelete").onclick = () => {
   const ids = selectionScope(doc().nodes, selected);
@@ -781,19 +784,15 @@ function deleteNode(id, subtree = true) {
   if (nodes.length) focus(nodes[Math.min(index, nodes.length - 1)].id);
   changed();
 }
+function copyOptions() {
+  return { removeEmpty: state.removeEmptyOnCopy === true };
+}
 function deleteEmpty() {
-  const nodes = doc().nodes;
-  const remaining = nodes.filter((node) => plain(node.html).trim());
-  const count = nodes.length - remaining.length;
-  if (!count) {
-    toast("本轮没有空项");
-    return;
-  }
-  remember();
-  doc().nodes = remaining;
-  active = null;
-  selection = null;
-  render();
+  state.removeEmptyOnCopy = !state.removeEmptyOnCopy;
+  $("deleteEmpty").setAttribute(
+    "aria-pressed",
+    String(state.removeEmptyOnCopy),
+  );
   changed();
 }
 let copyFeedbackTimer;
@@ -827,7 +826,7 @@ async function copyText(text) {
 }
 function copy() {
   if (integrateCurrent()) render();
-  return copyText(toMarkdown(doc().nodes));
+  return copyText(toMarkdown(doc().nodes, copyOptions()));
 }
 function viewKey() {
   return `${page}:${doc().id}`;
@@ -937,6 +936,10 @@ function fillRounds(select, fallback) {
   select.value = state.documents.some((d) => d.id === value) ? value : fallback;
 }
 function updatePages() {
+  $("deleteEmpty").setAttribute(
+    "aria-pressed",
+    String(state.removeEmptyOnCopy === true),
+  );
   for (const [id, target] of [
     ["template", "template"],
     ["editorTab", "editor"],
@@ -996,7 +999,7 @@ function updatePages() {
   if (page === "compare") updateComparison();
 }
 function updatePreview() {
-  const text = toMarkdown(doc().nodes);
+  const text = toMarkdown(doc().nodes, copyOptions());
   const raw = $("previewMode").value === "raw";
   $("previewRendered").classList.toggle("active", !raw);
   $("previewRaw").classList.toggle("active", raw);
@@ -1199,9 +1202,9 @@ function refreshShortcutHints() {
     ["template", "template", "模板"],
     ["newDoc", "newRound", "新建一轮"],
     ["editorTab", "editor", "编写"],
-    ["compare", "compare", "历史对比"],
+    ["compare", "compare", "历史"],
     ["preview", "preview", "预览"],
-    ["commonTab", "common", "常用提示词"],
+    ["commonTab", "common", "常用"],
     ["shortcutsTab", "settings", "快捷键"],
     ["floatingButton", "collapse", "悬浮球"],
     ["theme", "theme", "主题"],
@@ -1603,8 +1606,8 @@ function acceptWorkspace(data) {
   if (!state.common) {
     state.common = {
       id: "common",
-      name: "常用提示词",
-      nodes: [makeNode("heading", 1, "常用提示词"), makeNode()],
+      name: "常用",
+      nodes: [makeNode("heading", 1, "常用"), makeNode()],
     };
   }
   for (const collection of state.documents) {

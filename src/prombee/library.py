@@ -2,7 +2,7 @@
 from pathlib import Path
 from html import escape
 from html.parser import HTMLParser
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import hashlib
 import json
 import os
@@ -169,7 +169,18 @@ class Library:
         with exclusive_file_lock(self.lock_dir / key): yield
 
     def read_registry(self):
-        return json.loads(self.registry.read_text(encoding='utf-8'))
+        registry = json.loads(self.registry.read_text(encoding='utf-8'))
+        journal = self.data_dir / '.rename-pending.json'
+        if journal.exists():
+            pending = json.loads(journal.read_text(encoding='utf-8'))
+            old, target = Path(pending['old']), Path(pending['target'])
+            entry = next((s for s in registry['sets'] if s['id'] == pending['id']), None)
+            # Recover a process interrupted between the file move and index write.
+            if entry and not old.exists() and target.is_file():
+                entry.update(name=target.stem, path=str(target))
+                self.write_registry(registry)
+            if old.exists() or target.is_file(): journal.unlink()
+        return registry
 
     def write_registry(self, value):
         atomic_write(self.registry, json.dumps(value, ensure_ascii=False, indent=2))
@@ -273,9 +284,21 @@ class Library:
                 name = safe_name(name[:-4] if name.lower().endswith('.txt') else name)
                 target = old.with_name(name + '.txt')
                 if target != old:
-                    if target.exists(): raise ValueError('同名文件已存在，未覆盖')
-                    with self.file_lock(old): old.rename(target)
-                entry.update(name=name, path=str(target))
+                    journal = self.data_dir / '.rename-pending.json'
+                    with self.file_lock(old), (self.file_lock(target) if str(old).casefold() != str(target).casefold() else nullcontext()):
+                        if target.exists() and not old.samefile(target): raise ValueError('同名文件已存在，未覆盖')
+                        atomic_write(journal, json.dumps({'id':entry['id'], 'old':str(old), 'target':str(target)}, ensure_ascii=False))
+                        try:
+                            old.rename(target)
+                            entry.update(name=name, path=str(target))
+                            self.write_registry(registry)
+                        except Exception:
+                            # Never leave the persisted registry pointing at a moved file.
+                            if target.exists() and not old.exists(): target.rename(old)
+                            journal.unlink(missing_ok=True)
+                            raise
+                        journal.unlink(missing_ok=True)
+                    return registry
             elif action == 'assignGroup':
                 entry = self.find(registry, request.get('id'))
                 entry['groupId'] = self.group_id(registry, request.get('groupId'))

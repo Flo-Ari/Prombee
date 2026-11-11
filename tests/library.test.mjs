@@ -48,6 +48,11 @@ test("group management filters sets, creates inline, assigns metadata and opens 
         registry.sets.find((s) => s.id === p.id).groupId = p.groupId;
       if (p.action === "createGroup")
         registry.groups.push({ id: "new", name: p.name, pinned: false });
+      if (p.action === "renameSet") {
+        const entry = registry.sets.find((s) => s.id === p.id);
+        entry.name = p.name;
+        entry.path = "/original/" + p.name + ".txt";
+      }
       if (p.action === "openSet") registry.active = "b";
     }
     return { ok: true, json: async () => structuredClone(registry) };
@@ -87,6 +92,24 @@ test("group management filters sets, creates inline, assigns metadata and opens 
   );
   await tick();
   assert.ok(registry.groups.some((g) => g.name === "新组"));
+  document.querySelector('.group-row[data-id="ungrouped"] .group-name').click();
+  const row = [...document.querySelectorAll(".set-row")].find(
+    (r) => r.querySelector(".set-name").textContent === "默认",
+  );
+  [...row.querySelectorAll("button")]
+    .find((b) => b.textContent === "重命名")
+    .click();
+  const input = row.querySelector("input");
+  input.value = "改名后";
+  input.dispatchEvent(
+    new dom.window.KeyboardEvent("keydown", { key: "Enter" }),
+  );
+  input.dispatchEvent(new dom.window.Event("blur"));
+  await tick();
+  assert.equal(actions.filter((a) => a.action === "renameSet").length, 1);
+  assert.equal($("recentSets").value, "a");
+  assert.match($("setsList").textContent, /改名后/);
+  assert.equal(registry.active, "a");
   $("openFile").click();
   await tick();
   assert.equal($("folderPicker"), null);
