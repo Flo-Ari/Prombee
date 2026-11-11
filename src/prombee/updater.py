@@ -236,18 +236,31 @@ while (Get-Process -Id $oldPid -ErrorAction SilentlyContinue) {
   Start-Sleep -Milliseconds 250
 }
 $backup = $target + '.previous'
+$replaced = $false
 try {
   Copy-Item -LiteralPath $target -Destination $backup -Force
   Copy-Item -LiteralPath $stage -Destination ($target + '.incoming') -Force
-  Move-Item -LiteralPath ($target + '.incoming') -Destination $target -Force
+  # The one-file bootloader can outlive its Python child briefly.
+  $replaceDeadline = (Get-Date).AddSeconds(60)
+  while (-not $replaced) {
+    try {
+      Move-Item -LiteralPath ($target + '.incoming') -Destination $target -Force
+      $replaced = $true
+    } catch {
+      if ((Get-Date) -ge $replaceDeadline) { throw }
+      Start-Sleep -Milliseconds 250
+    }
+  }
   $child = Start-Process -FilePath $target -ArgumentList @('--data-dir', ('"' + $dataDir + '"')) -PassThru
   Start-Sleep -Seconds 3
   if ($child.HasExited -and $child.ExitCode -ne 0) { throw 'Updated program failed to start' }
   Remove-Item -LiteralPath $backup -Force
   Remove-Item -LiteralPath $stage -Force
 } catch {
-  if (Test-Path -LiteralPath $backup) {
+  if ($replaced -and (Test-Path -LiteralPath $backup)) {
     Copy-Item -LiteralPath $backup -Destination $target -Force
+  }
+  if (Test-Path -LiteralPath $target) {
     Start-Process -FilePath $target -ArgumentList @('--data-dir', ('"' + $dataDir + '"'))
   }
   throw
