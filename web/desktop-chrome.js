@@ -37,9 +37,17 @@ if (platform !== "gtk") {
   chrome.querySelector("#closeWindow").onclick = () =>
     native ? post("close") : document.exitFullscreen?.();
 }
-let demo, mascot, demoCenter;
+let demo,
+  mascot,
+  demoCenter,
+  orbEnabled = true;
+window.addEventListener("prombee-floating-enabled", (event) => {
+  orbEnabled = event.detail;
+  if (!orbEnabled && demo) demoAction("hide");
+});
 function demoAction(action, data) {
   if (action === "collapse") {
+    if (!orbEnabled) return;
     if (!demo) {
       demo = document.createElement("section");
       demo.id = "mascotDemo";

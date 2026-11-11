@@ -1208,8 +1208,41 @@ $("copyHierarchy").onclick = () => {
   toast(`已复制${source.name}的标题层级，可撤销`);
 };
 $("copy").onclick = copy;
-$("enterFloating").onclick = () =>
-  window.dispatchEvent(new window.Event("prombee-minimize"));
+async function floatingSettings(enabled) {
+  const response = await fetch(
+    "/api/floating",
+    enabled === undefined
+      ? undefined
+      : {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        },
+  );
+  const value = await response.json();
+  if (!response.ok) throw Error(value.error || "悬浮球设置保存失败");
+  $("floatingEnabled").checked = value.enabled !== false;
+  window.dispatchEvent(
+    new window.CustomEvent("prombee-floating-enabled", {
+      detail: value.enabled !== false,
+    }),
+  );
+}
+let floatingReady = floatingSettings().catch(() => {});
+$("floatingEnabled").onchange = async () => {
+  const enabled = $("floatingEnabled").checked;
+  $("floatingEnabled").disabled = true;
+  try {
+    await floatingReady;
+    await floatingSettings(enabled);
+    $("floatingStatus").textContent = "";
+  } catch (error) {
+    $("floatingEnabled").checked = !enabled;
+    $("floatingStatus").textContent = error.message;
+  } finally {
+    $("floatingEnabled").disabled = false;
+  }
+};
 $("theme").onclick = () => {
   state.dark = !state.dark;
   applyTheme();
@@ -1329,7 +1362,6 @@ function refreshShortcutHints() {
     ["preview", "preview", "预览"],
     ["commonTab", "common", "常用"],
     ["settingsTab", "settings", "设置"],
-    ["enterFloating", "collapse", "进入悬浮球"],
     ["theme", "theme", "主题"],
     ["copy", "copy", "复制提示词"],
     ["multiSelect", "multi", $("multiSelect").textContent],

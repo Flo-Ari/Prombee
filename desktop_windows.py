@@ -111,6 +111,7 @@ def main():
                 window.destroy()
             else:
                 closing.clear()
+                floating.focus_suspended=False
                 window.run_js("document.getElementById('status').textContent='暂时无法保存，请先复制文字保留内容'")
 
     window = webview.create_window(app_name(), f'http://127.0.0.1:{server.server_port}/?desktop=windows&lang={ui_language()}',
@@ -119,6 +120,7 @@ def main():
 
     from prombee.floating_windows import WindowsFloating
     floating = WindowsFloating(webview,window,f'http://127.0.0.1:{server.server_port}/',data,lambda:window.destroy())
+    server.floating_changed=floating.preferences_changed
 
     def pick_path(kind, initial=''):
         options = {'directory': initial} if initial and Path(initial).is_dir() else {}
@@ -134,6 +136,7 @@ def main():
         if allow_close.is_set():
             return True
         if not closing.is_set():
+            floating.focus_suspended=True
             closing.set()
             threading.Thread(target=lambda: window.run_js("window.dispatchEvent(new Event('prombee-close'))"), daemon=True).start()
         return False

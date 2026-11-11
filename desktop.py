@@ -115,6 +115,7 @@ def main():
             bind_minimize(header)
             from prombee.floating_gtk import GtkFloating
             self.floating=GtkFloating(self,self.window,self.web,url,data)
+            server.floating_changed=lambda:GLib.idle_add(self.floating.preferences_changed)
             if args.smoke_test:
                 self.tries=0
                 GLib.timeout_add(500,self.check)

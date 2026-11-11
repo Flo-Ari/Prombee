@@ -19,10 +19,19 @@ class XEvent(C.Union):
     _fields_=[('client',ClientMessage),('pad',C.c_long*24)]
 
 
+class WMHints(C.Structure):
+    _fields_=[('flags',C.c_long),('input',C.c_int),('initial_state',C.c_int),
+        ('icon_pixmap',C.c_ulong),('icon_window',C.c_ulong),('icon_x',C.c_int),
+        ('icon_y',C.c_int),('icon_mask',C.c_ulong),('window_group',C.c_ulong)]
+
+
 class XDesktop:
     def __init__(self):
         self.x = C.CDLL(ctypes.util.find_library('X11'))
         definitions = {
+            'XGetWMHints': ([C.c_void_p,C.c_ulong],C.POINTER(WMHints)),
+            'XSetWMHints': ([C.c_void_p,C.c_ulong,C.POINTER(WMHints)],C.c_int),
+            'XFree': ([C.c_void_p],C.c_int),
             'XOpenDisplay': ([C.c_char_p], C.c_void_p),
             'XDefaultRootWindow': ([C.c_void_p], C.c_ulong),
             'XTranslateCoordinates': ([C.c_void_p,C.c_ulong,C.c_ulong,C.c_int,C.c_int,C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_ulong)],C.c_int),
@@ -80,6 +89,16 @@ class XDesktop:
         event.client.data.l[:]=values
         self.x.XSendEvent(self.display,self.root,0,(1<<20)|(1<<19),C.byref(event))
 
+    def no_focus(self,window):
+        xid=window.get_surface().get_xid()
+        hints=self.x.XGetWMHints(self.display,xid)
+        if hints:
+            hints.contents.flags |= 1
+            hints.contents.input = 0
+            self.x.XSetWMHints(self.display,xid,hints)
+            self.x.XFree(hints)
+        self.x.XFlush(self.display)
+
     def input_region(self,window,full=False):
         class Rect(C.Structure):
             _fields_=[('x',C.c_short),('y',C.c_short),('width',C.c_ushort),('height',C.c_ushort)]
@@ -100,6 +119,7 @@ class GtkFloating:
         from gi.repository import Gtk,Gdk,GLib,WebKit
         self.GLib,self.WebKit,self.Gtk,self.Gdk=GLib,WebKit,Gtk,Gdk
         self.hidden_by_user=False
+        self.background=False;self.focus_timer=None;self.focus_seen=window.is_active()
         self.menu_open=False;self.drag_press=None;self.drag_started=False;self.last_cursor=None
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
@@ -128,16 +148,53 @@ class GtkFloating:
         self.orb.connect('close-request',lambda w:self.hide())
         self.view.load_uri(url+'mascot.html?host=gtk&lang='+ui_language())
         self.orb.realize();self.x.above(self.orb)
-        self.orb.connect("map",lambda orb:self.x.above(orb))
+        self.orb.connect("map",self.orb_mapped)
         self.orb.get_surface().connect("notify::state",self.orb_state_changed)
         self.window.get_surface().connect("notify::state",self.editor_state_changed)
+        self.window.connect("notify::is-active", self.active_changed)
         self.GLib.timeout_add(17,self.track)
+
+    def orb_mapped(self,orb):
+        self.x.above(orb)
+        if self.background:self.x.no_focus(orb)
+
+    def preferences_changed(self):
+        self.preferences.reload()
+        if not self.preferences.orb_enabled:
+            self.pending=False
+            if self.mode=='orb':
+                if self.background:self.dismiss_background()
+                else:self.open()
+        return False
+
+    def active_changed(self, window, _):
+        if self.focus_timer:
+            self.GLib.source_remove(self.focus_timer);self.focus_timer=None
+        if window.is_active():
+            self.focus_seen=True;self.hidden_by_user=False
+            if self.mode=='orb' and self.background:self.dismiss_background()
+        elif self.focus_seen:
+            self.focus_timer=self.GLib.timeout_add(150,self.background_if_external)
+
+    def background_if_external(self):
+        self.focus_timer=None
+        if (not self.preferences.orb_enabled or self.hidden_by_user or self.mode!='editor'
+            or not self.ready or self.window.is_active() or not self.window.get_visible()
+            or getattr(self.app,'closing',False) or getattr(self.app,'file_picker_cancel',None)
+            or any(w.is_active() for w in self.app.get_windows())):return False
+        self.collapse(background=True)
+        return False
+
+    def dismiss_background(self):
+        self.orb_rect=self.x.position(self.orb)
+        self.mode='editor';self.background=False
+        self.orb.set_visible(False);self.emit('pause')
 
     def editor_state_changed(self,surface,_):
         minimized=bool(surface.get_state() & self.Gdk.ToplevelState.MINIMIZED)
         if not minimized and self.mode!='hidden':
             self.hidden_by_user=False
-        elif self.mode=='editor' and not self.hidden_by_user:
+        elif self.mode=='editor' and not self.hidden_by_user and self.preferences.orb_enabled:
             # Also handle taskbar / WM keyboard minimization. Restore without focus
             # before immediately hiding the editor.
             self.window.unminimize()
@@ -210,23 +267,36 @@ class GtkFloating:
             self.preferences.save(msg.get('enabled',True),msg.get('direction'))
             if self.mode=='orb':self.x.input_region(self.orb)
 
-    def collapse(self):
+    def collapse(self,background=False):
+        if not self.preferences.orb_enabled:
+            self.window.minimize();return
         if self.mode!='editor':return
         if not self.ready:self.pending=True;return
         self.hidden_by_user=False;self.menu_open=False
         if not self.orb_rect:
             x,y,w,h=self.x.position(self.window)
             self.orb_rect=(x+w-ORB_WIDTH+70,y+h-ORB_HEIGHT+50,ORB_WIDTH,ORB_HEIGHT)
+        self.background=background
         self.mode='orb';self.completed_switches+=1
-        self.orb.present();self.x.move(self.orb,self.orb_rect);self.x.above(self.orb)
-        self.x.input_region(self.orb);self.emit('show');self.window.set_visible(False)
+        if background:
+            # EWMH zero user time prevents focus on map (Alt+Tab keeps its destination).
+            atom=self.x.x.XInternAtom(self.x.display,b'_NET_WM_USER_TIME',0)
+            timestamp=C.c_ulong(0)
+            self.x.x.XChangeProperty(self.x.display,self.orb.get_surface().get_xid(),atom,6,32,0,C.byref(timestamp),1)
+            self.x.no_focus(self.orb)
+            self.orb.set_focusable(False)
+            self.orb.set_visible(True)
+        else:self.orb.present()
+        self.x.move(self.orb,self.orb_rect);self.x.above(self.orb)
+        self.x.input_region(self.orb);self.emit('show')
+        if not background:self.window.set_visible(False)
 
     def open(self):
         if self.mode!='orb':
             if self.mode=='editor':self.window.present()
             return
         self.menu_open=False;self.orb_rect=self.x.position(self.orb)
-        self.mode='editor';self.completed_switches+=1
+        self.mode='editor';self.background=False;self.completed_switches+=1
         self.window.unminimize();self.window.present()
         self.orb.set_visible(False);self.emit('pause')
 

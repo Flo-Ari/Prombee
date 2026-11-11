@@ -229,7 +229,15 @@
         hidden
       >
         <h2>悬浮球</h2>
-        <button id="enterFloating" class="primary">进入悬浮球</button>
+        <label class="setting-switch"
+          ><input
+            id="floatingEnabled"
+            type="checkbox"
+            role="switch"
+            checked
+          />启用悬浮球</label
+        >
+        <p id="floatingStatus" role="status"></p>
       </section>
       <section
         id="updatesPanel"

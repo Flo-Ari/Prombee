@@ -90,6 +90,7 @@ class FloatingTests(unittest.TestCase):
         control.Gdk=SimpleNamespace(ToplevelState=SimpleNamespace(MINIMIZED=1,ABOVE=16))
         control.window=SimpleNamespace(unminimize=lambda:calls.append('restore'))
         control.collapse=lambda:calls.append('collapse')
+        control.preferences=SimpleNamespace(orb_enabled=True)
         control.mode='editor';control.hidden_by_user=False
         surface=SimpleNamespace(get_state=lambda:1)
         control.editor_state_changed(surface,None)
@@ -127,6 +128,7 @@ class FloatingTests(unittest.TestCase):
             control=cls.__new__(cls)
             control.window=window('editor');control.orb=window('orb')
             control.mode='editor';control.ready=True;control.orb_rect=None;control.completed_switches=0
+            control.preferences=SimpleNamespace(orb_enabled=True)
             control.lock=threading.RLock()
             control.x=SimpleNamespace(position=lambda w:(w.x,w.y,w.width,w.height),move=lambda *args:None,above=lambda *args:None,input_region=lambda *args:None)
             control.place=lambda *args:None;control.input_region=lambda *args:None
@@ -136,3 +138,60 @@ class FloatingTests(unittest.TestCase):
             control.open()
             self.assertEqual(control.mode,'editor');self.assertEqual(control.completed_switches,2)
             self.assertEqual(calls[-2:],['orb hide','pause'])
+
+    def test_orb_switch_is_persistent_and_independent_of_animation_and_direction(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ui=FloatingPreferences(folder);mascot=FloatingPreferences(folder)
+            ui.set_orb_enabled(False);mascot.save(False,'right')
+            restored=FloatingPreferences(folder)
+            self.assertFalse(restored.orb_enabled);self.assertFalse(restored.enabled)
+            self.assertEqual(restored.direction,'right')
+            ui.set_orb_enabled(True);self.assertFalse(FloatingPreferences(folder).enabled)
+            with self.assertRaises(ValueError):ui.set_orb_enabled('yes')
+
+    def test_disabled_orb_uses_normal_minimize_on_both_hosts(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        from prombee.floating_windows import WindowsFloating
+        for cls in (GtkFloating,WindowsFloating):
+            calls=[];control=cls.__new__(cls)
+            control.preferences=SimpleNamespace(orb_enabled=False)
+            control.window=SimpleNamespace(minimize=lambda:calls.append('minimize'))
+            control.collapse();self.assertEqual(calls,['minimize'])
+
+    def test_focus_loss_ignores_dialogs_closing_and_disabled_switch(self):
+        from types import SimpleNamespace
+        from prombee.floating_gtk import GtkFloating
+        control=GtkFloating.__new__(GtkFloating);calls=[]
+        control.preferences=SimpleNamespace(orb_enabled=True)
+        control.hidden_by_user=False;control.mode='editor';control.ready=True
+        control.window=SimpleNamespace(is_active=lambda:False,get_visible=lambda:True)
+        control.app=SimpleNamespace(closing=False,file_picker_cancel=None,get_windows=lambda:[])
+        control.collapse=lambda **kw:calls.append(kw)
+        control.background_if_external();self.assertEqual(calls,[{'background':True}]);calls.clear()
+        control.app.file_picker_cancel=object();control.background_if_external()
+        control.app.file_picker_cancel=None;control.app.closing=True;control.background_if_external()
+        control.app.closing=False;control.preferences.orb_enabled=False;control.background_if_external()
+        control.preferences.orb_enabled=True
+        control.app.get_windows=lambda:[SimpleNamespace(is_active=lambda:True)]
+        control.background_if_external();self.assertEqual(calls,[])
+
+    def test_api_persists_switch_notifies_host_and_rejects_invalid_values(self):
+        import json
+        from urllib.request import Request,urlopen
+        from urllib.error import HTTPError
+        from prombee.server import start_server
+        with tempfile.TemporaryDirectory() as folder:
+            server=start_server(Path(__file__).resolve().parents[1],folder)
+            changed=[];server.floating_changed=lambda:changed.append(True)
+            url=f'http://127.0.0.1:{server.server_port}/api/floating'
+            try:
+                with urlopen(url) as response:self.assertEqual(json.load(response),{'enabled':True})
+                with urlopen(Request(url,data=b'{"enabled":false}',headers={'Content-Type':'application/json'},method='POST')) as response:
+                    self.assertEqual(json.load(response),{'enabled':False})
+                self.assertEqual(changed,[True]);self.assertFalse(FloatingPreferences(folder).orb_enabled)
+                for payload,headers,status in [(b'{"enabled":"false"}',{},400),(b'{"enabled":true}',{'Origin':'https://foreign.example'},403)]:
+                    with self.assertRaises(HTTPError) as error:urlopen(Request(url,data=payload,headers=headers,method='POST'))
+                    self.assertEqual(error.exception.code,status)
+                self.assertFalse(FloatingPreferences(folder).orb_enabled)
+            finally:server.shutdown();server.server_close()

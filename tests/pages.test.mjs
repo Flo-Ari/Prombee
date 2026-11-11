@@ -676,8 +676,9 @@ test("header follows editor and floating entry order; successful copy fills its 
   $("settingsTab").click();
   $("floatingButton").click();
   assert.equal($("floatingPanel").hidden, false);
-  $("enterFloating").click();
-  assert.equal(minimized, true);
+  assert.equal($("floatingEnabled").type, "checkbox");
+  assert.equal($("floatingEnabled").getAttribute("role"), "switch");
+  assert.equal(minimized, false);
   $("copy").classList.remove("copied");
   await $("copy").onclick();
   assert.equal($("copy").classList.contains("copied"), true);
@@ -770,4 +771,24 @@ test("cut without text selection copies only this entry and preserves children; 
     configurable: true,
     value: { writeText: async (text) => copies.push(text) },
   });
+});
+
+test("floating setting saves a persistent switch without minimizing the editor", async () => {
+  const previous = globalThis.fetch;
+  let payload;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/api/floating");
+    payload = JSON.parse(options.body);
+    return { ok: true, json: async () => payload };
+  };
+  try {
+    $("floatingEnabled").checked = false;
+    await $("floatingEnabled").onchange();
+    assert.deepEqual(payload, { enabled: false });
+    assert.equal($("floatingEnabled").checked, false);
+    assert.equal($("floatingEnabled").disabled, false);
+    $("floatingEnabled").checked = true;
+    await $("floatingEnabled").onchange();
+    assert.deepEqual(payload, { enabled: true });
+  } finally { globalThis.fetch = previous; }
 });

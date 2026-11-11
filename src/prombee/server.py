@@ -40,6 +40,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
     from .other import OtherSettings
     other = OtherSettings(data_dir)
 
+    from .floating import FloatingPreferences
+    floating = FloatingPreferences(data_dir)
+
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
             self.send_response(status)
@@ -57,7 +60,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
         def do_GET(self):
             path=unquote(urlsplit(self.path).path)
-            if path == '/api/other':
+            if path == '/api/floating':
+                self.json(200, floating.reload())
+            elif path == '/api/other':
                 try:self.json(200, other.load() if urlsplit(self.path).query == 'preferences=1' else other.snapshot())
                 except (ValueError,OSError,subprocess.TimeoutExpired) as error:self.json(400, {'error':str(error)})
             elif path == '/api/update':
@@ -85,7 +90,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker', '/api/update', '/api/other'):
+            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker', '/api/update', '/api/other', '/api/floating'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -95,7 +100,11 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                if self.path == '/api/other':
+                if self.path == '/api/floating':
+                    result = floating.set_orb_enabled(payload.get('enabled'))
+                    callback = getattr(self.server, 'floating_changed', None)
+                    if callback: callback()
+                elif self.path == '/api/other':
                     action = payload.get('action')
                     if action not in ('save','jump'): raise ValueError('其他设置操作无效')
                     result = other.jump() if action == 'jump' else other.save(payload)
