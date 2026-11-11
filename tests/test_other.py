@@ -59,3 +59,11 @@ class OtherTests(unittest.TestCase):
             self.assertEqual(cleaned['LD_LIBRARY_PATH'],'/system/lib')
             self.assertNotIn('WEBKIT_EXEC_PATH',cleaned)
             self.assertEqual(os.environ['LD_LIBRARY_PATH'],'/bundle')
+
+    def test_markdown_switch_persists_independently_of_unavailable_jump_destination(self):
+        self.store.save({'enabled':True,'target':{'kind':'window','id':'win:1'}})
+        with patch.object(self.targets,'catalog',side_effect=RuntimeError('closed')):
+            saved=self.store.markdown(False)
+        self.assertTrue(saved['enabled']);self.assertEqual(saved['target']['id'],'win:1')
+        self.assertFalse(OtherSettings(self.path,self.targets).load()['recognizeMarkdown'])
+        with self.assertRaises(ValueError):self.store.markdown('false')

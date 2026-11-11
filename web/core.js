@@ -63,11 +63,16 @@ export function plain(html) {
   for (const b of t.querySelectorAll("br")) b.replaceWith("\n");
   return t.textContent.replace(/\n$/, "");
 }
-export function inlineMarkdown(html) {
+export function inlineMarkdown(html, { literal = false } = {}) {
   const t = document.createElement("div");
   t.innerHTML = cleanHTML(html);
   const convert = (n) => {
-    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeType === 3)
+      return literal
+        ? n.textContent
+            .replace(/([\\`*_[\]<>#~|])/g, "\\$1")
+            .replace(/(^|\n)(\s*)([-+]|\d+[.)])(?=\s)/g, "$1$2\\$3")
+        : n.textContent;
     if (n.tagName === "BR") return "\n";
     let text = [...n.childNodes].map(convert).join("");
     if (["I", "EM"].includes(n.tagName) || n.style?.fontStyle === "italic")
@@ -203,7 +208,12 @@ export function populatedHeadings(nodes, states = visibility(nodes)) {
 }
 export function toMarkdown(
   nodes,
-  { start = 0, end = nodes.length, removeEmpty = true } = {},
+  {
+    start = 0,
+    end = nodes.length,
+    removeEmpty = true,
+    recognizeMarkdown = true,
+  } = {},
 ) {
   let count = 0;
   const lines = [],
@@ -221,9 +231,11 @@ export function toMarkdown(
     }
     if (states.get(n.id).excluded) continue;
     const source = plain(n.html);
-    const authored = containsMarkdown(source);
-    const text = authored ? source : inlineMarkdown(n.html);
-    const headings = markdownHeadings(source);
+    const authored = recognizeMarkdown && containsMarkdown(source);
+    const text = authored
+      ? source
+      : inlineMarkdown(n.html, { literal: !recognizeMarkdown });
+    const headings = recognizeMarkdown ? markdownHeadings(source) : [];
     const inheritedDelta = stack.at(-1)?.delta || 0;
     const level = Math.max(1, Math.min(6, n.level + inheritedDelta));
     if (n.kind === "heading") {
@@ -240,7 +252,7 @@ export function toMarkdown(
     )
       continue;
     if (
-      (n.raw && source.trim()) ||
+      (recognizeMarkdown && n.raw && source.trim()) ||
       (authored &&
         (headings.length || (n.kind !== "heading" && hasBlockMarkdown(source))))
     ) {

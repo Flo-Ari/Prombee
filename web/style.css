@@ -772,23 +772,6 @@ body.dark[data-page="common"] #paper {
   background: var(--paper);
   border-color: var(--line);
 }
-#editorTab,
-#copy {
-  background: var(--paper);
-  border-color: #2563eb;
-  color: #2563eb;
-  font-weight: 650;
-  box-shadow: 0 2px 6px #2563eb20;
-}
-#editorTab[aria-selected="true"],
-#copy.copied {
-  background: #2563eb;
-  color: #fff;
-}
-body.dark #editorTab:not([aria-selected="true"]),
-body.dark #copy:not(.copied) {
-  color: #93bcff;
-}
 #deleteRound {
   margin-left: 0;
 }

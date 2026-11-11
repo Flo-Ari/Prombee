@@ -51,7 +51,7 @@ test("other settings enumerate targets, save on this device and jump only when e
   assert.equal($("copyJumpTarget").querySelectorAll("optgroup").length, 2);
   $("copyJumpEnabled").checked = true;
   $("copyJumpTarget").value = "win:1";
-  await $("saveOtherSettings").onclick();
+  await $("copyJumpTarget").onchange();
   await ui.afterCopy();
   assert.equal(jumps, 1);
   assert.equal(target.name, "Browser — page");
@@ -59,10 +59,41 @@ test("other settings enumerate targets, save on this device and jump only when e
   $("copyJumpTarget").dispatchEvent(new window.Event("change"));
   assert.equal($("copyJumpUrlRow").hidden, false);
   $("copyJumpUrl").value = "https://example.com/page";
-  await $("saveOtherSettings").onclick();
+  await $("copyJumpTarget").onchange();
   assert.equal(target.url, "https://example.com/page");
   $("copyJumpEnabled").checked = false;
-  await $("saveOtherSettings").onclick();
+  await $("copyJumpTarget").onchange();
   await ui.afterCopy();
   assert.equal(jumps, 1);
+});
+
+test("Markdown preference auto-saves independently and the manual save button is absent", async () => {
+  const $ = setup();
+  let recognized = true,
+    changed;
+  const ui = mountOtherSettings({
+    onMarkdownChange: (value) => (changed = value),
+    request: async (url, options) => {
+      if (options) {
+        const p = JSON.parse(options.body);
+        assert.equal(p.action, "markdown");
+        recognized = p.recognizeMarkdown;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          enabled: false,
+          target: null,
+          recognizeMarkdown: recognized,
+        }),
+      };
+    },
+  });
+  await ui.ready;
+  assert.equal($("saveOtherSettings"), null);
+  $("recognizeMarkdown").checked = false;
+  await $("recognizeMarkdown").onchange();
+  assert.equal(recognized, false);
+  assert.equal(changed, false);
+  assert.equal(ui.recognizeMarkdown(), false);
 });

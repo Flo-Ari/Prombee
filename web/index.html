@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="mascot.css" />
     <link rel="stylesheet" href="bars.css" />
     <link rel="stylesheet" href="buttons.css" />
+    <link rel="stylesheet" href="dropdowns.css" />
   </head>
   <body>
     <header class="window-chrome app-bar">
@@ -21,9 +22,28 @@
           aria-label="编写"
           title="编写"
         >
-          <img src="logo.svg" alt="" /><strong data-app-name>提示蜂</strong>
+          <img src="logo.svg" alt="" /><span class="logo-text-container"
+            ><strong data-app-name class="logo-text">提示蜂</strong></span
+          >
         </button>
-        <button id="copy">复制提示词</button>
+        <button id="copy" aria-label="复制提示词" title="复制提示词">
+          <span class="copy-circle" aria-hidden="true"></span
+          ><svg
+            class="copy-icon copy-arr-1"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M8 8h12v13H8zM4 16H2V2h13v3" /></svg
+          ><svg
+            class="copy-icon copy-arr-2"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M8 8h12v13H8zM4 16H2V2h13v3" /></svg
+          ><svg class="copy-check" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m5 12 4 4L20 5" />
+          </svg>
+        </button>
         <button id="template" role="tab" aria-controls="editorPanel">
           模板
         </button>
@@ -146,14 +166,13 @@
           aria-label="文字颜色" /></label
       ><button id="clear">清除格式</button><span class="separator"></span
       ><select id="headingLevel" aria-label="条目等级">
-        <option value="">条目等级</option>
         <option value="0">正文</option>
-        <option value="1">H1 一级标题</option>
-        <option value="2">H2 二级标题</option>
-        <option value="3">H3 三级标题</option>
-        <option value="4">H4 四级标题</option>
-        <option value="5">H5 五级标题</option>
-        <option value="6">H6 六级标题</option>
+        <option value="1">一级标题</option>
+        <option value="2">二级标题</option>
+        <option value="3">三级标题</option>
+        <option value="4">四级标题</option>
+        <option value="5">五级标题</option>
+        <option value="6">六级标题</option>
       </select>
       <div id="batchControls" hidden>
         <span id="selectedCount"></span><button id="batchExclude">排除</button
@@ -228,26 +247,41 @@
         hidden
       >
         <h2>其他</h2>
-        <label class="setting-switch"
-          ><input id="copyJumpEnabled" type="checkbox" />复制提示词后跳转</label
-        >
-        <div class="copy-jump-target">
-          <label for="copyJumpTarget">跳转目标</label
-          ><select id="copyJumpTarget" aria-label="跳转目标"></select
-          ><button id="refreshJumpTargets">刷新</button>
-        </div>
-        <label id="copyJumpUrlRow" hidden
-          >网页地址
-          <input
-            id="copyJumpUrl"
-            type="url"
-            placeholder="https://"
-            aria-label="网页地址"
-        /></label>
-        <p class="muted">
-          窗口列表包含系统可识别的已打开窗口，浏览器页面以窗口当前标签为准。
-        </p>
-        <button id="saveOtherSettings" class="primary">保存</button>
+        <section class="other-section">
+          <h3>条目内容</h3>
+          <label class="setting-switch"
+            ><input
+              id="recognizeMarkdown"
+              type="checkbox"
+              checked
+            />识别条目中的 Markdown</label
+          >
+        </section>
+        <section class="other-section">
+          <h3>复制提示词</h3>
+          <label class="setting-switch"
+            ><input
+              id="copyJumpEnabled"
+              type="checkbox"
+            />复制提示词后跳转</label
+          >
+          <div class="copy-jump-target">
+            <label for="copyJumpTarget">跳转目标</label
+            ><select id="copyJumpTarget" aria-label="跳转目标"></select
+            ><button id="refreshJumpTargets">刷新</button>
+          </div>
+          <label id="copyJumpUrlRow" hidden
+            >网页地址
+            <input
+              id="copyJumpUrl"
+              type="url"
+              placeholder="https://"
+              aria-label="网页地址"
+          /></label>
+          <p class="muted">
+            窗口列表包含系统可识别的已打开窗口，浏览器页面以窗口当前标签为准。
+          </p>
+        </section>
         <p id="otherStatus" role="status" aria-live="polite"></p>
       </section>
 

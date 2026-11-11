@@ -1,9 +1,14 @@
-export function mountOtherSettings({ request = fetch } = {}) {
+export function mountOtherSettings({
+  request = fetch,
+  onMarkdownChange = () => {},
+} = {}) {
   const $ = (id) => document.getElementById(id);
-  let preferences = { enabled: false, target: null },
-    entries = [];
+  let preferences = { enabled: false, target: null, recognizeMarkdown: true },
+    entries = [],
+    tail = Promise.resolve(),
+    urlTimer;
   async function api(payload) {
-    const response = await request(
+    const r = await request(
       "/api/other",
       payload
         ? {
@@ -13,16 +18,21 @@ export function mountOtherSettings({ request = fetch } = {}) {
           }
         : undefined,
     );
-    const value = await response.json();
-    if (!response.ok) throw Error(value.error || "其他设置读取失败");
+    const value = await r.json();
+    if (!r.ok) throw Error(value.error || "设置保存失败");
     return value;
   }
-  function paint(value) {
-    preferences = {
+  function values(value) {
+    return {
       enabled: value.enabled === true,
       target: value.target || null,
+      recognizeMarkdown: value.recognizeMarkdown !== false,
     };
+  }
+  function paint(value) {
+    preferences = values(value);
     $("copyJumpEnabled").checked = preferences.enabled;
+    $("recognizeMarkdown").checked = preferences.recognizeMarkdown;
     const select = $("copyJumpTarget");
     select.replaceChildren();
     entries = [];
@@ -60,56 +70,100 @@ export function mountOtherSettings({ request = fetch } = {}) {
     }
     $("copyJumpUrlRow").hidden = select.value !== "url";
   }
+  const ready = request("/api/other?preferences=1")
+    .then((r) => r.json())
+    .then((value) => {
+      preferences = values(value);
+      $("copyJumpEnabled").checked = preferences.enabled;
+      $("recognizeMarkdown").checked = preferences.recognizeMarkdown;
+    })
+    .catch(() => {});
+  function save() {
+    clearTimeout(urlTimer);
+    urlTimer = null;
+    const recognizeMarkdown = $("recognizeMarkdown").checked,
+      value = $("copyJumpTarget").value;
+    let target =
+      value === "url"
+        ? { kind: "url", url: $("copyJumpUrl").value.trim() }
+        : entries.find((t) => t.id === value) || null;
+    if (target?.kind === "url") {
+      try {
+        const u = new URL(target.url);
+        if (!["http:", "https:"].includes(u.protocol)) target = null;
+      } catch {
+        target = null;
+      }
+    }
+    const requested = $("copyJumpEnabled").checked;
+    // A newly enabled destination becomes active once a complete destination is selected.
+    const payload = {
+      action: "save",
+      enabled: requested && !!target,
+      target,
+      recognizeMarkdown,
+    };
+    preferences.recognizeMarkdown = recognizeMarkdown;
+    tail = tail
+      .then(() => ready)
+      .then(async () => {
+        preferences = values(await api(payload));
+        $("otherStatus").textContent =
+          requested && !target ? "请选择跳转目标" : "已保存";
+      })
+      .catch((error) => {
+        $("otherStatus").textContent = error.message;
+      });
+    return tail;
+  }
   async function show() {
     $("otherStatus").textContent = "正在读取设备上的应用与窗口…";
     try {
       await ready;
+      await tail;
       paint(await api());
       $("otherStatus").textContent = "";
     } catch (error) {
       $("otherStatus").textContent = error.message;
     }
   }
+  $("copyJumpEnabled").onchange = save;
   $("copyJumpTarget").onchange = () => {
     $("copyJumpUrlRow").hidden = $("copyJumpTarget").value !== "url";
+    return save();
+  };
+  $("copyJumpUrl").oninput = () => {
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(save, 300);
+  };
+  $("copyJumpUrl").onchange = save;
+  $("recognizeMarkdown").onchange = () => {
+    preferences.recognizeMarkdown = $("recognizeMarkdown").checked;
+    onMarkdownChange(preferences.recognizeMarkdown);
+    const recognizeMarkdown = preferences.recognizeMarkdown;
+    tail = tail
+      .then(() => ready)
+      .then(async () => {
+        preferences = values(
+          await api({ action: "markdown", recognizeMarkdown }),
+        );
+        $("otherStatus").textContent = "已保存";
+      })
+      .catch((error) => {
+        $("otherStatus").textContent = error.message;
+      });
+    return tail;
   };
   $("refreshJumpTargets").onclick = show;
-  $("saveOtherSettings").onclick = async () => {
-    await ready;
-    const value = $("copyJumpTarget").value;
-    const target =
-      value === "url"
-        ? { kind: "url", url: $("copyJumpUrl").value }
-        : entries.find((t) => t.id === value) || null;
-    $("saveOtherSettings").disabled = true;
-    try {
-      preferences = await api({
-        action: "save",
-        enabled: $("copyJumpEnabled").checked,
-        target,
-      });
-      $("otherStatus").textContent = "已保存";
-    } catch (error) {
-      $("otherStatus").textContent = error.message;
-    } finally {
-      $("saveOtherSettings").disabled = false;
-    }
-  };
-  // Only device preferences are loaded on startup; window enumeration waits for this page.
-  const ready = request("/api/other?preferences=1")
-    .then((r) => r.json())
-    .then((value) => {
-      preferences = {
-        enabled: value.enabled === true,
-        target: value.target || null,
-      };
-    })
-    .catch(() => {});
   return {
     show,
     ready,
+    settled: () => tail,
+    recognizeMarkdown: () => preferences.recognizeMarkdown,
     async afterCopy() {
       await ready;
+      if (urlTimer) await save();
+      await tail;
       if (preferences.enabled) await api({ action: "jump" });
     },
   };

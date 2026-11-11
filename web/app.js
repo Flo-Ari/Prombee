@@ -1,3 +1,9 @@
+import { mountDropdowns } from "./dropdowns.js";
+import {
+  prepareFormatting,
+  restoreFormattingCaret,
+  readFormatting,
+} from "./formatting.js";
 import { mountButtonStyles } from "./buttons.js";
 import { mountBars } from "./bars.js";
 import { mountOtherSettings } from "./other.js";
@@ -34,6 +40,7 @@ import { createLibraryUI } from "./library.js";
 const $ = (id) => document.getElementById(id);
 const bars = mountBars();
 mountButtonStyles();
+const dropdowns = mountDropdowns();
 let state,
   revision = 0,
   active = null,
@@ -210,7 +217,7 @@ function render() {
   applyTheme();
   $("documents").replaceChildren();
   for (const d of state.documents) {
-    const o = element("option", "", d.name);
+    const o = element("option", "", d.name.replace(/^第\s*/, ""));
     o.value = d.id;
     $("documents").append(o);
   }
@@ -291,7 +298,7 @@ function render() {
     content.innerHTML = cleanHTML(n.html);
     content.onfocus = () => {
       active = n.id;
-      $("headingLevel").value = n.kind === "heading" ? String(n.level) : "0";
+      syncToolbar(content);
     };
     content.addEventListener("beforeinput", () => remember());
     content.addEventListener("input", () => {
@@ -392,6 +399,8 @@ function render() {
   renumber();
   buttons();
   refreshShortcutHints();
+  if (active) syncToolbar(contentFor(active));
+  dropdowns.sync();
 }
 function renumber() {
   let number = 0,
@@ -408,7 +417,10 @@ function renumber() {
     if (n.kind === "heading") {
       number = 0;
       marker = "H" + n.level;
-    } else if (n.raw || hasBlockMarkdown(text)) {
+    } else if (
+      otherUI.recognizeMarkdown() &&
+      (n.raw || hasBlockMarkdown(text))
+    ) {
       marker = "MD";
       number = 0;
     } else marker = text.trim() ? `${++number}.` : "·";
@@ -450,14 +462,39 @@ function saveSelection() {
   ) {
     active = el.dataset.id;
     selection = range.cloneRange();
-    $("bold").classList.toggle("active", document.queryCommandState("bold"));
-    $("italic").classList.toggle(
-      "active",
-      document.queryCommandState("italic"),
-    );
+    syncToolbar(el);
   }
 }
 document.addEventListener("selectionchange", saveSelection);
+function syncToolbar(el) {
+  if (!el) return;
+  const info = readFormatting(el),
+    node = doc().nodes.find((n) => n.id === el.dataset.id);
+  if (info.font) {
+    if (![...$("font").options].some((o) => o.value === info.font)) {
+      const option = element("option", "", info.font);
+      option.value = info.font;
+      $("font").append(option);
+    }
+    $("font").value = info.font;
+  }
+  if (Number.isFinite(info.size) && info.size > 0)
+    $("size").value = Math.round(info.size * 10) / 10;
+  if (info.color) {
+    $("color").value = info.color;
+    document.documentElement.style.setProperty("--chosen-color", info.color);
+  }
+  for (const [id, on] of [
+    ["bold", info.bold],
+    ["italic", info.italic],
+  ]) {
+    $(id).classList.toggle("active", on);
+    $(id).setAttribute("aria-pressed", String(on));
+  }
+  if (node)
+    $("headingLevel").value =
+      node.kind === "heading" ? String(node.level) : "0";
+}
 function restoreSelection() {
   const el = contentFor(active);
   if (!el) {
@@ -486,34 +523,51 @@ function commitActive(el) {
   saveSelection();
   renumber();
 }
-function format(command, value) {
-  const el = restoreSelection();
-  if (!el) return;
-  remember();
-  document.execCommand("styleWithCSS", false, true);
-  document.execCommand(command, false, value);
-  commitActive(el);
-}
 function spanStyle(property, value) {
   const el = restoreSelection();
   if (!el) return false;
+  const target = prepareFormatting(el);
   const s = window.getSelection();
-  if (s.isCollapsed) return false;
+  if (s.isCollapsed) {
+    if (property) {
+      remember();
+      const span = element("span");
+      span.style[property] = value;
+      span.append(document.createElement("br"));
+      el.replaceChildren(span);
+      const range = document.createRange();
+      range.setStart(span, 0);
+      range.collapse(true);
+      s.removeAllRanges();
+      s.addRange(range);
+      commitActive(el);
+      syncToolbar(el);
+    }
+    return true;
+  }
   remember();
   const range = s.getRangeAt(0),
     span = element("span");
-  span.style[property] = value;
+  if (property) span.style[property] = value;
   const allText = range.toString() === el.textContent;
   let fragment;
   if (allText) {
     fragment = document.createDocumentFragment();
     while (el.firstChild) fragment.append(el.firstChild);
   } else fragment = range.extractContents();
-  for (const child of fragment.querySelectorAll("span,font")) {
-    child.style[property] = "";
-    if (property === "fontFamily") child.removeAttribute("face");
-    if (property === "fontSize") child.removeAttribute("size");
-    if (property === "color") child.removeAttribute("color");
+  for (const child of [...fragment.querySelectorAll("*")]) {
+    if (property) {
+      child.style[property] = "";
+      if (property === "fontFamily") child.removeAttribute("face");
+      if (property === "fontSize") child.removeAttribute("size");
+      if (property === "color") child.removeAttribute("color");
+    } else child.removeAttribute("style");
+    if (
+      (!property && ["B", "STRONG", "I", "EM", "U"].includes(child.tagName)) ||
+      (property === "fontWeight" && ["B", "STRONG"].includes(child.tagName)) ||
+      (property === "fontStyle" && ["I", "EM"].includes(child.tagName))
+    )
+      child.replaceWith(...child.childNodes);
   }
   span.append(fragment);
   if (allText) el.append(span);
@@ -523,9 +577,31 @@ function spanStyle(property, value) {
   s.addRange(range);
   selection = range.cloneRange();
   commitActive(el);
+  restoreFormattingCaret(el, target);
+  saveSelection();
+  syncToolbar(el);
   return true;
 }
+let templateSourceSignature = null;
+function syncLatestTemplate() {
+  if (!state?.template || !state.documents.length) return;
+  const latest = state.documents.reduce((a, b) =>
+    Number(/^第\s*(\d+)/.exec(b.name)?.[1] || 0) >
+    Number(/^第\s*(\d+)/.exec(a.name)?.[1] || 0)
+      ? b
+      : a,
+  );
+  const headings = latest.nodes.filter((n) => n.kind === "heading");
+  const signature = JSON.stringify([
+    latest.id,
+    headings.map((n) => [n.level, n.html]),
+  ]);
+  if (signature === templateSourceSignature) return;
+  templateSourceSignature = signature;
+  state.template.nodes = hierarchyNodes(latest.nodes);
+}
 function changed() {
+  if (page !== "template") syncLatestTemplate();
   dirty = true;
   $("status").textContent = "正在保存…";
   try {
@@ -710,6 +786,7 @@ function editKey(e, n, el) {
   }
 }
 function mergeMarkdown(id) {
+  if (!otherUI.recognizeMarkdown()) return false;
   const nodes = integrateMarkdown(doc().nodes, id);
   if (!nodes) return false;
   remember();
@@ -720,7 +797,7 @@ function mergeMarkdown(id) {
   return true;
 }
 function integrateCurrent() {
-  if (!editing() || noSet) return false;
+  if (!editing() || noSet || !otherUI.recognizeMarkdown()) return false;
   let modified = false;
   for (const id of doc().nodes.map((node) => node.id)) {
     const result = integrateMarkdown(doc().nodes, id);
@@ -793,7 +870,10 @@ function deleteNode(id, subtree = true) {
   changed();
 }
 function copyOptions() {
-  return { removeEmpty: state.removeEmptyOnCopy === true };
+  return {
+    removeEmpty: state.removeEmptyOnCopy === true,
+    recognizeMarkdown: otherUI.recognizeMarkdown(),
+  };
 }
 function deleteEmpty() {
   state.removeEmptyOnCopy = !state.removeEmptyOnCopy;
@@ -896,6 +976,7 @@ async function cutEntry(id) {
   try {
     const text = toMarkdown([{ ...node, excluded: false }], {
       removeEmpty: false,
+      recognizeMarkdown: otherUI.recognizeMarkdown(),
     });
     if (!(await copyText(text, { jump: false, quiet: true }))) return;
     // Keep new edits intact if focus/content changed while the clipboard was pending.
@@ -1121,8 +1202,8 @@ function updateComparison() {
   $("leftTitle").textContent = left?.name || "暂无轮次";
   $("rightTitle").textContent = right?.name || "暂无轮次";
   renderComparison(
-    toMarkdown(left?.nodes || []),
-    toMarkdown(right?.nodes || []),
+    toMarkdown(left?.nodes || [], copyOptions()),
+    toMarkdown(right?.nodes || [], copyOptions()),
     $("diffRows"),
   );
   requestAnimationFrame(() => {
@@ -1134,6 +1215,7 @@ function updateComparison() {
   });
 }
 $("newDoc").onclick = () => {
+  syncLatestTemplate();
   const d = {
     id: uid(),
     name: nextRoundName(state.documents),
@@ -1251,14 +1333,23 @@ $("floatingEnabled").onchange = async () => {
 $("theme").onclick = () => {
   state.dark = !state.dark;
   applyTheme();
+  if (active) syncToolbar(contentFor(active));
   changed();
 };
 $("bold").onmousedown = (e) => e.preventDefault();
 $("italic").onmousedown = (e) => e.preventDefault();
 $("clear").onmousedown = (e) => e.preventDefault();
-$("bold").onclick = () => format("bold");
-$("italic").onclick = () => format("italic");
-$("clear").onclick = () => format("removeFormat");
+$("bold").onclick = () =>
+  spanStyle(
+    "fontWeight",
+    readFormatting(contentFor(active))?.bold ? "400" : "700",
+  );
+$("italic").onclick = () =>
+  spanStyle(
+    "fontStyle",
+    readFormatting(contentFor(active))?.italic ? "normal" : "italic",
+  );
+$("clear").onclick = () => spanStyle(null, null);
 $("font").onchange = () => {
   const value = $("font").value;
   if (!spanStyle("fontFamily", value)) {
@@ -1298,14 +1389,14 @@ $("color").oninput = () => {
     "--chosen-color",
     $("color").value,
   );
-  format("foreColor", $("color").value);
+  spanStyle("color", $("color").value);
 };
 $("headingLevel").onchange = () => {
   if ($("headingLevel").value === "") return;
   const level = Number($("headingLevel").value),
     n = doc().nodes.find((n) => n.id === active);
   if (!n) {
-    $("headingLevel").value = "";
+    $("headingLevel").value = "0";
     return;
   }
   remember();
@@ -1328,7 +1419,12 @@ $("floatingButton").onclick = () => {
   switchPage("floating");
 };
 const updaterUI = mountUpdates({ beforeInstall: flushWorkspace });
-const otherUI = mountOtherSettings();
+const otherUI = mountOtherSettings({
+  onMarkdownChange(enabled) {
+    if (state && enabled && integrateCurrent()) render();
+    else if (state) renumber();
+  },
+});
 $("otherTab").onclick = () => {
   lastSettingsPage = "other";
   switchPage("other");
@@ -1651,7 +1747,7 @@ function runShortcut(action) {
   else if (action === "copy") copy();
   else if (action === "undo") undo();
   else if (action === "redo") redo();
-  else if (["bold", "italic"].includes(action)) format(action);
+  else if (["bold", "italic"].includes(action)) $(action).click();
   else if (action === "multi") $("multiSelect").click();
   else if (action === "deleteEmpty") deleteEmpty();
   else if (action === "voice") $("voiceInput").click();
@@ -1748,6 +1844,7 @@ async function flushWorkspace() {
 function acceptWorkspace(data) {
   speech.stop();
   state = data.state;
+  templateSourceSignature = null;
   revision = data.revision;
   setId = data.set?.id || null;
   fingerprint = data.fingerprint || null;
@@ -1777,7 +1874,7 @@ function acceptWorkspace(data) {
     };
   }
   for (const collection of state.documents) {
-    if (collection.fromText) {
+    if (collection.fromText && otherUI.recognizeMarkdown()) {
       const original = collection.nodes;
       for (const node of original) {
         const candidate = collection.nodes.map((n) =>
@@ -1789,6 +1886,7 @@ function acceptWorkspace(data) {
       delete collection.fromText;
     }
   }
+  syncLatestTemplate();
   page = "editor";
   previewSource = null;
   closeMenu();
@@ -1803,6 +1901,7 @@ function acceptWorkspace(data) {
   if (dirty) changed();
 }
 try {
+  await otherUI.ready;
   const r = await fetch("/api/state");
   const data = await r.json();
   if (!r.ok) {

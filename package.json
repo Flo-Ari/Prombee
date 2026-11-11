@@ -1,10 +1,10 @@
 {
   "name": "prombee",
   "private": true,
-  "version": "0.9.8",
+  "version": "0.9.9",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/core.test.mjs tests/pages.test.mjs tests/library.test.mjs tests/reorder.test.mjs tests/mascot.test.mjs tests/bee-art.test.mjs tests/brand.test.mjs tests/speech.test.mjs tests/edge-navigation.test.mjs tests/updates.test.mjs tests/other.test.mjs tests/chrome.test.mjs tests/bars.test.mjs tests/buttons.test.mjs"
+    "test": "node --test tests/core.test.mjs tests/pages.test.mjs tests/library.test.mjs tests/reorder.test.mjs tests/mascot.test.mjs tests/bee-art.test.mjs tests/brand.test.mjs tests/speech.test.mjs tests/edge-navigation.test.mjs tests/updates.test.mjs tests/other.test.mjs tests/chrome.test.mjs tests/bars.test.mjs tests/buttons.test.mjs tests/dropdowns.test.mjs tests/formatting.test.mjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"

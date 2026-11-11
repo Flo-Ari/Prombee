@@ -1,3 +1,4 @@
+import { makeNode } from "../web/core.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
@@ -213,4 +214,12 @@ test("copy filter disabled preserves empty headings, heading markers and empty o
     "# 只有标题\n1. 正文\n",
   );
   assert.equal(nodes.length, 6);
+});
+
+test("disabled Markdown recognition preserves authored markers as literal text and does not override structural levels", () => {
+  const nodes = [makeNode("heading", 1, "Parent"), makeNode("item", 1, "## Raw<br>**literal**")];
+  const text = toMarkdown(nodes, { removeEmpty: false, recognizeMarkdown: false });
+  assert.ok(text.includes("1. \\#\\# Raw"));
+  assert.ok(text.includes("\\*\\*literal\\*\\*"));
+  assert.ok(toMarkdown(nodes, { removeEmpty:false }).includes("## Raw"));
 });
