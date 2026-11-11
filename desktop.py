@@ -94,8 +94,12 @@ def main():
             # Capture the native pointer device/time before the asynchronous JS bridge.
             gesture=Gtk.GestureClick();gesture.set_button(1)
             gesture.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-            gesture.connect('pressed',lambda g,count,x,y:setattr(self.floating,'window_press',
-                (g.get_current_event_device(),g.get_current_event_time(),x,y)))
+            def window_pressed(g,count,x,y):
+                event=g.get_current_event()
+                positioned,surface_x,surface_y=event.get_position()
+                self.floating.window_press=(g.get_current_event_device(),g.get_current_event_time(),
+                    surface_x if positioned else x,surface_y if positioned else y)
+            gesture.connect('pressed',window_pressed)
             gesture.connect('released',lambda *args:setattr(self.floating,'window_press',None))
             self.web.add_controller(gesture)
             server.floating_changed=lambda:GLib.idle_add(self.floating.preferences_changed)
