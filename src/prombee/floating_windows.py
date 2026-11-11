@@ -81,6 +81,12 @@ class WindowsFloating:
             self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction})
             if self.mode=='editor':self.emit('pause')
         elif action=='collapse':self.collapse()
+        elif action=='windowDrag':
+            user=C.windll.user32
+            user.SendMessageW.argtypes=[W.HWND,W.UINT,W.WPARAM,W.LPARAM]
+            user.SendMessageW.restype=C.c_ssize_t
+            user.ReleaseCapture()
+            user.SendMessageW(int(self.window.native.Handle.ToInt64()),0xA1,2,0) # WM_NCLBUTTONDOWN / HTCAPTION
         elif action=='menu':self.input_region(True)
         elif action=='menuClose':self.input_region(False)
         elif action=='scene':

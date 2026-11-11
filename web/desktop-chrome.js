@@ -1,4 +1,4 @@
-import { productName } from "./brand.js";
+import "./brand.js";
 import { mountMascot } from "./mascot.js";
 const platform = new URLSearchParams(location.search).get("desktop");
 const native = platform === "windows" || platform === "gtk";
@@ -23,20 +23,35 @@ function post(action, data = {}) {
 window.addEventListener("prombee-minimize", () =>
   post("collapse", { logo: logoTarget() }),
 );
-if (platform !== "gtk") {
-  const chrome = document.createElement("div");
-  chrome.className = "window-chrome";
-  chrome.innerHTML =
-    '<div class="window-drag pywebview-drag-region"></div><button id="minimizeWindow" data-shortcut-action="collapse" data-shortcut-name="最小化" title="最小化" aria-label="最小化">−</button><button id="maximizeWindow" title="最大化 / 还原" aria-label="最大化或还原">□</button><button id="closeWindow" title="关闭" aria-label="关闭">×</button>';
-  chrome.querySelector(".window-drag").textContent = productName;
-  document.body.prepend(chrome);
-  chrome.querySelector("#minimizeWindow").onclick = () =>
-    post("collapse", { logo: logoTarget() });
-  chrome.querySelector("#maximizeWindow").onclick = () =>
-    native ? post("maximize") : document.documentElement.requestFullscreen?.();
-  chrome.querySelector("#closeWindow").onclick = () =>
-    native ? post("close") : document.exitFullscreen?.();
+const chrome = document.querySelector(".window-chrome");
+chrome.querySelector("#minimizeWindow").onclick = () =>
+  post("collapse", { logo: logoTarget() });
+chrome.querySelector("#maximizeWindow").onclick = () =>
+  native
+    ? post("maximize")
+    : document.fullscreenElement
+      ? document.exitFullscreen?.()
+      : document.documentElement.requestFullscreen?.();
+chrome.querySelector("#closeWindow").onclick = () =>
+  native ? post("close") : document.exitFullscreen?.();
+const dragRegion = chrome.querySelector(".window-header");
+const interactive = (target) =>
+  !!target.closest("button,select,input,a,label,[role=tab]");
+// Only blank header space starts a native drag; controls keep ordinary mouse behavior.
+for (const control of dragRegion.querySelectorAll(
+  "button,select,input,a,label",
+)) {
+  control.addEventListener("mousedown", (event) => event.stopPropagation());
 }
+dragRegion.addEventListener("mousedown", (event) => {
+  if (event.button !== 0 || interactive(event.target)) return;
+  if (native) post("windowDrag");
+});
+dragRegion.addEventListener("dblclick", (event) => {
+  if (event.button === 0 && !interactive(event.target))
+    chrome.querySelector("#maximizeWindow").click();
+});
+
 let demo,
   mascot,
   demoCenter,

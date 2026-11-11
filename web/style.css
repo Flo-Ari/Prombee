@@ -700,26 +700,6 @@ header .selected-tab {
   }
 }
 
-@media (max-width: 760px) {
-  .brand {
-    order: -3;
-    flex: 1;
-    margin-right: 0;
-  }
-  #theme {
-    order: -2;
-  }
-  #copy {
-    order: -1;
-  }
-  header::after {
-    content: "";
-    order: -1;
-    flex-basis: 100%;
-    height: 0;
-  }
-}
-
 /* Keep the color letter centered over its underline; toolbar labels also use flex. */
 .toolbar .color-control {
   display: block;

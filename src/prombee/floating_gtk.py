@@ -253,6 +253,15 @@ class GtkFloating:
             self.ready=True;self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction,'nativeDrag':True})
             if self.pending:self.pending=False;self.collapse()
         elif action=='collapse':self.collapse()
+        elif action=='maximize':
+            if self.window.is_maximized():self.window.unmaximize()
+            else:self.window.maximize()
+        elif action=='close':self.window.close()
+        elif action=='windowDrag':
+            press=getattr(self,'window_press',None)
+            if press and press[0] is not None:
+                device,timestamp,x,y=press
+                self.window.get_surface().begin_move(device,1,x,y,timestamp)
         elif action=='menu':
             self.menu_open=True;self.x.input_region(self.orb,True)
         elif action=='menuClose':

@@ -350,7 +350,7 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
     ["voiceInput", "multiSelect", "deleteEmpty"],
   );
   assert.equal($("deleteRound").previousElementSibling, $("documents"));
-  assert.equal($("deleteRound").parentElement.tagName, "HEADER");
+  assert.equal($("deleteRound").parentElement.className, "window-header");
   assert.equal($("deleteRound").textContent, "−");
   assert.equal(document.querySelector("#menuContext,.menu-caption"), null);
 });
@@ -660,7 +660,8 @@ test("editing tabs restore independent caret, scroll and multi-selection state",
 });
 
 test("header follows editor and floating entry order; successful copy fills its button", async () => {
-  assert.equal($("template").previousElementSibling, $("editorTab"));
+  assert.equal($("copy").previousElementSibling, $("editorTab"));
+  assert.equal($("template").previousElementSibling, $("copy"));
   assert.equal($("floatingButton").previousElementSibling, $("shortcutsTab"));
   assert.equal($("size").nextElementSibling, $("bold"));
   assert.ok($("voiceInput").querySelector("svg"));

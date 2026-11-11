@@ -68,44 +68,78 @@
   margin: 5px;
 }
 .window-chrome {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  flex-shrink: 0;
-  padding-left: 14px;
-  background: var(--paper, #fff);
-  color: var(--muted, #7b8aa1);
-  border-bottom: 1px solid var(--line, #e3eaf4);
-  font: 12px sans-serif;
+  flex-wrap: nowrap;
+  padding: 14px 12px 14px 22px;
+  gap: 12px;
   user-select: none;
 }
-.window-chrome .window-drag {
+.window-chrome .window-header {
   flex: 1;
-  height: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
+  gap: 9px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
-.window-chrome button {
-  border: 0;
-  border-radius: 0;
-  min-height: 0;
-  height: 31px;
-  width: 42px;
+.window-header > * {
+  flex-shrink: 0;
+}
+.window-header .spacer {
+  flex: 1 0 36px;
+  align-self: stretch;
+  min-height: 38px;
+}
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.window-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 33px;
   padding: 0;
-  background: transparent;
-  font: 16px sans-serif;
-  color: inherit;
+  font-size: 18px;
 }
-.window-chrome button:hover {
-  background: #edf3ff;
-  color: #2563eb;
-}
-.window-chrome button:last-child:hover {
+.window-controls #closeWindow:hover {
   background: #e5484d;
+  border-color: #e5484d;
   color: white;
 }
-.window-chrome svg {
-  vertical-align: middle;
+@media (max-width: 1190px) {
+  header.window-chrome {
+    padding: 10px 10px 10px 14px;
+    gap: 9px;
+  }
+  .window-chrome .window-header {
+    gap: 6px;
+  }
+}
+@media (max-width: 760px) {
+  header.window-chrome {
+    flex-wrap: nowrap;
+    padding: 8px;
+    gap: 7px;
+  }
+  .window-chrome .brand {
+    flex: 0 0 auto;
+  }
+  .window-chrome .window-header > * {
+    order: 0;
+  }
+  .window-chrome .window-header .spacer {
+    display: block;
+  }
+  .window-controls {
+    gap: 3px;
+  }
+  .window-controls button {
+    width: 30px;
+  }
 }
 #mascotDemo {
   position: fixed;

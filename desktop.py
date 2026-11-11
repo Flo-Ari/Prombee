@@ -60,11 +60,7 @@ def main():
             self.window=Gtk.ApplicationWindow(application=self,title=app_name())
             self.window.set_default_size(1080,800)
             self.window.set_size_request(640,450)
-            header=Gtk.HeaderBar()
-            header.set_show_title_buttons(True)
-            header.set_decoration_layout(":minimize,maximize,close")
-            header.set_title_widget(Gtk.Label(label=app_name()))
-            self.window.set_titlebar(header)
+            self.window.set_decorated(False)
             server.pick_path = self.pick_path
             self.web=WebKit.WebView()
             self.closing=False
@@ -75,8 +71,6 @@ def main():
             manager.connect('script-message-received::clipboardWrite',self.clipboard_write)
             manager.register_script_message_handler('clipboard',None)
             manager.connect('script-message-received::clipboard',lambda m,value:Gdk.Display.get_default().get_clipboard().set(value.to_string()))
-            manager.register_script_message_handler('shortcutHints',None)
-            manager.connect('script-message-received::shortcutHints',self.shortcut_hints)
             manager.register_script_message_handler('theme',None)
             manager.connect('script-message-received::theme',lambda m,value:Gtk.Settings.get_default().set_property('gtk-application-prefer-dark-theme',value.to_boolean()))
             manager.register_script_message_handler('close',None)
@@ -94,27 +88,15 @@ def main():
             manager.connect('script-message-received::mascot',lambda m,value:self.floating.command(json.loads(value.to_string())))
             self.web.load_uri(url+'?desktop=gtk&lang='+ui_language())
             self.window.present()
-            # Use GTK's own window-control button, including its native spacing,
-            # hover state and dimensions, and intercept only its primary click.
-            def bind_minimize(widget):
-                if isinstance(widget, Gtk.Button) and widget.has_css_class('minimize'):
-                    self.minimize_button = widget
-                    widget.set_tooltip_text('最小化（Ctrl+M）')
-                    gesture = Gtk.GestureClick()
-                    gesture.set_button(1)
-                    gesture.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-                    def pressed(gesture, count, x, y):
-                        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-                        self.floating.collapse()
-                    gesture.connect('pressed', pressed)
-                    widget.add_controller(gesture)
-                child = widget.get_first_child()
-                while child:
-                    bind_minimize(child)
-                    child = child.get_next_sibling()
-            bind_minimize(header)
             from prombee.floating_gtk import GtkFloating
             self.floating=GtkFloating(self,self.window,self.web,url,data)
+            # Capture the native pointer device/time before the asynchronous JS bridge.
+            gesture=Gtk.GestureClick();gesture.set_button(1)
+            gesture.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+            gesture.connect('pressed',lambda g,count,x,y:setattr(self.floating,'window_press',
+                (g.get_current_event_device(),g.get_current_event_time(),x,y)))
+            gesture.connect('released',lambda *args:setattr(self.floating,'window_press',None))
+            self.web.add_controller(gesture)
             server.floating_changed=lambda:GLib.idle_add(self.floating.preferences_changed)
             if args.smoke_test:
                 self.tries=0
@@ -182,13 +164,6 @@ def main():
             except Exception:ok=False
             response=json.dumps({'id':request['id'],'ok':ok})
             self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard',{detail:"+response+"}))",-1,None,None,None,None,None)
-
-        def shortcut_hints(self,manager,value):
-            try:
-                key=json.loads(value.to_string()).get('collapse','')
-                if not isinstance(key,str) or len(key)>64:return
-                self.minimize_button.set_tooltip_text('最小化'+('（'+key+'）' if key else ''))
-            except (ValueError,AttributeError):pass
 
         def close_requested(self,window):
             if self.file_picker_cancel: self.file_picker_cancel.cancel()
