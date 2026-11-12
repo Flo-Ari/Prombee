@@ -85,6 +85,7 @@ class UpdateTests(unittest.TestCase):
         parser.write_text("param([string]$path)\n$tokens=$null; $errors=$null; [void][System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors); if($errors.Count){$errors | Out-String | Write-Output; exit 1}")
         subprocess.run(['powershell.exe','-NoProfile','-File',str(parser),str(helper)],check=True)
 
+    @unittest.skipIf(sys.platform=='win32','Linux desktop-entry restart')
     def test_packaged_restart_uses_desktop_identity_and_preserves_data_directory(self):
         updater=self.updater;updater.mode='rpm'
         with patch('subprocess.Popen') as launch:
