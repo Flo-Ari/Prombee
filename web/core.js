@@ -265,11 +265,13 @@ export function toMarkdown(
       blank();
       lines.push("#".repeat(level) + " " + text);
     } else {
-      count++;
-      const parts = text.split("\n");
+      const ordered = n.listType === "ordered";
+      count = ordered ? count + 1 : 0;
+      const marker = ordered ? `${count}. ` : "- ",
+        parts = text.split("\n");
       lines.push(
-        `${count}. ${parts[0]}`,
-        ...parts.slice(1).map((x) => "   " + x),
+        marker + parts[0],
+        ...parts.slice(1).map((x) => " ".repeat(marker.length) + x),
       );
     }
   }

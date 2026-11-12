@@ -86,7 +86,16 @@
             <circle cx="12" cy="12" r="3.5" />
           </svg>
         </button>
-        <button id="theme" aria-label="主题" title="主题">☾</button>
+        <button
+          id="theme"
+          class="theme-switch"
+          role="switch"
+          aria-checked="true"
+          aria-label="主题"
+          title="主题"
+        >
+          <span class="theme-toggle"><span class="theme-led"></span></span>
+        </button>
         <div class="spacer drag-space" aria-hidden="true"></div>
       </div>
       <div class="window-controls">
@@ -174,6 +183,16 @@
         <option value="5">五级标题</option>
         <option value="6">六级标题</option>
       </select>
+      <button
+        id="listType"
+        class="list-type-switch"
+        aria-pressed="false"
+        data-off="无序"
+        data-on="有序"
+        title="序号类型"
+      >
+        无序
+      </button>
       <div id="batchControls" hidden>
         <span id="selectedCount"></span><button id="batchExclude">排除</button
         ><button id="batchDelete">删除</button>
@@ -255,6 +274,12 @@
               type="checkbox"
               checked
             />识别条目中的 Markdown</label
+          ><label class="setting-switch"
+            ><input
+              id="pairDelimiters"
+              type="checkbox"
+              checked
+            />成对输入</label
           >
         </section>
         <section class="other-section">
@@ -380,8 +405,10 @@
         <article id="paper" aria-label="提示词编辑区"></article>
       </section>
       <section id="previewPanel" role="tabpanel" hidden>
-        <article id="previewContent" class="markdown-preview"></article>
-        <pre id="rawMarkdown" hidden></pre>
+        <div id="previewPaper">
+          <article id="previewContent" class="markdown-preview"></article>
+          <pre id="rawMarkdown" hidden></pre>
+        </div>
       </section>
       <section id="comparePanel" role="tabpanel" hidden>
         <div class="comparison-head">

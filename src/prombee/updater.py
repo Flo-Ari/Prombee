@@ -217,7 +217,13 @@ if [ -n "$stage" ]; then
   chmod u+x "$target.incoming"
   mv -f "$target.incoming" "$target"
 fi
-"$target" --data-dir "$data_dir" &
+# Launch the registered desktop entry so GNOME associates the new window with
+# Prombee, rather than exposing the interpreter as a separate python3 app.
+if [ "$target" = /usr/bin/prombee ] && [ -x /usr/bin/gio ] && [ -f /usr/share/applications/prombee.desktop ]; then
+  PROMBEE_DATA_DIR="$data_dir" /usr/bin/gio launch /usr/share/applications/prombee.desktop &
+else
+  "$target" --data-dir "$data_dir" &
+fi
 new_pid=$!
 sleep 3
 if kill -0 "$new_pid" 2>/dev/null; then

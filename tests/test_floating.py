@@ -22,12 +22,12 @@ class FloatingTests(unittest.TestCase):
             def no_move(*args):
                 self.fail('An idle scene must not resize or move the companion')
             controller.orb=object()
-            controller.x=SimpleNamespace(input_region=lambda orb,full=False:regions.append(full),move=no_move)
+            controller.x=SimpleNamespace(input_region=lambda orb,full=False,**kwargs:regions.append(full),move=no_move)
             controller.input_region=lambda full=False:regions.append(full)
             controller.place=no_move
             controller.command({'action':'scene','index':3})
             controller.command({'action':'sceneEnd'})
-            self.assertEqual(regions,[True,False])
+            self.assertEqual(regions,[False])
 
     def test_direction_is_saved_and_head_alignment_tracks_facing(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -55,8 +55,8 @@ class FloatingTests(unittest.TestCase):
         control.mode='orb';control.menu_open=False;control.drag_press=None;control.drag_started=False
         control.Gtk=SimpleNamespace(EventSequenceState=SimpleNamespace(CLAIMED='claimed',DENIED='denied'))
         control.view=SimpleNamespace(grab_focus=lambda:None)
-        control.orb=SimpleNamespace(get_surface=lambda:SimpleNamespace(begin_move=lambda *args:grabs.append(args)))
-        control.emit=lambda *args:messages.append(args)
+        control.orb=SimpleNamespace(get_surface=lambda:SimpleNamespace(begin_move=lambda *args,**kwargs:grabs.append(args)))
+        control.emit=lambda *args,**kwargs:messages.append(args)
         control.open=lambda:opened.append(True)
         gesture=SimpleNamespace(set_state=states.append,get_current_event_device=lambda:device,get_current_event_time=lambda:123)
         control.drag_begin(gesture,260,210)
@@ -130,8 +130,8 @@ class FloatingTests(unittest.TestCase):
             control.mode='editor';control.ready=True;control.orb_rect=None;control.completed_switches=0
             control.preferences=SimpleNamespace(orb_enabled=True)
             control.lock=threading.RLock()
-            control.x=SimpleNamespace(position=lambda w:(w.x,w.y,w.width,w.height),move=lambda *args:None,above=lambda *args:None,input_region=lambda *args:None)
-            control.place=lambda *args:None;control.input_region=lambda *args:None
+            control.x=SimpleNamespace(position=lambda w:(w.x,w.y,w.width,w.height),move=lambda *args,**kwargs:None,above=lambda *args,**kwargs:None,input_region=lambda *args,**kwargs:None)
+            control.place=lambda *args,**kwargs:None;control.input_region=lambda *args,**kwargs:None
             control.emit=lambda command,*args:calls.append(command)
             control.collapse()
             self.assertEqual(control.mode,'orb');self.assertIn('editor hide',calls);self.assertIn('show',calls)

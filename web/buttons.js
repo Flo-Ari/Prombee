@@ -13,13 +13,12 @@ export function mountButtonStyles(root = document) {
     "italic",
     "multiSelect",
     "voiceInput",
-    "theme",
   ]);
   function enhance(element) {
     if (element.matches("button")) {
       if (
         element.matches(
-          ".fold,[data-edge],.drag-handle,.dropdown-trigger,.dropdown-option",
+          ".fold,[data-edge],.drag-handle,.dropdown-trigger,.dropdown-option,#theme,#listType",
         ) ||
         element.closest("[contenteditable],.markdown-preview,#diffRows")
       )
@@ -36,7 +35,7 @@ export function mountButtonStyles(root = document) {
                 ? "state"
                 : "standard";
       element.classList.add(BUTTON_STYLES[kind], "button-" + kind);
-      if (kind === "state" && element.matches("#theme,.eye"))
+      if (kind === "state" && element.matches(".eye"))
         element.classList.add("compact-state");
     } else if (element.matches(".setting-switch")) {
       element.classList.add(BUTTON_STYLES.state, "button-state");

@@ -21,7 +21,7 @@ class LibraryTests(unittest.TestCase):
     def test_txt_is_self_contained_and_preserves_all_state(self):
         state=copy.deepcopy(self.library.seed)
         state['documents'][0]['nodes'][0].update(html='<b>中文 🐝</b><br>第二行',collapsed=True,excluded=True)
-        state['documents'][0]['nodes'][1].update(html='@node {literal}<br>| 正文<br>```md<br># 代码<br>```',raw=True)
+        state['documents'][0]['nodes'][1].update(html='@node {literal}<br>| 正文<br>```md<br># 代码<br>```',raw=True,listType='ordered')
         state['template']={'id':'t','name':'模板','nodes':[]}
         state['common']={'id':'c','name':'常用','nodes':[]}
         text=encode_workspace(state,8)

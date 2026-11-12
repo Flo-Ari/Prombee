@@ -4,6 +4,7 @@ from ctypes import wintypes as W
 import json
 import os
 import threading
+from .hit_regions import bounded_regions
 from .branding import app_name, ui_language
 from .floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
 
@@ -89,8 +90,10 @@ class WindowsFloating:
             user.SendMessageW(int(self.window.native.Handle.ToInt64()),0xA1,2,0) # WM_NCLBUTTONDOWN / HTCAPTION
         elif action=='menu':self.input_region(True)
         elif action=='menuClose':self.input_region(False)
-        elif action=='scene':
-            self.input_region(True)
+        elif action=='hitRegion':
+            self.hit_rectangles=bounded_regions(msg.get('rectangles'))
+            self.input_region(False)
+        elif action=='scene':pass
         elif action=='sceneEnd':
             self.input_region(False)
         elif action=='open':self.open()
@@ -109,9 +112,15 @@ class WindowsFloating:
         user.SetWindowRgn.argtypes=[W.HWND,W.HRGN,W.BOOL]
         hwnd=int(self.orb.native.Handle.ToInt64())
         if full:user.SetWindowRgn(hwnd,None,True);return
-        gdi.CreateRoundRectRgn.argtypes=[C.c_int]*6;gdi.CreateRoundRectRgn.restype=W.HRGN
-        scale=float(self.orb.native._scale);cx=ORB_WIDTH/2;cy=ORB_HEIGHT/2
-        region=gdi.CreateRoundRectRgn(round((cx-220)*scale),round((cy-175)*scale),round((cx+220)*scale),round((cy+105)*scale),24,24)
+        if not hasattr(self,'hit_rectangles'):return
+        gdi.CreateRectRgn.argtypes=[C.c_int]*4;gdi.CreateRectRgn.restype=W.HRGN
+        gdi.CombineRgn.argtypes=[W.HRGN,W.HRGN,W.HRGN,C.c_int]
+        gdi.DeleteObject.argtypes=[W.HGDIOBJ]
+        scale=float(self.orb.native._scale)
+        region=gdi.CreateRectRgn(0,0,0,0)
+        for x,y,w,h in getattr(self,'hit_rectangles',[]):
+            part=gdi.CreateRectRgn(round(x*scale),round(y*scale),round((x+w)*scale),round((y+h)*scale))
+            gdi.CombineRgn(region,region,part,2);gdi.DeleteObject(part)
         # Ownership of a successful region is transferred to Windows.
         if not user.SetWindowRgn(hwnd,region,True):
             gdi.DeleteObject.argtypes=[W.HGDIOBJ];gdi.DeleteObject(region)

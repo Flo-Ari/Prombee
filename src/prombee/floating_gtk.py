@@ -3,6 +3,7 @@ import ctypes as C
 import ctypes.util
 import json
 import math
+from .hit_regions import bounded_regions
 from .branding import app_name, ui_language
 from .floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
 
@@ -99,13 +100,15 @@ class XDesktop:
             self.x.XFree(hints)
         self.x.XFlush(self.display)
 
-    def input_region(self,window,full=False):
+    def input_region(self,window,full=False,rectangles=None):
         class Rect(C.Structure):
             _fields_=[('x',C.c_short),('y',C.c_short),('width',C.c_ushort),('height',C.c_ushort)]
         scale=window.get_scale_factor()
-        if full:r=Rect(0,0,65535,65535)
-        else:r=Rect(round((ORB_WIDTH/2-220)*scale),round((ORB_HEIGHT/2-175)*scale),round(440*scale),round(280*scale))
-        self.shape.XShapeCombineRectangles(self.display,window.get_surface().get_xid(),2,0,0,C.byref(r),1,0,0)
+        if full:regions=[(0,0,ORB_WIDTH,ORB_HEIGHT)]
+        elif rectangles is not None:regions=rectangles
+        else:regions=[]  # Transparent until the first rendered alpha mask arrives.
+        values=(Rect*len(regions))(*(Rect(round(x*scale),round(y*scale),max(1,round(w*scale)),max(1,round(h*scale))) for x,y,w,h in regions))
+        self.shape.XShapeCombineRectangles(self.display,window.get_surface().get_xid(),2,0,0,values,len(regions),0,0)
         self.x.XFlush(self.display)
 
     def cursor(self,scale=1):
@@ -265,16 +268,18 @@ class GtkFloating:
         elif action=='menu':
             self.menu_open=True;self.x.input_region(self.orb,True)
         elif action=='menuClose':
-            self.menu_open=False;self.x.input_region(self.orb)
-        elif action=='scene':
-            self.x.input_region(self.orb,True)
+            self.menu_open=False;self.x.input_region(self.orb,rectangles=getattr(self,'hit_rectangles',[]))
+        elif action=='hitRegion':
+            self.hit_rectangles=bounded_regions(msg.get('rectangles'))
+            self.x.input_region(self.orb,rectangles=self.hit_rectangles)
+        elif action=='scene':pass
         elif action=='sceneEnd':
-            self.x.input_region(self.orb)
+            self.x.input_region(self.orb,rectangles=getattr(self,'hit_rectangles',[]))
         elif action=='open':self.open()
         elif action=='hide':self.hide()
         elif action=='settings':
             self.preferences.save(msg.get('enabled',True),msg.get('direction'))
-            if self.mode=='orb':self.x.input_region(self.orb)
+            if self.mode=='orb':self.x.input_region(self.orb,rectangles=getattr(self,'hit_rectangles',[]))
 
     def collapse(self,background=False):
         if not self.preferences.orb_enabled:
@@ -297,7 +302,7 @@ class GtkFloating:
             self.orb.set_visible(True)
         else:self.orb.present()
         self.x.move(self.orb,self.orb_rect);self.x.above(self.orb)
-        self.x.input_region(self.orb);self.emit('show')
+        self.x.input_region(self.orb,rectangles=getattr(self,'hit_rectangles',[]));self.emit('show')
         if not background:self.window.set_visible(False)
 
     def open(self):

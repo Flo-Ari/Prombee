@@ -3,7 +3,12 @@ export function mountOtherSettings({
   onMarkdownChange = () => {},
 } = {}) {
   const $ = (id) => document.getElementById(id);
-  let preferences = { enabled: false, target: null, recognizeMarkdown: true },
+  let preferences = {
+      enabled: false,
+      target: null,
+      recognizeMarkdown: true,
+      pairDelimiters: true,
+    },
     entries = [],
     tail = Promise.resolve(),
     urlTimer;
@@ -27,12 +32,14 @@ export function mountOtherSettings({
       enabled: value.enabled === true,
       target: value.target || null,
       recognizeMarkdown: value.recognizeMarkdown !== false,
+      pairDelimiters: value.pairDelimiters !== false,
     };
   }
   function paint(value) {
     preferences = values(value);
     $("copyJumpEnabled").checked = preferences.enabled;
     $("recognizeMarkdown").checked = preferences.recognizeMarkdown;
+    $("pairDelimiters").checked = preferences.pairDelimiters;
     const select = $("copyJumpTarget");
     select.replaceChildren();
     entries = [];
@@ -76,6 +83,7 @@ export function mountOtherSettings({
       preferences = values(value);
       $("copyJumpEnabled").checked = preferences.enabled;
       $("recognizeMarkdown").checked = preferences.recognizeMarkdown;
+      $("pairDelimiters").checked = preferences.pairDelimiters;
     })
     .catch(() => {});
   function save() {
@@ -154,12 +162,27 @@ export function mountOtherSettings({
       });
     return tail;
   };
+  $("pairDelimiters").onchange = () => {
+    const pairDelimiters = $("pairDelimiters").checked;
+    preferences.pairDelimiters = pairDelimiters;
+    tail = tail
+      .then(() => ready)
+      .then(async () => {
+        preferences = values(await api({ action: "pairs", pairDelimiters }));
+        $("otherStatus").textContent = "已保存";
+      })
+      .catch((error) => {
+        $("otherStatus").textContent = error.message;
+      });
+    return tail;
+  };
   $("refreshJumpTargets").onclick = show;
   return {
     show,
     ready,
     settled: () => tail,
     recognizeMarkdown: () => preferences.recognizeMarkdown,
+    pairDelimiters: () => preferences.pairDelimiters,
     async afterCopy() {
       await ready;
       if (urlTimer) await save();

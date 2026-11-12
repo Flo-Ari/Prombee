@@ -1,3 +1,5 @@
+import { bindPairs } from "./pairs.js";
+import { moveAcrossEntries } from "./entry-navigation.js";
 import { mountDropdowns } from "./dropdowns.js";
 import {
   prepareFormatting,
@@ -200,8 +202,7 @@ function element(tag, cls, text) {
 }
 function applyTheme() {
   document.body.classList.toggle("dark", state.dark);
-  $("theme").textContent = state.dark ? "☀" : "☾";
-  $("theme").setAttribute("aria-pressed", String(state.dark));
+  $("theme").setAttribute("aria-checked", String(!state.dark));
   window.webkit?.messageHandlers?.theme?.postMessage(state.dark);
   document.documentElement.style.setProperty(
     "--doc-font",
@@ -308,6 +309,7 @@ function render() {
       changed();
       renumber();
     });
+    bindPairs(content, () => otherUI.pairDelimiters());
     content.addEventListener("keydown", (e) => editKey(e, n, content));
     content.addEventListener("paste", (e) => {
       e.preventDefault();
@@ -423,7 +425,12 @@ function renumber() {
     ) {
       marker = "MD";
       number = 0;
-    } else marker = text.trim() ? `${++number}.` : "·";
+    } else if (n.listType === "ordered")
+      marker = text.trim() ? `${++number}.` : "·";
+    else {
+      marker = "•";
+      number = 0;
+    }
     const field = row.querySelector(".marker");
     if (field.textContent !== marker) field.textContent = marker;
   }
@@ -491,9 +498,15 @@ function syncToolbar(el) {
     $(id).classList.toggle("active", on);
     $(id).setAttribute("aria-pressed", String(on));
   }
-  if (node)
+  if (node) {
     $("headingLevel").value =
       node.kind === "heading" ? String(node.level) : "0";
+    const ordered = node.listType === "ordered";
+    $("listType").textContent = ordered ? "有序" : "无序";
+    $("listType").setAttribute("aria-pressed", String(ordered));
+    $("listType").disabled = node.kind !== "item";
+  }
+  dropdowns.sync();
 }
 function restoreSelection() {
   const el = contentFor(active);
@@ -659,33 +672,34 @@ async function save() {
     }
   }
 }
-function addItem() {
+function insertEntry(level = 0) {
   remember();
   const nodes = doc().nodes,
-    index = nodes.findIndex((n) => n.id === active),
-    n = makeNode();
-  nodes.splice(index < 0 ? nodes.length : index + 1, 0, n);
-  render();
-  focus(n.id);
+    index = nodes.findIndex((n) => n.id === (menuAnchor || active)),
+    existing = nodes[index];
+  let entry;
+  if (existing && !plain(existing.html).trim()) {
+    entry = existing;
+    entry.kind = level ? "heading" : "item";
+    entry.level = level || 1;
+    delete entry.raw;
+    delete entry.collapsed;
+  } else {
+    entry = makeNode(level ? "heading" : "item", level || 1);
+    nodes.splice(index < 0 ? nodes.length : index + 1, 0, entry);
+    if (level && nodes[index + 2]?.kind !== "item")
+      nodes.splice(index + 2, 0, makeNode());
+  }
   closeMenu();
+  render();
+  focus(entry.id);
   changed();
 }
+function addItem() {
+  insertEntry();
+}
 function addHeading(level) {
-  remember();
-  const nodes = doc().nodes,
-    index = nodes.findIndex((n) => n.id === menuAnchor),
-    heading = makeNode("heading", level),
-    following = nodes[index + 1];
-  nodes.splice(
-    index + 1,
-    0,
-    heading,
-    ...(following?.kind === "item" ? [] : [makeNode()]),
-  );
-  closeMenu();
-  render();
-  focus(heading.id);
-  changed();
+  insertEntry(level);
 }
 function openMenu(id, anchor) {
   keyboardInsert = true;
@@ -721,6 +735,7 @@ function openMenu(id, anchor) {
 function closeMenu() {
   keyboardInsert = false;
   $("headingMenu").hidden = true;
+  menuAnchor = null;
 }
 document.addEventListener("click", (e) => {
   if (!e.target.closest("#headingMenu,.add-heading")) closeMenu();
@@ -754,6 +769,7 @@ function editKey(e, n, el) {
     }
     remember();
     let next = makeNode();
+    if (n.listType) next.listType = n.listType;
     if (n.kind === "item") {
       const s = window.getSelection();
       if (s.rangeCount) {
@@ -1391,6 +1407,16 @@ $("color").oninput = () => {
   );
   spanStyle("color", $("color").value);
 };
+$("listType").onmousedown = (event) => event.preventDefault();
+$("listType").onclick = () => {
+  const node = doc().nodes.find((n) => n.id === active);
+  if (!node || node.kind !== "item") return;
+  remember();
+  node.listType = node.listType === "ordered" ? "unordered" : "ordered";
+  renumber();
+  syncToolbar(contentFor(active));
+  changed();
+};
 $("headingLevel").onchange = () => {
   if ($("headingLevel").value === "") return;
   const level = Number($("headingLevel").value),
@@ -1655,41 +1681,9 @@ function finishSort(cancel = false) {
       row.classList.remove("sorting");
 }
 function moveEntry(step) {
-  const source = document.activeElement?.closest(".content");
-  if (!source) return false;
-  const fields = [
-    ...$("paper").querySelectorAll(".row:not([hidden]) .content"),
-  ];
-  const index = fields.indexOf(source),
-    target = fields[index + step];
-  if (!target) return true;
-  const selectedRange = window.getSelection();
-  let offset = 0;
-  if (selectedRange?.rangeCount && source.contains(selectedRange.focusNode)) {
-    const prefix = document.createRange();
-    prefix.selectNodeContents(source);
-    prefix.setEnd(selectedRange.focusNode, selectedRange.focusOffset);
-    offset = prefix.toString().length;
-  }
-  focus(target.dataset.id);
-  const walker = document.createTreeWalker(target, window.NodeFilter.SHOW_TEXT);
-  const texts = [];
-  let text;
-  while ((text = walker.nextNode())) texts.push(text);
-  for (let i = 0; i < texts.length; i++) {
-    text = texts[i];
-    if (offset <= text.length || i === texts.length - 1) {
-      const range = document.createRange();
-      range.setStart(text, Math.min(offset, text.length));
-      range.collapse(true);
-      selectedRange.removeAllRanges();
-      selectedRange.addRange(range);
-      selection = range.cloneRange();
-      break;
-    }
-    offset -= text.length;
-  }
-  return true;
+  const moved = moveAcrossEntries($("paper"), step);
+  if (moved) saveSelection();
+  return moved;
 }
 function runShortcut(action) {
   if (action === "cutEntry") {

@@ -190,7 +190,8 @@ main {
   scrollbar-color: var(--line) transparent;
   min-height: 0;
 }
-#paper {
+#paper,
+#previewPaper {
   max-width: 1120px;
   min-height: calc(100% - 48px);
   margin: 24px auto;
@@ -380,7 +381,8 @@ dialog form > div {
   color: #fff;
 }
 @media (max-width: 1200px) {
-  #paper {
+  #paper,
+  #previewPaper {
     margin: 20px 25px;
     min-height: calc(100% - 40px);
   }
@@ -410,7 +412,8 @@ dialog form > div {
   .toolbar .spacer {
     display: none;
   }
-  #paper {
+  #paper,
+  #previewPaper {
     margin: 12px 10px;
     padding: 12px 12px 35px;
     border-radius: 6px;
@@ -600,17 +603,9 @@ header .selected-tab {
   font-size: 12px;
   margin-left: auto;
 }
-#editorPanel {
-  width: 100%;
-}
+#editorPanel,
 #previewPanel {
-  max-width: 1120px;
-  margin: 24px auto;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 24px 40px;
-  min-height: calc(100% - 48px);
+  width: 100%;
 }
 #previewContent {
   font-size: 15px;
@@ -684,10 +679,6 @@ header .selected-tab {
   color: var(--text);
 }
 @media (max-width: 760px) {
-  #previewPanel {
-    margin: 12px;
-    padding: 18px;
-  }
   .toolbar-note {
     display: none;
   }
@@ -1354,4 +1345,90 @@ header #recentSets,
 #copyJumpUrlRow input {
   width: min(520px, 100%);
   margin: 0 0 12px 8px;
+}
+
+/* 页面背景样式 — supplied Uiverse patterns: kennyotsu-monochromia / Yaya12085 / kandalgaonkarshubham. */
+body[data-page="editor"] main {
+  --grid-line: #e1e1e1;
+  background-color: #f3f3f3;
+  background-image:
+    linear-gradient(
+      0deg,
+      transparent 24%,
+      var(--grid-line) 25%,
+      var(--grid-line) 26%,
+      transparent 27%,
+      transparent 74%,
+      var(--grid-line) 75%,
+      var(--grid-line) 76%,
+      transparent 77%
+    ),
+    linear-gradient(
+      90deg,
+      transparent 24%,
+      var(--grid-line) 25%,
+      var(--grid-line) 26%,
+      transparent 27%,
+      transparent 74%,
+      var(--grid-line) 75%,
+      var(--grid-line) 76%,
+      transparent 77%
+    );
+  background-size: 55px 55px;
+}
+body.dark[data-page="editor"] main {
+  --grid-line: #252a31;
+  background-color: #121519;
+}
+body[data-page="preview"] main {
+  background-image: linear-gradient(#fff 1.1rem, #ccc 1.2rem);
+  background-size: 100% 1.2rem;
+}
+body.dark[data-page="preview"] main {
+  background-image: linear-gradient(#121519 1.1rem, #373d47 1.2rem);
+}
+body:is(
+    [data-page="shortcuts"],
+    [data-page="floating"],
+    [data-page="updates"],
+    [data-page="other"]
+  )
+  main {
+  background:
+    radial-gradient(
+        circle farthest-side at 0% 50%,
+        #282828 23.5%,
+        transparent 0
+      )
+      21px 30px,
+    radial-gradient(circle farthest-side at 0% 50%, #2c3539 24%, transparent 0)
+      19px 30px,
+    linear-gradient(#282828 14%, transparent 0, transparent 85%, #282828 0) 0 0,
+    linear-gradient(
+        150deg,
+        #282828 24%,
+        #2c3539 0,
+        #2c3539 26%,
+        transparent 0,
+        transparent 74%,
+        #2c3539 0,
+        #2c3539 76%,
+        #282828 0
+      )
+      0 0,
+    linear-gradient(
+        30deg,
+        #282828 24%,
+        #2c3539 0,
+        #2c3539 26%,
+        transparent 0,
+        transparent 74%,
+        #2c3539 0,
+        #2c3539 76%,
+        #282828 0
+      )
+      0 0,
+    linear-gradient(90deg, #2c3539 2%, #282828 0, #282828 98%, #2c3539 0) 0 0
+      #282828;
+  background-size: 40px 60px;
 }

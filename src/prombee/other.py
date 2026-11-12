@@ -218,8 +218,8 @@ class OtherSettings:
         try:
             value=json.loads(self.path.read_text(encoding='utf-8'))
             if not isinstance(value,dict) or not isinstance(value.get('enabled'),bool):raise ValueError()
-            return {'enabled':value['enabled'],'target':value.get('target'),'recognizeMarkdown':value.get('recognizeMarkdown') is not False}
-        except (OSError,ValueError):return {'enabled':False,'target':None,'recognizeMarkdown':True}
+            return {'enabled':value['enabled'],'target':value.get('target'),'recognizeMarkdown':value.get('recognizeMarkdown') is not False,'pairDelimiters':value.get('pairDelimiters') is not False}
+        except (OSError,ValueError):return {'enabled':False,'target':None,'recognizeMarkdown':True,'pairDelimiters':True}
     def snapshot(self):return {**self.load(),**self.targets.catalog()}
     def save(self,payload):
         enabled=payload.get('enabled');target=payload.get('target')
@@ -241,14 +241,16 @@ class OtherSettings:
         with exclusive_file_lock(self.path.with_suffix('.lock')):
             recognize=payload.get('recognizeMarkdown',self.load()['recognizeMarkdown'])
             if not isinstance(recognize,bool):raise ValueError('Markdown 开关无效')
-            result={'enabled':enabled,'target':target,'recognizeMarkdown':recognize}
+            result={**self.load(),'enabled':enabled,'target':target,'recognizeMarkdown':recognize}
             atomic_write(self.path,json.dumps(result,ensure_ascii=False))
         return result
     def markdown(self,value):
-        if not isinstance(value,bool):raise ValueError('Markdown 开关无效')
+        return self.editing('recognizeMarkdown',value)
+    def editing(self,key,value):
+        if key not in ('recognizeMarkdown','pairDelimiters') or not isinstance(value,bool):raise ValueError('编辑开关无效')
         self.path.parent.mkdir(parents=True,exist_ok=True)
         with exclusive_file_lock(self.path.with_suffix('.lock')):
-            result=self.load();result['recognizeMarkdown']=value
+            result=self.load();result[key]=value
             atomic_write(self.path,json.dumps(result,ensure_ascii=False))
         return result
     def jump(self):

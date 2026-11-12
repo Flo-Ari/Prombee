@@ -1,5 +1,5 @@
 /* 一般按钮样式 — .一般按钮样式 / .button-standard
-   Raised face and physical press, reference supplied by user: Uiverse.io / Voxybuns. */
+   Embossed paper and physical press, observed in the supplied Amelia video. */
 :root {
   --button-face: var(--paper);
   --button-outline: #7387a4;
@@ -361,5 +361,128 @@ body.dark #copy.copied .copy-circle {
   }
   #editorTab.LOGO按钮样式:hover .logo-text {
     animation: none;
+  }
+}
+
+/* 主题开关样式 — Uiverse.io / chase2k25: light on means the light theme. */
+#theme.theme-switch {
+  position: relative;
+  width: 54px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50px;
+  background: #d6d6d6;
+  box-shadow:
+    inset -3px -3px 6px #fff,
+    inset 3px 3px 6px #b0b0b0;
+}
+.theme-toggle {
+  position: absolute;
+  width: 29px;
+  height: 24px;
+  top: 3px;
+  left: 3px;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  border-radius: 50px;
+  background: linear-gradient(145deg, #d9d9d9, #bfbfbf);
+  box-shadow:
+    -2px -2px 4px #fff,
+    2px 2px 4px #b0b0b0;
+  transition:
+    left 0.3s ease-in-out,
+    box-shadow 0.3s;
+}
+.theme-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #707070;
+  box-shadow: 0 0 5px #0003;
+  transition:
+    background 0.3s,
+    box-shadow 0.3s;
+}
+#theme[aria-checked="true"] .theme-toggle {
+  left: 22px;
+}
+#theme[aria-checked="true"] .theme-led {
+  background: #ffe14a;
+  box-shadow: 0 0 9px 2px #ffe14a;
+}
+#theme:hover .theme-toggle {
+  box-shadow:
+    -2px -2px 6px #fff,
+    2px 2px 6px #9b9b9b;
+}
+body.dark #theme {
+  background: #25282d;
+  box-shadow:
+    inset -3px -3px 6px #3b4048,
+    inset 3px 3px 6px #111;
+}
+body.dark .theme-toggle {
+  background: linear-gradient(145deg, #4b5059, #30343b);
+  box-shadow:
+    -2px -2px 4px #525965,
+    2px 2px 4px #111;
+}
+
+/* 序号类型样式 — Uiverse.io / Shoh2008: skewed text slide switch. */
+#listType.list-type-switch {
+  position: relative;
+  transform: skew(-10deg);
+  height: 33px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #7e8a9e;
+  color: transparent;
+  font-weight: 700;
+  box-shadow: none;
+}
+#listType::before,
+#listType::after {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  line-height: 33px;
+  text-align: center;
+  transform: skew(10deg);
+  transition: left 0.2s ease;
+  color: #fff;
+}
+#listType::before {
+  content: attr(data-off);
+  left: 0;
+}
+#listType::after {
+  content: attr(data-on);
+  left: 100%;
+}
+#listType[aria-pressed="true"] {
+  background: #59b871;
+}
+#listType[aria-pressed="true"]::before {
+  left: -100%;
+}
+#listType[aria-pressed="true"]::after {
+  left: 0;
+}
+#listType:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle,
+  .theme-led,
+  #listType::before,
+  #listType::after {
+    transition: none;
   }
 }

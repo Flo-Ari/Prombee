@@ -38,7 +38,9 @@ def main():
     gi.require_version('GdkX11','4.0')
     from gi.repository import Gtk,Gdk,Gio,GLib,WebKit,GdkX11
     import threading
+    GLib.set_prgname('app.prombee.Prombee')
     GLib.set_application_name(app_name())
+    Gtk.Window.set_default_icon_name('prombee')
     server=start_server(ROOT,data)
     url=f'http://127.0.0.1:{server.server_port}/'
     result=[0]
@@ -61,7 +63,9 @@ def main():
             self.window.set_default_size(1080,800)
             self.window.set_size_request(640,450)
             # Keep GTK client-side resize edges while the visible title bar lives in WebKit.
-            self.window.set_titlebar(Gtk.Box())
+            titlebar=Gtk.Box()
+            titlebar.set_visible(False)
+            self.window.set_titlebar(titlebar)
             server.pick_path = self.pick_path
             self.web=WebKit.WebView()
             self.closing=False

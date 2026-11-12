@@ -1,4 +1,4 @@
-/* 下拉框样式 — inputBox/card inspiration supplied by user: Uiverse.io / JkHuger. */
+/* 下拉框样式 — shared paper face, outline and shadows with 一般按钮样式. */
 .select-shell {
   position: relative;
   display: inline-flex;
@@ -22,13 +22,17 @@
   min-width: 0;
   height: 33px;
   padding: 5px 7px;
-  border: 0;
-  border-left: 2px solid var(--control-outline);
-  border-bottom: 2px solid var(--control-outline);
-  border-radius: 0 0 0 8px;
-  background: transparent;
+  border: 1px solid var(--control-outline);
+  border-radius: 7px;
+  background: var(--button-face);
   color: var(--text);
-  box-shadow: none;
+  box-shadow:
+    3px 3px 7px var(--paper-button-shadow),
+    -3px -3px 7px var(--paper-button-highlight),
+    inset 1px 1px 1px #ffffff80;
+  transition:
+    box-shadow 0.15s,
+    background-color 0.15s;
   font-size: 12px;
 }
 .dropdown-trigger::after {
@@ -58,10 +62,11 @@
   padding: 8px;
   background: var(--paper);
   border-radius: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-outline);
   box-shadow:
-    8px 8px 20px #26395426,
-    -5px -5px 16px #ffffffb3;
+    3px 3px 7px var(--paper-button-shadow),
+    -3px -3px 7px var(--paper-button-highlight),
+    inset 1px 1px 1px #ffffff80;
   scrollbar-width: thin;
 }
 .dropdown-option {
@@ -69,7 +74,7 @@
   width: 100%;
   min-height: 33px;
   padding: 7px 10px;
-  text-align: left;
+  text-align: center;
   white-space: normal;
   border: 0;
   border-radius: 5px;
@@ -81,11 +86,6 @@
 .dropdown-option:is(:hover, .highlighted, [aria-selected="true"]) {
   background: var(--hover);
   color: var(--blue);
-}
-body.dark .dropdown-popup {
-  box-shadow:
-    8px 8px 20px #0009,
-    -5px -5px 16px #29313b40;
 }
 .tool-rail .select-shell {
   width: 100% !important;
@@ -112,4 +112,18 @@ body.dark .dropdown-popup {
   padding: 8px 10px 4px;
   font-size: 11px;
   color: var(--muted);
+}
+
+.dropdown-trigger:active,
+.dropdown-trigger[aria-expanded="true"] {
+  box-shadow:
+    inset 2px 2px 5px var(--paper-button-shadow),
+    inset -2px -2px 5px var(--paper-button-highlight);
+}
+.dropdown-label {
+  flex: 1;
+  text-align: center;
+}
+.dropdown-group {
+  text-align: center;
 }

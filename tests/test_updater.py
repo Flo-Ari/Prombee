@@ -84,3 +84,13 @@ class UpdateTests(unittest.TestCase):
         parser=self.path/'parse.ps1'
         parser.write_text("param([string]$path)\n$tokens=$null; $errors=$null; [void][System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors); if($errors.Count){$errors | Out-String | Write-Output; exit 1}")
         subprocess.run(['powershell.exe','-NoProfile','-File',str(parser),str(helper)],check=True)
+
+    def test_packaged_restart_uses_desktop_identity_and_preserves_data_directory(self):
+        updater=self.updater;updater.mode='rpm'
+        with patch('subprocess.Popen') as launch:
+            updater.restart()
+        arguments=launch.call_args.args[0]
+        self.assertEqual(arguments[3],'/usr/bin/prombee')
+        self.assertEqual(arguments[5],str(self.path))
+        helper=Path(arguments[1]).read_text()
+        self.assertIn('PROMBEE_DATA_DIR="$data_dir" /usr/bin/gio launch /usr/share/applications/prombee.desktop',helper)

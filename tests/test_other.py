@@ -67,3 +67,11 @@ class OtherTests(unittest.TestCase):
         self.assertTrue(saved['enabled']);self.assertEqual(saved['target']['id'],'win:1')
         self.assertFalse(OtherSettings(self.path,self.targets).load()['recognizeMarkdown'])
         with self.assertRaises(ValueError):self.store.markdown('false')
+
+    def test_pair_input_preference_preserves_jump_and_markdown_settings(self):
+        self.store.markdown(False)
+        self.store.editing('pairDelimiters',False)
+        prefs=OtherSettings(self.path,self.targets).load()
+        self.assertFalse(prefs['pairDelimiters']);self.assertFalse(prefs['recognizeMarkdown'])
+        self.store.save({'enabled':False,'target':None})
+        self.assertFalse(self.store.load()['pairDelimiters'])

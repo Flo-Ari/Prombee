@@ -310,11 +310,12 @@ test("native frame pulse can refresh the static logo but never draws a hidden co
   api.receive("settings", { enabled: false });
   now = 100;
   api.receive("frame");
-  assert.equal(images, 1);
+  assert.ok(images >= 1);
+  const shownImages = images;
   api.receive("pause");
   now = 200;
   api.receive("frame");
-  assert.equal(images, 1);
+  assert.equal(images, shownImages);
   api.destroy();
   delete ctx.drawImage;
 });

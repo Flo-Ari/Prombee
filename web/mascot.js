@@ -1,3 +1,4 @@
+import { alphaRegions } from "./hit-regions.js";
 import { createBeeArt, articulatedMouth, STINGER_TIP } from "./bee-art.js";
 import "./brand.js";
 // Reference-image mascot: original pixels on an articulated transparent rig.
@@ -1287,6 +1288,36 @@ export function mountMascot(canvas, menu, send = () => {}) {
       ctx.restore();
     }
   }
+  const hitCanvas = document.createElement("canvas"),
+    hitContext = hitCanvas.getContext("2d", { willReadFrequently: true });
+  let lastHit = -Infinity;
+  function updateHitRegion(now, force = false) {
+    if (!force && now - lastHit < 100) return;
+    lastHit = now;
+    const step = 3;
+    hitCanvas.width = Math.ceil(width / step);
+    hitCanvas.height = Math.ceil(height / step);
+    hitContext.drawImage(canvas, 0, 0, hitCanvas.width, hitCanvas.height);
+    const pixels = hitContext.getImageData(
+      0,
+      0,
+      hitCanvas.width,
+      hitCanvas.height,
+    );
+    if (!pixels?.data) return;
+    if (enabled && !artwork.loaded()) return;
+    const rectangles = alphaRegions(
+      pixels.data,
+      hitCanvas.width,
+      hitCanvas.height,
+      step,
+    );
+    if (!menu.hidden) {
+      const r = menu.getBoundingClientRect();
+      rectangles.push([r.left, r.top, r.width, r.height]);
+    }
+    send("hitRegion", { rectangles });
+  }
   function tick(now) {
     if (destroyed) return;
     frame = requestAnimationFrame(tick);
@@ -1302,6 +1333,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     if (!enabled) {
       if (logo.complete)
         ctx.drawImage(logo, center.x - 40, center.y - 40, 80, 80);
+      updateHitRegion(now);
       return;
     }
     const screenMouse = mouse;
@@ -1370,6 +1402,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     ctx.restore();
     ctx.restore();
     mouse = screenMouse;
+    updateHitRegion(now);
   }
   function closeMenu() {
     const wasOpen = !menu.hidden;
@@ -1453,6 +1486,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     menu.style.left = Math.max(6, Math.min(x, width - 272)) + "px";
     menu.style.top =
       Math.max(6, Math.min(y, height - menu.offsetHeight - 6)) + "px";
+    updateHitRegion(performance.now(), true);
     menu.querySelector("button").focus();
   }
   const events = {

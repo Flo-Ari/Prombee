@@ -9,7 +9,7 @@ globalThis.document = dom.window.document;
 const { visibility, scopeEnd, nextRoundName, toMarkdown, cleanHTML } = await import('../web/core.js');
 const { renderMarkdown, lineDiff } = await import('../web/review.js');
 const heading = (id, level, html, excluded = false) => ({ id, kind: 'heading', level, html, excluded });
-const item = (id, html, excluded = false) => ({ id, kind: 'item', level: 1, html, excluded });
+const item = (id, html, excluded = false) => ({ id, kind: 'item', level: 1, html, excluded, listType: 'ordered' });
 
 test('excluded heading suppresses descendants until an equal-level heading', () => {
   const nodes = [heading('a', 1, 'Visible'), item('a1', 'Keep'), heading('b', 2, 'Secret', true),
@@ -219,7 +219,13 @@ test("copy filter disabled preserves empty headings, heading markers and empty o
 test("disabled Markdown recognition preserves authored markers as literal text and does not override structural levels", () => {
   const nodes = [makeNode("heading", 1, "Parent"), makeNode("item", 1, "## Raw<br>**literal**")];
   const text = toMarkdown(nodes, { removeEmpty: false, recognizeMarkdown: false });
-  assert.ok(text.includes("1. \\#\\# Raw"));
+  assert.ok(text.includes("- \\#\\# Raw"));
   assert.ok(text.includes("\\*\\*literal\\*\\*"));
   assert.ok(toMarkdown(nodes, { removeEmpty:false }).includes("## Raw"));
+});
+
+test('new body entries default to unordered lists; ordered numbering restarts after a bullet run',()=>{
+ const a=makeNode('item',1,'alpha'),b=makeNode('item',1,'beta'),c=makeNode('item',1,'gamma');
+ assert.equal(toMarkdown([a,b]),'- alpha\n- beta\n');
+ a.listType=b.listType='ordered';assert.equal(toMarkdown([a,b,c,{...a,id:'d'}]),'1. alpha\n2. beta\n- gamma\n1. alpha\n');
 });
