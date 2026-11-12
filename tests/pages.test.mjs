@@ -796,3 +796,16 @@ test("floating setting saves a persistent switch without minimizing the editor",
     assert.deepEqual(payload, { enabled: true });
   } finally { globalThis.fetch = previous; }
 });
+
+
+test("new rounds include Markdown hierarchy typed immediately before creation", () => {
+  $("editorTab").click();
+  $("newDoc").click();
+  const body = document.querySelector('.content[aria-label="正文条目"]');
+  const row = body.closest('.row');
+  if (row.hidden) document.querySelector('.fold[aria-expanded="false"]')?.click();
+  const field = document.querySelector(`.content[data-id="${body.dataset.id}"]`);
+  field.focus();field.innerHTML = "## 内联新结构";field.dispatchEvent(new window.Event("input",{bubbles:true}));
+  $("newDoc").click();
+  assert.ok([...document.querySelectorAll('.heading .content')].some(el=>el.textContent === "内联新结构"));
+});

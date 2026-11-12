@@ -1243,6 +1243,7 @@ function updateComparison() {
   });
 }
 $("newDoc").onclick = () => {
+  integrateCurrent();
   syncLatestTemplate();
   const d = {
     id: uid(),
