@@ -13,6 +13,7 @@ import sys
 import threading
 from urllib.parse import urlsplit
 from .library import atomic_write
+from .skills import AGENTS
 from .filelock import exclusive_file_lock
 
 
@@ -215,11 +216,19 @@ class OtherSettings:
     def __init__(self,folder,targets=None):
         self.path=Path(folder)/'other.json';self.targets=targets or DeviceTargets()
     def load(self):
+        defaults={'enabled':False,'target':None,'recognizeMarkdown':True,'pairDelimiters':True,
+                  'autoSort':True,'targetAgent':'codex','agentSkillFolders':{}}
         try:
             value=json.loads(self.path.read_text(encoding='utf-8'))
-            if not isinstance(value,dict) or not isinstance(value.get('enabled'),bool):raise ValueError()
-            return {'enabled':value['enabled'],'target':value.get('target'),'recognizeMarkdown':value.get('recognizeMarkdown') is not False,'pairDelimiters':value.get('pairDelimiters') is not False}
-        except (OSError,ValueError):return {'enabled':False,'target':None,'recognizeMarkdown':True,'pairDelimiters':True}
+            if not isinstance(value,dict) or not isinstance(value.get('enabled'),bool):return defaults
+            result={**defaults,'enabled':value['enabled'],'target':value.get('target')}
+            for key in ('recognizeMarkdown','pairDelimiters','autoSort'):result[key]=value.get(key) is not False
+            agent=value.get('targetAgent')
+            if isinstance(agent,str) and agent in AGENTS:result['targetAgent']=agent
+            folders=value.get('agentSkillFolders')
+            if isinstance(folders,dict):result['agentSkillFolders']={key:folder for key,folder in folders.items() if key in AGENTS and isinstance(folder,str)}
+            return result
+        except (OSError,ValueError):return defaults
     def snapshot(self):return {**self.load(),**self.targets.catalog()}
     def save(self,payload):
         enabled=payload.get('enabled');target=payload.get('target')
@@ -247,12 +256,21 @@ class OtherSettings:
     def markdown(self,value):
         return self.editing('recognizeMarkdown',value)
     def editing(self,key,value):
-        if key not in ('recognizeMarkdown','pairDelimiters') or not isinstance(value,bool):raise ValueError('编辑开关无效')
+        if key not in ('recognizeMarkdown','pairDelimiters','autoSort') or not isinstance(value,bool):raise ValueError('编辑开关无效')
+        return self._patch(key,value)
+    def agent(self,value):
+        if value not in AGENTS:raise ValueError('目标智能体无效')
+        return self._patch('targetAgent',value)
+    def skill_folder(self,agent,folder):
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        if agent not in AGENTS or not isinstance(folder,str) or (folder and not Path(folder).is_dir()):raise ValueError('技能目录无效')
+        with exclusive_file_lock(self.path.with_suffix('.lock')):
+            value=self.load();folders=dict(value['agentSkillFolders']);folders[agent]=str(Path(folder).resolve()) if folder else ''
+            value['agentSkillFolders']=folders;atomic_write(self.path,json.dumps(value,ensure_ascii=False));return value
+    def _patch(self,key,value):
         self.path.parent.mkdir(parents=True,exist_ok=True)
         with exclusive_file_lock(self.path.with_suffix('.lock')):
-            result=self.load();result[key]=value
-            atomic_write(self.path,json.dumps(result,ensure_ascii=False))
-        return result
+            result=self.load();result[key]=value;atomic_write(self.path,json.dumps(result,ensure_ascii=False));return result
     def jump(self):
         value=self.load()
         if not value['enabled']:return {'jumped':False}

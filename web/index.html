@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="bars.css" />
     <link rel="stylesheet" href="buttons.css" />
     <link rel="stylesheet" href="dropdowns.css" />
+    <link rel="stylesheet" href="edge-surfaces.css" />
   </head>
   <body>
     <header class="window-chrome app-bar">
@@ -22,7 +23,11 @@
           aria-label="编写"
           title="编写"
         >
-          <img src="logo.svg" alt="" /><span class="logo-text-container"
+          <img src="logo.svg" alt="" /><span
+            class="logo-glitch"
+            aria-hidden="true"
+          ></span
+          ><span class="logo-text-container"
             ><strong data-app-name class="logo-text">提示蜂</strong></span
           >
         </button>
@@ -183,16 +188,11 @@
         <option value="5">五级标题</option>
         <option value="6">六级标题</option>
       </select>
-      <button
-        id="listType"
-        class="list-type-switch"
-        aria-pressed="false"
-        data-off="无序"
-        data-on="有序"
-        title="序号类型"
-      >
-        无序
-      </button>
+      <select id="listType" aria-label="序号类型">
+        <option value="unordered">无序列表</option>
+        <option value="ordered">有序列表</option>
+        <option value="none">无序号</option>
+      </select>
       <div id="batchControls" hidden>
         <span id="selectedCount"></span><button id="batchExclude">排除</button
         ><button id="batchDelete">删除</button>
@@ -266,6 +266,23 @@
         hidden
       >
         <h2>其他</h2>
+        <section class="other-section agent-settings">
+          <h3>目标智能体</h3>
+          <select id="targetAgent" aria-label="目标智能体">
+            <option value="codex">Codex</option>
+            <option value="claude-code">Claude Code</option>
+            <option value="hermes">Hermes</option>
+            <option value="deepseek-harness">DeepSeek Harness</option>
+            <option value="grok-bot">Grok Bot</option>
+            <option value="muse">Muse</option>
+            <option value="gemini-cli">Gemini CLI</option>
+            <option value="opencode">OpenCode</option>
+          </select>
+          <div class="skill-folder">
+            <button id="chooseSkillFolder">技能目录</button
+            ><span id="skillFolderPath"></span>
+          </div>
+        </section>
         <section class="other-section">
           <h3>条目内容</h3>
           <label class="setting-switch"
@@ -280,6 +297,8 @@
               type="checkbox"
               checked
             />成对输入</label
+          ><label class="setting-switch"
+            ><input id="autoSort" type="checkbox" checked />自动排序</label
           >
         </section>
         <section class="other-section">

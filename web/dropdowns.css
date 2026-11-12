@@ -127,3 +127,47 @@
 .dropdown-group {
   text-align: center;
 }
+.skill-completion {
+  position: fixed;
+  z-index: 1700;
+  max-height: 240px;
+  overflow: auto;
+  padding: 7px;
+  border: 1px solid var(--control-outline);
+  border-radius: 9px;
+  background: var(--paper);
+  box-shadow:
+    3px 3px 7px var(--paper-button-shadow),
+    -3px -3px 7px var(--paper-button-highlight);
+}
+.skill-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: 9px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.skill-option strong {
+  font-size: 13px;
+}
+.skill-option span {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.skill-option[aria-selected="true"],
+.skill-option:hover {
+  background: var(--hover);
+  color: var(--blue);
+}
+.skills-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}

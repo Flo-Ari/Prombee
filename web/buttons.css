@@ -373,10 +373,10 @@ body.dark #copy.copied .copy-circle {
   padding: 0;
   border: 0;
   border-radius: 50px;
-  background: #d6d6d6;
+  background: #e5efff;
   box-shadow:
     inset -3px -3px 6px #fff,
-    inset 3px 3px 6px #b0b0b0;
+    inset 3px 3px 6px #b6cbee;
 }
 .theme-toggle {
   position: absolute;
@@ -388,10 +388,10 @@ body.dark #copy.copied .copy-circle {
   align-items: center;
   padding-left: 6px;
   border-radius: 50px;
-  background: linear-gradient(145deg, #d9d9d9, #bfbfbf);
+  background: linear-gradient(145deg, #ffffff, #dbeafe);
   box-shadow:
     -2px -2px 4px #fff,
-    2px 2px 4px #b0b0b0;
+    2px 2px 4px #b6cbee;
   transition:
     left 0.3s ease-in-out,
     box-shadow 0.3s;
@@ -400,7 +400,7 @@ body.dark #copy.copied .copy-circle {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #707070;
+  background: #dbeafe;
   box-shadow: 0 0 5px #0003;
   transition:
     background 0.3s,
@@ -410,79 +410,78 @@ body.dark #copy.copied .copy-circle {
   left: 22px;
 }
 #theme[aria-checked="true"] .theme-led {
-  background: #ffe14a;
-  box-shadow: 0 0 9px 2px #ffe14a;
+  background: #2563eb;
+  box-shadow: 0 0 9px 2px #2563eb;
 }
 #theme:hover .theme-toggle {
   box-shadow:
     -2px -2px 6px #fff,
-    2px 2px 6px #9b9b9b;
+    2px 2px 6px #a8c4ee;
 }
 body.dark #theme {
-  background: #25282d;
+  background: #0c1c32;
   box-shadow:
-    inset -3px -3px 6px #3b4048,
+    inset -3px -3px 6px #15345a,
     inset 3px 3px 6px #111;
 }
 body.dark .theme-toggle {
-  background: linear-gradient(145deg, #4b5059, #30343b);
+  background: linear-gradient(145deg, #1c3c64, #10253e);
   box-shadow:
-    -2px -2px 4px #525965,
+    -2px -2px 4px #244b7a,
     2px 2px 4px #111;
 }
 
-/* 序号类型样式 — Uiverse.io / Shoh2008: skewed text slide switch. */
-#listType.list-type-switch {
-  position: relative;
-  transform: skew(-10deg);
-  height: 33px;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  overflow: hidden;
-  background: #7e8a9e;
-  color: transparent;
-  font-weight: 700;
-  box-shadow: none;
-}
-#listType::before,
-#listType::after {
-  position: absolute;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  line-height: 33px;
-  text-align: center;
-  transform: skew(10deg);
-  transition: left 0.2s ease;
-  color: #fff;
-}
-#listType::before {
-  content: attr(data-off);
-  left: 0;
-}
-#listType::after {
-  content: attr(data-on);
-  left: 100%;
-}
-#listType[aria-pressed="true"] {
-  background: #59b871;
-}
-#listType[aria-pressed="true"]::before {
-  left: -100%;
-}
-#listType[aria-pressed="true"]::after {
-  left: 0;
-}
-#listType:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
 @media (prefers-reduced-motion: reduce) {
   .theme-toggle,
-  .theme-led,
-  #listType::before,
-  #listType::after {
+  .theme-led {
     transition: none;
+  }
+}
+
+/* LOGO glitch accent — Uiverse.io / andrew-demchenk0, adapted to Prombee blue/white. */
+.logo-glitch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: linear-gradient(90deg, #38bdf866, transparent 45%, #ffffffb3);
+  clip-path: polygon(0 0, 0 0, 0 0, 0 0);
+}
+#editorTab[aria-selected="true"] .logo-glitch {
+  animation: logo-glitch 5s infinite;
+}
+#editorTab:hover .logo-glitch {
+  animation: logo-glitch 2s infinite;
+}
+@keyframes logo-glitch {
+  0%,
+  12%,
+  100% {
+    opacity: 0;
+    clip-path: polygon(0 0, 0 0, 0 0, 0 0);
+    transform: translateX(0);
+  }
+  2%,
+  6% {
+    opacity: 0.7;
+    clip-path: polygon(0 22%, 100% 22%, 100% 32%, 0 32%);
+    transform: translateX(-3px);
+  }
+  4%,
+  8% {
+    opacity: 0.5;
+    clip-path: polygon(0 66%, 100% 66%, 100% 80%, 0 80%);
+    transform: translateX(3px);
+  }
+  10% {
+    opacity: 0.6;
+    clip-path: polygon(0 43%, 100% 43%, 100% 48%, 0 48%);
+    transform: translateX(-1px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #editorTab .logo-glitch {
+    animation: none;
   }
 }

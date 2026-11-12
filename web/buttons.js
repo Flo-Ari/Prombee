@@ -18,14 +18,14 @@ export function mountButtonStyles(root = document) {
     if (element.matches("button")) {
       if (
         element.matches(
-          ".fold,[data-edge],.drag-handle,.dropdown-trigger,.dropdown-option,#theme,#listType",
+          ".fold,[data-edge],.drag-handle,.dropdown-trigger,.dropdown-option,.skill-option,#theme,#listType",
         ) ||
         element.closest("[contenteditable],.markdown-preview,#diffRows")
       )
         return;
       const kind =
         element.closest(".window-controls") ||
-        ["undo", "redo"].includes(element.id)
+        ["undo", "redo", "settingsTab"].includes(element.id)
           ? "frameless"
           : element.id === "editorTab"
             ? "logo"

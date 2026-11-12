@@ -1,4 +1,6 @@
-import unittest
+import unittest,sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from prombee.hit_regions import bounded_regions
 class HitTests(unittest.TestCase):
     def test_regions_are_clipped_and_invalid_native_coordinates_are_rejected(self):

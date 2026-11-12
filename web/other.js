@@ -1,6 +1,7 @@
 export function mountOtherSettings({
   request = fetch,
   onMarkdownChange = () => {},
+  onAgentChange = () => {},
 } = {}) {
   const $ = (id) => document.getElementById(id);
   let preferences = {
@@ -8,6 +9,9 @@ export function mountOtherSettings({
       target: null,
       recognizeMarkdown: true,
       pairDelimiters: true,
+      autoSort: true,
+      targetAgent: "codex",
+      agentSkillFolders: {},
     },
     entries = [],
     tail = Promise.resolve(),
@@ -33,6 +37,9 @@ export function mountOtherSettings({
       target: value.target || null,
       recognizeMarkdown: value.recognizeMarkdown !== false,
       pairDelimiters: value.pairDelimiters !== false,
+      autoSort: value.autoSort !== false,
+      targetAgent: value.targetAgent || "codex",
+      agentSkillFolders: value.agentSkillFolders || {},
     };
   }
   function paint(value) {
@@ -40,6 +47,10 @@ export function mountOtherSettings({
     $("copyJumpEnabled").checked = preferences.enabled;
     $("recognizeMarkdown").checked = preferences.recognizeMarkdown;
     $("pairDelimiters").checked = preferences.pairDelimiters;
+    $("autoSort").checked = preferences.autoSort;
+    $("targetAgent").value = preferences.targetAgent;
+    $("skillFolderPath").textContent =
+      preferences.agentSkillFolders[preferences.targetAgent] || "";
     const select = $("copyJumpTarget");
     select.replaceChildren();
     entries = [];
@@ -84,6 +95,10 @@ export function mountOtherSettings({
       $("copyJumpEnabled").checked = preferences.enabled;
       $("recognizeMarkdown").checked = preferences.recognizeMarkdown;
       $("pairDelimiters").checked = preferences.pairDelimiters;
+      $("autoSort").checked = preferences.autoSort;
+      $("targetAgent").value = preferences.targetAgent;
+      $("skillFolderPath").textContent =
+        preferences.agentSkillFolders[preferences.targetAgent] || "";
     })
     .catch(() => {});
   function save() {
@@ -145,16 +160,37 @@ export function mountOtherSettings({
     urlTimer = setTimeout(save, 300);
   };
   $("copyJumpUrl").onchange = save;
-  $("recognizeMarkdown").onchange = () => {
-    preferences.recognizeMarkdown = $("recognizeMarkdown").checked;
-    onMarkdownChange(preferences.recognizeMarkdown);
-    const recognizeMarkdown = preferences.recognizeMarkdown;
+  for (const [id, action] of [
+    ["recognizeMarkdown", "markdown"],
+    ["pairDelimiters", "pairs"],
+    ["autoSort", "autoSort"],
+  ]) {
+    $(id).onchange = () => {
+      const value = $(id).checked;
+      preferences[id] = value;
+      if (id === "recognizeMarkdown") onMarkdownChange(value);
+      tail = tail
+        .then(() => ready)
+        .then(async () => {
+          preferences = values(await api({ action, [id]: value }));
+          $("otherStatus").textContent = "已保存";
+        })
+        .catch((error) => {
+          $("otherStatus").textContent = error.message;
+        });
+      return tail;
+    };
+  }
+  $("targetAgent").onchange = () => {
+    const targetAgent = $("targetAgent").value;
+    preferences.targetAgent = targetAgent;
+    $("skillFolderPath").textContent =
+      preferences.agentSkillFolders[targetAgent] || "";
+    onAgentChange();
     tail = tail
       .then(() => ready)
       .then(async () => {
-        preferences = values(
-          await api({ action: "markdown", recognizeMarkdown }),
-        );
+        preferences = values(await api({ action: "agent", targetAgent }));
         $("otherStatus").textContent = "已保存";
       })
       .catch((error) => {
@@ -162,19 +198,38 @@ export function mountOtherSettings({
       });
     return tail;
   };
-  $("pairDelimiters").onchange = () => {
-    const pairDelimiters = $("pairDelimiters").checked;
-    preferences.pairDelimiters = pairDelimiters;
-    tail = tail
-      .then(() => ready)
-      .then(async () => {
-        preferences = values(await api({ action: "pairs", pairDelimiters }));
-        $("otherStatus").textContent = "已保存";
-      })
-      .catch((error) => {
-        $("otherStatus").textContent = error.message;
+  $("chooseSkillFolder").onclick = async () => {
+    const targetAgent = preferences.targetAgent;
+    $("chooseSkillFolder").disabled = true;
+    try {
+      const response = await request("/api/picker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "folder",
+          initial: preferences.agentSkillFolders[targetAgent] || "",
+        }),
       });
-    return tail;
+      const result = await response.json();
+      if (!response.ok) throw Error(result.error || "无法选择目录");
+      if (!result.path) return;
+      tail = tail
+        .then(() =>
+          api({ action: "skillFolder", targetAgent, folder: result.path }),
+        )
+        .then((value) => {
+          preferences = values(value);
+          $("skillFolderPath").textContent =
+            preferences.agentSkillFolders[preferences.targetAgent] || "";
+          onAgentChange();
+        });
+      await tail;
+      $("otherStatus").textContent = "已保存";
+    } catch (error) {
+      $("otherStatus").textContent = error.message;
+    } finally {
+      $("chooseSkillFolder").disabled = false;
+    }
   };
   $("refreshJumpTargets").onclick = show;
   return {
@@ -183,6 +238,8 @@ export function mountOtherSettings({
     settled: () => tail,
     recognizeMarkdown: () => preferences.recognizeMarkdown,
     pairDelimiters: () => preferences.pairDelimiters,
+    autoSort: () => preferences.autoSort,
+    targetAgent: () => preferences.targetAgent,
     async afterCopy() {
       await ready;
       if (urlTimer) await save();

@@ -93,7 +93,7 @@ test("tabs, historical template import, new round, raw preview and undo work tog
   $("copyHierarchy").click();
   assert.equal(document.querySelector(".content").textContent, "约束");
   $("newDoc").click();
-  assert.equal($("documents").selectedOptions[0].textContent, "3轮");
+  assert.equal($("documents").selectedOptions[0].textContent, "第3轮");
   assert.equal($("editorPanel").hidden, false);
   assert.deepEqual(
     [...document.querySelectorAll(".content")].map((n) => n.textContent),
@@ -314,17 +314,17 @@ test("new prompt set requires a selected directory and recent selector follows t
 
 test("round deletion is reversible, numbering follows remaining rounds, and empty sets restart at round one", () => {
   const roundName = () => $("documents").selectedOptions[0]?.textContent;
-  assert.equal(roundName(), "2轮");
+  assert.equal(roundName(), "第2轮");
   const content = document.querySelector(".content").textContent;
   $("deleteRound").click();
-  assert.equal(roundName(), "1轮");
+  assert.equal(roundName(), "第1轮");
   $("undo").click();
-  assert.equal(roundName(), "2轮");
+  assert.equal(roundName(), "第2轮");
   assert.equal(document.querySelector(".content").textContent, content);
   $("redo").click();
-  assert.equal(roundName(), "1轮");
+  assert.equal(roundName(), "第1轮");
   $("newDoc").click();
-  assert.equal(roundName(), "2轮");
+  assert.equal(roundName(), "第2轮");
   $("deleteRound").click();
   $("deleteRound").click();
   assert.equal($("documents").options.length, 0);
@@ -333,9 +333,9 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
     "＋ 新建一轮",
   );
   $("undo").click();
-  assert.equal(roundName(), "1轮");
+  assert.equal(roundName(), "第1轮");
   $("undo").click();
-  assert.equal(roundName(), "2轮");
+  assert.equal(roundName(), "第2轮");
   $("redo").click();
   $("redo").click();
   assert.equal($("documents").options.length, 0);
@@ -343,7 +343,7 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
   assert.equal($("copyHierarchy").disabled, true);
   $("editorTab").click();
   $("newDoc").click();
-  assert.equal(roundName(), "1轮");
+  assert.equal(roundName(), "第1轮");
   const buttons = [...$("editorToolbar").querySelectorAll("button")];
   assert.deepEqual(
     buttons.slice(0, 3).map((b) => b.id),
@@ -742,7 +742,7 @@ test("cut without text selection copies only this entry and preserves children; 
   });
   assert.equal(key("x", { ctrlKey: true }).defaultPrevented, true);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.match(copies[0], /^#+ 剪切标题\n$/);
+  assert.equal(copies[0], "剪切标题");
   assert.equal(document.querySelectorAll(".row").length, count - 1);
   for (const childId of childIds)
     assert.ok(document.querySelector(`.content[data-id="${childId}"]`));

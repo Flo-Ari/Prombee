@@ -229,3 +229,7 @@ test('new body entries default to unordered lists; ordered numbering restarts af
  assert.equal(toMarkdown([a,b]),'- alpha\n- beta\n');
  a.listType=b.listType='ordered';assert.equal(toMarkdown([a,b,c,{...a,id:'d'}]),'1. alpha\n2. beta\n- gamma\n1. alpha\n');
 });
+
+test('unnumbered body entries copy without generated list markers while preserving multiline text',()=>{
+const n={...makeNode('item',1,'one<br>two'),listType:'none'};assert.equal(toMarkdown([n]),'one\ntwo\n');
+});

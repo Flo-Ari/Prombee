@@ -267,7 +267,7 @@ export function toMarkdown(
     } else {
       const ordered = n.listType === "ordered";
       count = ordered ? count + 1 : 0;
-      const marker = ordered ? `${count}. ` : "- ",
+      const marker = ordered ? `${count}. ` : n.listType === "none" ? "" : "- ",
         parts = text.split("\n");
       lines.push(
         marker + parts[0],

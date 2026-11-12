@@ -75,3 +75,11 @@ class OtherTests(unittest.TestCase):
         self.assertFalse(prefs['pairDelimiters']);self.assertFalse(prefs['recognizeMarkdown'])
         self.store.save({'enabled':False,'target':None})
         self.assertFalse(self.store.load()['pairDelimiters'])
+
+    def test_auto_sort_and_target_agent_are_device_preferences_and_survive_other_changes(self):
+        self.assertTrue(self.store.load()['autoSort'])
+        self.store.editing('autoSort',False);self.store.agent('hermes')
+        self.store.save({'enabled':False,'target':None})
+        restored=OtherSettings(self.path,self.targets).load()
+        self.assertFalse(restored['autoSort']);self.assertEqual(restored['targetAgent'],'hermes')
+        with self.assertRaises(ValueError):self.store.agent('arbitrary')

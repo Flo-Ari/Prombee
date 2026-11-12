@@ -255,15 +255,6 @@ main {
 .heading .content {
   font-weight: 650;
 }
-.heading.h1 .content {
-  font-size: calc(var(--doc-size) + 8pt);
-}
-.heading.h2 .content {
-  font-size: calc(var(--doc-size) + 5pt);
-}
-.heading.h3 .content {
-  font-size: calc(var(--doc-size) + 3pt);
-}
 .heading.h4 .content,
 .heading.h5 .content,
 .heading.h6 .content {
@@ -726,7 +717,7 @@ header .selected-tab {
 }
 
 /* Page identity, hierarchy and batch editing. */
-body[data-page="template"] main {
+body[data-page="template"] {
   background: repeating-linear-gradient(
     135deg,
     #f0f1f3 0,
@@ -740,12 +731,12 @@ body[data-page="common"] #paper {
   background: #fff;
   border-color: #dfe4ec;
 }
-body[data-page="common"] main {
+body[data-page="common"] {
   background-color: #f0f5fb;
   background-image: radial-gradient(circle, #dce7f4 0 14px, transparent 15px);
   background-size: 76px 76px;
 }
-body.dark[data-page="template"] main {
+body.dark[data-page="template"] {
   background: repeating-linear-gradient(
     135deg,
     #161719 0,
@@ -754,7 +745,7 @@ body.dark[data-page="template"] main {
     #1c1e21 24px
   );
 }
-body.dark[data-page="common"] main {
+body.dark[data-page="common"] {
   background-color: #0c1420;
   background-image: radial-gradient(circle, #19283b 0 14px, transparent 15px);
 }
@@ -815,15 +806,6 @@ body.dark .fold {
   align-items: center;
   color: var(--muted);
   font-size: 12px;
-}
-.heading.h1 .content {
-  font-size: calc(var(--doc-size) + 10pt);
-}
-.heading.h2 .content {
-  font-size: calc(var(--doc-size) + 6pt);
-}
-.heading.h3 .content {
-  font-size: calc(var(--doc-size) + 3pt);
 }
 .heading.h4 .content,
 .heading.h5 .content,
@@ -1348,7 +1330,7 @@ header #recentSets,
 }
 
 /* 页面背景样式 — supplied Uiverse patterns: kennyotsu-monochromia / Yaya12085 / kandalgaonkarshubham. */
-body[data-page="editor"] main {
+body[data-page="editor"] {
   --grid-line: #e1e1e1;
   background-color: #f3f3f3;
   background-image:
@@ -1376,59 +1358,145 @@ body[data-page="editor"] main {
     );
   background-size: 55px 55px;
 }
-body.dark[data-page="editor"] main {
+body.dark[data-page="editor"] {
   --grid-line: #252a31;
   background-color: #121519;
 }
-body[data-page="preview"] main {
+body[data-page="preview"] {
   background-image: linear-gradient(#fff 1.1rem, #ccc 1.2rem);
   background-size: 100% 1.2rem;
 }
-body.dark[data-page="preview"] main {
+body.dark[data-page="preview"] {
   background-image: linear-gradient(#121519 1.1rem, #373d47 1.2rem);
 }
 body:is(
-    [data-page="shortcuts"],
-    [data-page="floating"],
-    [data-page="updates"],
-    [data-page="other"]
-  )
-  main {
+  [data-page="shortcuts"],
+  [data-page="floating"],
+  [data-page="updates"],
+  [data-page="other"]
+) {
   background:
     radial-gradient(
         circle farthest-side at 0% 50%,
-        #282828 23.5%,
+        var(--settings-ground) 23.5%,
         transparent 0
       )
       21px 30px,
-    radial-gradient(circle farthest-side at 0% 50%, #2c3539 24%, transparent 0)
+    radial-gradient(
+        circle farthest-side at 0% 50%,
+        var(--settings-line) 24%,
+        transparent 0
+      )
       19px 30px,
-    linear-gradient(#282828 14%, transparent 0, transparent 85%, #282828 0) 0 0,
+    linear-gradient(
+        var(--settings-ground) 14%,
+        transparent 0,
+        transparent 85%,
+        var(--settings-ground) 0
+      )
+      0 0,
     linear-gradient(
         150deg,
-        #282828 24%,
-        #2c3539 0,
-        #2c3539 26%,
+        var(--settings-ground) 24%,
+        var(--settings-line) 0,
+        var(--settings-line) 26%,
         transparent 0,
         transparent 74%,
-        #2c3539 0,
-        #2c3539 76%,
-        #282828 0
+        var(--settings-line) 0,
+        var(--settings-line) 76%,
+        var(--settings-ground) 0
       )
       0 0,
     linear-gradient(
         30deg,
-        #282828 24%,
-        #2c3539 0,
-        #2c3539 26%,
+        var(--settings-ground) 24%,
+        var(--settings-line) 0,
+        var(--settings-line) 26%,
         transparent 0,
         transparent 74%,
-        #2c3539 0,
-        #2c3539 76%,
-        #282828 0
+        var(--settings-line) 0,
+        var(--settings-line) 76%,
+        var(--settings-ground) 0
       )
       0 0,
-    linear-gradient(90deg, #2c3539 2%, #282828 0, #282828 98%, #2c3539 0) 0 0
-      #282828;
+    linear-gradient(
+        90deg,
+        var(--settings-line) 2%,
+        var(--settings-ground) 0,
+        var(--settings-ground) 98%,
+        var(--settings-line) 0
+      )
+      0 0 var(--settings-ground);
   background-size: 40px 60px;
+}
+
+/* 条目字号与行高 — inline formatting grows the line box without clipping. */
+.heading.h1 .content {
+  font-size: 18pt;
+}
+.heading.h2 .content {
+  font-size: 17pt;
+}
+.heading.h3 .content {
+  font-size: 16pt;
+}
+.content {
+  min-height: 1.75em;
+  line-height: 1.75;
+}
+.content :is(span, font, b, strong, i, em) {
+  line-height: 1.75;
+}
+#size {
+  text-align: center;
+}
+#settingsTab {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 3px;
+}
+#settingsTab svg {
+  width: 27px;
+  height: 27px;
+}
+#otherPanel .other-section > .setting-switch {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 12px;
+}
+.skill-folder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+#skillFolderPath {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+body {
+  --settings-ground: #ffffff;
+  --settings-line: #e8eef7;
+}
+body.dark {
+  --settings-ground: #0e1218;
+  --settings-line: #182330;
+}
+main {
+  background: transparent;
+}
+footer {
+  background: transparent;
+}
+
+.row .content {
+  line-height: calc(var(--entry-font-size, var(--doc-size)) * 1.75);
+  min-height: calc(var(--entry-font-size, var(--doc-size)) * 1.75 + 10px);
+}
+.row .drag-handle {
+  height: calc(var(--entry-font-size, var(--doc-size)) * 1.45);
 }

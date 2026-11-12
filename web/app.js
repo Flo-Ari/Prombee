@@ -1,3 +1,7 @@
+import { mountSkillCompletion } from "./skill-completion.js";
+import { syncEntryMetrics } from "./entry-metrics.js";
+import { nextRoundNodes } from "./rounds.js";
+import { mountEntrySelection } from "./entry-selection.js";
 import { bindPairs } from "./pairs.js";
 import { moveAcrossEntries } from "./entry-navigation.js";
 import { mountDropdowns } from "./dropdowns.js";
@@ -43,6 +47,7 @@ const $ = (id) => document.getElementById(id);
 const bars = mountBars();
 mountButtonStyles();
 const dropdowns = mountDropdowns();
+mountEntrySelection($("paper"));
 let state,
   revision = 0,
   active = null,
@@ -218,7 +223,7 @@ function render() {
   applyTheme();
   $("documents").replaceChildren();
   for (const d of state.documents) {
-    const o = element("option", "", d.name.replace(/^第\s*/, ""));
+    const o = element("option", "", d.name);
     o.value = d.id;
     $("documents").append(o);
   }
@@ -306,6 +311,7 @@ function render() {
       for (const empty of content.querySelectorAll("span,font"))
         if (!empty.textContent && !empty.querySelector("br")) empty.remove();
       n.html = cleanHTML(content.innerHTML);
+      syncEntryMetrics(content);
       changed();
       renumber();
     });
@@ -397,10 +403,13 @@ function render() {
     empty.append(start);
     $("paper").append(empty);
   }
+  for (const field of $("paper").querySelectorAll(".content"))
+    syncEntryMetrics(field);
   updateBatch();
   renumber();
   buttons();
   refreshShortcutHints();
+  $("listType").disabled = false;
   if (active) syncToolbar(contentFor(active));
   dropdowns.sync();
 }
@@ -428,7 +437,7 @@ function renumber() {
     } else if (n.listType === "ordered")
       marker = text.trim() ? `${++number}.` : "·";
     else {
-      marker = "•";
+      marker = n.listType === "none" ? "" : "•";
       number = 0;
     }
     const field = row.querySelector(".marker");
@@ -475,6 +484,7 @@ function saveSelection() {
 document.addEventListener("selectionchange", saveSelection);
 function syncToolbar(el) {
   if (!el) return;
+  syncEntryMetrics(el);
   const info = readFormatting(el),
     node = doc().nodes.find((n) => n.id === el.dataset.id);
   if (info.font) {
@@ -501,9 +511,7 @@ function syncToolbar(el) {
   if (node) {
     $("headingLevel").value =
       node.kind === "heading" ? String(node.level) : "0";
-    const ordered = node.listType === "ordered";
-    $("listType").textContent = ordered ? "有序" : "无序";
-    $("listType").setAttribute("aria-pressed", String(ordered));
+    $("listType").value = node.listType || "unordered";
     $("listType").disabled = node.kind !== "item";
   }
   dropdowns.sync();
@@ -596,14 +604,19 @@ function spanStyle(property, value) {
   return true;
 }
 let templateSourceSignature = null;
+function latestRound() {
+  return state.documents.reduce(
+    (a, b) =>
+      Number(/^第\s*(\d+)/.exec(b.name)?.[1] || 0) >
+      Number(/^第\s*(\d+)/.exec(a?.name)?.[1] || 0)
+        ? b
+        : a,
+    null,
+  );
+}
 function syncLatestTemplate() {
   if (!state?.template || !state.documents.length) return;
-  const latest = state.documents.reduce((a, b) =>
-    Number(/^第\s*(\d+)/.exec(b.name)?.[1] || 0) >
-    Number(/^第\s*(\d+)/.exec(a.name)?.[1] || 0)
-      ? b
-      : a,
-  );
+  const latest = latestRound();
   const headings = latest.nodes.filter((n) => n.kind === "heading");
   const signature = JSON.stringify([
     latest.id,
@@ -990,10 +1003,7 @@ async function cutEntry(id) {
   const snapshot = JSON.stringify(node);
   cutRunning = true;
   try {
-    const text = toMarkdown([{ ...node, excluded: false }], {
-      removeEmpty: false,
-      recognizeMarkdown: otherUI.recognizeMarkdown(),
-    });
+    const text = plain(node.html);
     if (!(await copyText(text, { jump: false, quiet: true }))) return;
     // Keep new edits intact if focus/content changed while the clipboard was pending.
     if (
@@ -1073,6 +1083,7 @@ function restoreEditorView(view) {
       }
     }
   }
+  if (field) syncToolbar(field);
   const key = viewKey(),
     main = document.querySelector("main");
   main.scrollTop = view.top;
@@ -1081,6 +1092,7 @@ function restoreEditorView(view) {
   });
 }
 function switchPage(next, roundId) {
+  skillCompletion.close();
   if (next === page && (!roundId || roundId === state.current)) return;
   speech.stop();
   captureEditorView();
@@ -1235,7 +1247,11 @@ $("newDoc").onclick = () => {
   const d = {
     id: uid(),
     name: nextRoundName(state.documents),
-    nodes: hierarchyNodes(state.template.nodes),
+    nodes: nextRoundNodes(
+      state.template.nodes,
+      latestRound()?.nodes || [],
+      otherUI.autoSort(),
+    ),
   };
   if (!state.documents.length && doc().id === emptyRound.id) {
     histories.set(emptyRound.id, { history, future });
@@ -1244,7 +1260,10 @@ $("newDoc").onclick = () => {
   }
   state.documents.unshift(d);
   switchPage("editor", d.id);
-  if (d.nodes.length) focus((d.nodes[1] || d.nodes[0]).id);
+  const hidden = foldedNodes(d.nodes),
+    visible = d.nodes.filter((n) => !hidden.has(n.id));
+  if (visible.length)
+    focus((visible.find((n) => n.kind === "item") || visible[0]).id);
   changed();
 };
 $("deleteRound").onclick = () => {
@@ -1407,15 +1426,16 @@ $("color").oninput = () => {
   );
   spanStyle("color", $("color").value);
 };
-$("listType").onmousedown = (event) => event.preventDefault();
-$("listType").onclick = () => {
-  const node = doc().nodes.find((n) => n.id === active);
+$("listType").onchange = () => {
+  const value = $("listType").value,
+    node = doc().nodes.find((n) => n.id === active);
   if (!node || node.kind !== "item") return;
   remember();
-  node.listType = node.listType === "ordered" ? "unordered" : "ordered";
+  node.listType = value;
   renumber();
-  syncToolbar(contentFor(active));
   changed();
+  focus(node.id, true);
+  syncToolbar(contentFor(node.id));
 };
 $("headingLevel").onchange = () => {
   if ($("headingLevel").value === "") return;
@@ -1446,10 +1466,19 @@ $("floatingButton").onclick = () => {
 };
 const updaterUI = mountUpdates({ beforeInstall: flushWorkspace });
 const otherUI = mountOtherSettings({
+  onAgentChange() {
+    skillCompletion.refresh();
+  },
   onMarkdownChange(enabled) {
     if (state && enabled && integrateCurrent()) render();
     else if (state) renumber();
   },
+});
+const skillCompletion = mountSkillCompletion({
+  paper: $("paper"),
+  agent: () => otherUI.targetAgent(),
+  setId: () => setId,
+  settled: () => otherUI.settled(),
 });
 $("otherTab").onclick = () => {
   lastSettingsPage = "other";

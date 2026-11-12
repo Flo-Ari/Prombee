@@ -20,7 +20,7 @@ def valid(state):
         if not isinstance(doc, dict) or not isinstance(doc.get('id'), str) or not isinstance(doc.get('name'), str) or not isinstance(doc.get('nodes'), list):
             return False
         for n in doc['nodes']:
-            if not isinstance(n, dict) or n.get('kind') not in ('heading','item') or not isinstance(n.get('id'),str) or not isinstance(n.get('html'),str) or not isinstance(n.get('level'),int) or not 1 <= n['level'] <= 6 or any(key in n and not isinstance(n[key], bool) for key in ('excluded', 'collapsed', 'raw')) or n.get('listType', 'unordered') not in ('ordered', 'unordered'):
+            if not isinstance(n, dict) or n.get('kind') not in ('heading','item') or not isinstance(n.get('id'),str) or not isinstance(n.get('html'),str) or not isinstance(n.get('level'),int) or not 1 <= n['level'] <= 6 or any(key in n and not isinstance(n[key], bool) for key in ('excluded', 'collapsed', 'raw')) or n.get('listType', 'unordered') not in ('ordered', 'unordered', 'none'):
                 return False
     return (state.get('current') in [d['id'] for d in state['documents']] if state['documents'] else state.get('current') is None) and isinstance(state.get('dark'),bool) and isinstance(state.get('font'),str) and isinstance(state.get('size'),(int,float)) and 9 <= state['size'] <= 96
 
@@ -42,6 +42,9 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
     from .floating import FloatingPreferences
     floating = FloatingPreferences(data_dir)
+
+    from .skills import SkillCatalog
+    skills = SkillCatalog()
 
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
@@ -65,6 +68,14 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path == '/api/other':
                 try:self.json(200, other.load() if urlsplit(self.path).query == 'preferences=1' else other.snapshot())
                 except (ValueError,OSError,subprocess.TimeoutExpired) as error:self.json(400, {'error':str(error)})
+            elif path == '/api/skills':
+                try:
+                    from urllib.parse import parse_qs
+                    prefs=other.load();query=parse_qs(urlsplit(self.path).query);registry=library.snapshot()
+                    entry=next((s for s in registry['sets'] if s['id']==query.get('setId',[registry.get('active')])[0]),None)
+                    folder=prefs['agentSkillFolders'].get(prefs['targetAgent'],'')
+                    self.json(200,skills.list(prefs['targetAgent'],folder,Path(entry['path']).parent if entry else None))
+                except (ValueError,OSError) as error:self.json(400,{'error':str(error)})
             elif path == '/api/update':
                 self.json(200, updater.snapshot())
             elif path == '/api/shortcuts':
@@ -82,7 +93,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/dropdowns.js','/dropdowns.css','/formatting.js','/entry-navigation.js','/pairs.js','/hit-regions.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/dropdowns.js','/dropdowns.css','/formatting.js','/entry-navigation.js','/pairs.js','/rounds.js','/skill-completion.js','/entry-metrics.js','/edge-surfaces.css','/entry-selection.js','/hit-regions.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -106,8 +117,14 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                     if callback: callback()
                 elif self.path == '/api/other':
                     action = payload.get('action')
-                    if action not in ('save','jump','markdown','pairs'): raise ValueError('其他设置操作无效')
-                    result = other.jump() if action == 'jump' else other.markdown(payload.get('recognizeMarkdown')) if action == 'markdown' else other.editing('pairDelimiters',payload.get('pairDelimiters')) if action == 'pairs' else other.save(payload)
+                    if action=='jump':result=other.jump()
+                    elif action=='markdown':result=other.markdown(payload.get('recognizeMarkdown'))
+                    elif action=='pairs':result=other.editing('pairDelimiters',payload.get('pairDelimiters'))
+                    elif action=='autoSort':result=other.editing('autoSort',payload.get('autoSort'))
+                    elif action=='agent':result=other.agent(payload.get('targetAgent'))
+                    elif action=='skillFolder':result=other.skill_folder(payload.get('targetAgent'),payload.get('folder'))
+                    elif action=='save':result=other.save(payload)
+                    else:raise ValueError('其他设置操作无效')
                 elif self.path == '/api/update':
                     result = updater.action(payload.get('action'))
                 elif self.path == '/api/picker':
