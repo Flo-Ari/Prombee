@@ -505,3 +505,15 @@ body[data-page="library"] .workspace > main {
     calc(100vw - var(--app-bar-sidebar-width) - 74px)
   );
 }
+
+.window-controls :is(#minimizeWindow, #maximizeWindow, #closeWindow) {
+  height: 22px;
+  min-height: 22px;
+}
+.window-controls #theme {
+  height: 22px;
+  min-height: 22px;
+}
+.window-controls .theme-toggle {
+  top: 2px;
+}

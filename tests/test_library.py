@@ -142,7 +142,7 @@ class LibraryTests(unittest.TestCase):
         old=self.library.load();original=Path(old['set']['path']);before=original.read_bytes()
         target=self.data/'独立副本.txt'
         registry=self.library.action({'action':'saveAsSet','id':old['set']['id'],'path':str(target)})
-        copied=next(s for s in registry['sets'] if s['path']==str(target))
+        copied=next(s for s in registry['sets'] if Path(s['path']).samefile(target))
         self.assertEqual(self.library.load(copied['id'])['state'],old['state'])
         self.assertEqual(original.read_bytes(),before)
         self.assertEqual(registry['active'],old['set']['id'])
