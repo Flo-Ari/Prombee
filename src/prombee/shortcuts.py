@@ -24,7 +24,11 @@ def validate(value):
 class Shortcuts:
     def __init__(self,folder):
         self.path=Path(folder)/'shortcuts.json'
+        self.schema=self.path.with_name('shortcuts-version.json')
     def load(self):
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        with exclusive_file_lock(self.path.with_suffix('.lock')):return self._load()
+    def _load(self):
         try:
             value=json.loads(self.path.read_text(encoding='utf-8'))
             if isinstance(value,dict) and 'redoAlt' in value:
@@ -35,6 +39,10 @@ class Shortcuts:
             if isinstance(value,dict) and 'cutEntry' not in value:
                 value['cutEntry']='' if 'Ctrl+X' in value.values() else 'Ctrl+X'
             value=validate(value)
+            if not self.schema.exists():
+                if not value.get('deleteRound') and 'Ctrl+Shift+D' not in value.values():value['deleteRound']='Ctrl+Shift+D'
+                atomic_write(self.path,json.dumps(value,ensure_ascii=False))
+                atomic_write(self.schema,'1')
         except (OSError,ValueError,TypeError):value={}
         return {'bindings':value}
     def save(self,payload):
@@ -42,4 +50,5 @@ class Shortcuts:
         self.path.parent.mkdir(parents=True,exist_ok=True)
         with exclusive_file_lock(self.path.with_suffix('.lock')):
             atomic_write(self.path,json.dumps(value,ensure_ascii=False))
+            atomic_write(self.schema,'1')
         return {'bindings':value}

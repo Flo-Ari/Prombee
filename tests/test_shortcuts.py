@@ -51,3 +51,13 @@ class ShortcutsTests(unittest.TestCase):
             loaded=store.load()['bindings'];self.assertEqual(loaded['cutEntry'],'Ctrl+X');self.assertEqual(loaded['insert'],'Ctrl+K')
             value['bold']='Ctrl+X';store.path.write_text(json.dumps(value),encoding='utf-8')
             loaded=store.load()['bindings'];self.assertEqual(loaded['cutEntry'],'');self.assertEqual(loaded['bold'],'Ctrl+X')
+
+    def test_delete_round_default_migrates_once_without_overriding_a_later_explicit_clear(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder);value={name:'' for name in IDS};value['insert']='Ctrl+K'
+            store.path.write_text(json.dumps(value),encoding='utf-8')
+            migrated=store.load()['bindings'];self.assertEqual(migrated['deleteRound'],'Ctrl+Shift+D');self.assertEqual(migrated['insert'],'Ctrl+K')
+            migrated['deleteRound']='';store.save({'bindings':migrated});self.assertEqual(Shortcuts(folder).load()['bindings']['deleteRound'],'')
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder);value={name:'' for name in IDS};value['bold']='Ctrl+Shift+D';store.path.write_text(json.dumps(value),encoding='utf-8')
+            self.assertEqual(store.load()['bindings']['deleteRound'],'')

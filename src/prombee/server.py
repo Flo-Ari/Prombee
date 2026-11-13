@@ -164,7 +164,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                     if payload.get('confirm') is not True:raise ValueError('请先确认清除')
                     with library.transaction():
                         library.write_registry({'version':2,'active':None,'sets':[],'groups':[{'id':'ungrouped','name':'未分组','pinned':False}]})
-                        for name in ['other.json','shortcuts.json','floating.json','display.json']:(data_dir/name).unlink(missing_ok=True)
+                        for name in ['other.json','shortcuts.json','shortcuts-version.json','floating.json','display.json']:(data_dir/name).unlink(missing_ok=True)
                     callback=getattr(self.server,'floating_changed',None)
                     if callback:callback()
                     result={'ok':True}
