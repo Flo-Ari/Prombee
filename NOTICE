@@ -3,3 +3,8 @@ Copyright 2026 Flo-Ari
 
 Licensed under the Apache License, Version 2.0.
 Vendored marked and DOMPurify retain their own licenses in web/vendor/.
+
+Outlined wordmark uses Noto Sans CJK (Google / Adobe), SIL Open Font License 1.1.
+The font license is retained in web/vendor/Noto-OFL.txt.
+
+Uiverse reference styles retain author comments in CSS and MIT notice in web/vendor/Uiverse-MIT.txt.

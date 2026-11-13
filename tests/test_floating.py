@@ -128,7 +128,7 @@ class FloatingTests(unittest.TestCase):
             control=cls.__new__(cls)
             control.window=window('editor');control.orb=window('orb')
             control.mode='editor';control.ready=True;control.orb_rect=None;control.completed_switches=0
-            control.preferences=SimpleNamespace(orb_enabled=True)
+            control.preferences=SimpleNamespace(orb_enabled=True,save_position=lambda rect:None)
             control.lock=threading.RLock()
             control.x=SimpleNamespace(position=lambda w:(w.x,w.y,w.width,w.height),move=lambda *args,**kwargs:None,above=lambda *args,**kwargs:None,input_region=lambda *args,**kwargs:None)
             control.place=lambda *args,**kwargs:None;control.input_region=lambda *args,**kwargs:None

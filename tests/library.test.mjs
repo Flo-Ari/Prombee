@@ -96,9 +96,7 @@ test("group management filters sets, creates inline, assigns metadata and opens 
   const row = [...document.querySelectorAll(".set-row")].find(
     (r) => r.querySelector(".set-name").textContent === "默认",
   );
-  [...row.querySelectorAll("button")]
-    .find((b) => b.textContent === "重命名")
-    .click();
+  row.querySelector(".set-name").click();
   const input = row.querySelector("input");
   input.value = "改名后";
   input.dispatchEvent(

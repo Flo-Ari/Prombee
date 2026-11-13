@@ -1,0 +1,507 @@
+/* 显示区样式 — shared width is saved in display.json, outside application files. */
+:root {
+  --display-width: 1120px;
+  --entry-primary: #123d86;
+  --entry-secondary: #2463a8;
+  --entry-tertiary: #3982bb;
+  --entry-subordinate: #579bc5;
+  --file-glow-a: #dceaff;
+  --file-glow-b: #dceff2;
+  --file-glow-c: #f4f8ff;
+}
+body.dark {
+  --entry-primary: #91b9ff;
+  --entry-secondary: #77a9ed;
+  --entry-tertiary: #69a1d5;
+  --entry-subordinate: #6697bd;
+  --file-glow-a: #132540;
+  --file-glow-b: #102b36;
+  --file-glow-c: #0d1623;
+}
+.display-area {
+  position: relative;
+  box-sizing: border-box;
+  width: min(var(--display-width), calc(100% - 48px));
+  max-width: none !important;
+  margin: 24px auto !important;
+}
+.display-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 3;
+  border-radius: 8px;
+}
+.display-resizer.left {
+  left: -6px;
+}
+.display-resizer.right {
+  right: -6px;
+}
+.display-resizer:hover,
+.display-resizer:focus-visible {
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+  outline: 0;
+}
+.resizing-display,
+.resizing-display * {
+  cursor: ew-resize !important;
+  user-select: none !important;
+}
+#paper.display-area,
+#previewPaper.display-area {
+  padding: 26px 26px 50px;
+}
+#comparePanel.display-area {
+  height: calc(100% - 48px);
+  min-height: 240px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+  overflow: visible;
+  box-shadow: var(--shadow);
+}
+#comparePanel #diffScroll {
+  border-radius: 0 0 9px 9px;
+}
+#comparePanel .comparison-head {
+  border-radius: 9px 9px 0 0;
+}
+body[data-page="compare"] {
+  --checker: #edf1f7;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(45deg, var(--checker) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker) 75%);
+  background-size: 24px 24px;
+  background-position:
+    0 0,
+    0 12px,
+    12px -12px,
+    -12px 0;
+}
+body.dark[data-page="compare"] {
+  --checker: #18212d;
+}
+.heading.h1 .content {
+  font-size: 18pt;
+  color: var(--entry-primary);
+}
+.heading.h2 .content {
+  font-size: 16pt;
+  color: var(--entry-secondary);
+}
+.heading.h3 .content {
+  font-size: 14pt;
+  color: var(--entry-tertiary);
+}
+.heading:is(.h4, .h5, .h6) .content {
+  font-size: 14pt;
+  color: var(--entry-subordinate);
+}
+.row-leading {
+  align-self: center;
+  align-items: center;
+  padding-top: 0;
+  gap: 6px;
+}
+.row-leading .marker {
+  font-size: 20px;
+  min-width: 32px;
+  line-height: 1.2;
+}
+.row-leading .fold,
+.row-leading .fold-spacer {
+  width: 30px;
+  min-width: 30px;
+  font-size: 30px;
+}
+.row .drag-handle {
+  font-size: 28px;
+  width: 24px;
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.row-controls {
+  align-self: center;
+}
+.row-controls :is(.add-heading, .eye, .remove).button-frameless {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  height: 28px;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.row-controls .button-frameless::before {
+  display: none;
+}
+.row-controls .button-frameless[aria-pressed="true"] {
+  color: var(--blue);
+  background: var(--hover);
+}
+/* General controls use the same restrained outline as the numeric size input. */
+.button-standard.一般按钮样式 {
+  border: 1px solid var(--line);
+}
+.dropdown-trigger {
+  border: 1px dashed var(--line);
+  border-image: none;
+}
+/* A repeated SVG stroke provides longer dashes than platform-dependent CSS dashed. */
+.select-shell {
+  border-radius: 7px;
+}
+.dropdown-trigger:not(:focus-visible):not([aria-expanded="true"]) {
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Crect x='.6' y='.6' width='198.8' height='38.8' rx='6' fill='none' stroke='%23a6b6ce' stroke-width='1' stroke-dasharray='12 7'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+body.dark .dropdown-trigger:not(:focus-visible):not([aria-expanded="true"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Crect x='.6' y='.6' width='198.8' height='38.8' rx='6' fill='none' stroke='%23455c79' stroke-width='1' stroke-dasharray='12 7'/%3E%3C/svg%3E");
+}
+.window-header > button:not(#editorTab):not(#copy),
+.window-header .dropdown-trigger {
+  height: 24px;
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.window-header .select-shell {
+  height: 24px;
+}
+.window-header .separator {
+  height: 18px;
+}
+.window-header [role="tab"],
+.window-controls #settingsTab {
+  position: relative;
+  overflow: visible;
+}
+.window-header [role="tab"]:not(#editorTab)::after,
+.window-controls #settingsTab::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: calc(50% - 10px);
+  width: 20px;
+  height: 9px;
+  background: var(--blue);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 9'%3E%3Cpath d='M0 0H20C15 0 13 9 10 9S5 0 0 0'/%3E%3C/svg%3E")
+    center/100% 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 9'%3E%3Cpath d='M0 0H20C15 0 13 9 10 9S5 0 0 0'/%3E%3C/svg%3E")
+    center/100% 100%;
+  transform: scaleY(0);
+  transform-origin: top;
+  opacity: 0;
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+  pointer-events: none;
+}
+.window-header [role="tab"][aria-selected="true"]::after,
+.window-controls #settingsTab[aria-selected="true"]::after {
+  transform: scaleY(1);
+  opacity: 1;
+}
+.window-controls #settingsTab {
+  width: 31px;
+  height: 27px;
+  min-height: 27px;
+  padding: 0;
+  margin-right: 7px;
+}
+.window-controls #settingsTab svg {
+  width: 24px;
+  height: 24px;
+}
+.window-controls #theme {
+  width: 42px;
+  height: 24px;
+  min-height: 24px;
+  margin-right: 10px;
+}
+.window-controls .theme-toggle {
+  width: 23px;
+  height: 18px;
+  top: 3px;
+  left: 3px;
+}
+.window-controls #theme[aria-checked="true"] .theme-toggle {
+  left: 16px;
+}
+.brand-wordmark {
+  width: 80px;
+  height: 39px;
+  display: block;
+}
+#editorTab.brand.LOGO按钮样式 {
+  padding: 0 8px 0 4px;
+  gap: 3px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+/* Attachment gallery floats within the editing view, above its paper. */
+#editorPanel {
+  padding-top: 79px;
+}
+#attachmentGallery {
+  position: fixed;
+  top: calc(var(--app-header-height) + 12px);
+  left: calc(50% + var(--app-bar-sidebar-width) / 2);
+  transform: translateX(-50%);
+  width: min(
+    var(--display-width),
+    calc(100vw - var(--app-bar-sidebar-width) - 48px)
+  );
+  height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 5px 22px #203c5d12;
+  z-index: 6;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#attachmentGallery[hidden] {
+  display: none;
+}
+.attachment-add {
+  flex: 0 0 38px;
+  height: 40px;
+  font-size: 25px;
+}
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  max-width: 240px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: var(--hover);
+  font-size: 12px;
+}
+.attachment-card img {
+  width: 44px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.attachment-card > span:not(.attachment-kind) {
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.attachment-kind {
+  font: 20px monospace;
+  color: var(--blue);
+}
+.attachment-remove {
+  font-size: 16px;
+  min-height: 24px;
+}
+/* File view: a cool, restrained version of ariba_9087's rotating gradient. */
+body[data-page="library"] {
+  background: linear-gradient(135deg, var(--file-glow-c), var(--file-glow-a));
+}
+body[data-page="library"]::before,
+body[data-page="library"]::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  inset: -40%;
+  background: conic-gradient(
+    from 0deg,
+    var(--file-glow-a),
+    var(--file-glow-b),
+    var(--file-glow-c),
+    var(--file-glow-a)
+  );
+  filter: blur(50px);
+  opacity: 0.55;
+  animation: file-atmosphere 24s linear infinite;
+}
+body[data-page="library"]::after {
+  animation-direction: reverse;
+  animation-duration: 32s;
+  opacity: 0.3;
+}
+@keyframes file-atmosphere {
+  to {
+    transform: rotate(360deg);
+  }
+}
+#libraryPanel {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+#libraryGroups {
+  position: fixed;
+  left: 0;
+  top: var(--app-header-height);
+  bottom: 30px;
+  width: 172px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  margin: 0;
+  padding: 14px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+#libraryGroups .groups-heading {
+  font-size: 14px;
+}
+#libraryGroups button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 5px;
+}
+body[data-page="library"] .workspace > main {
+  margin-left: 172px;
+}
+#libraryDisplay {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 148px 24px 24px;
+  min-height: calc(100% - 48px);
+}
+#libraryForm {
+  position: fixed;
+  top: calc(var(--app-header-height) + 24px);
+  width: min(calc(var(--display-width) - 50px), calc(100vw - 270px));
+  box-sizing: border-box;
+  margin: 0;
+  padding: 15px 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--paper);
+  z-index: 4;
+}
+#libraryForm h2 {
+  margin: 0 0 12px;
+}
+.library-create-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#libraryNameLabel {
+  flex: 1;
+  min-width: 90px;
+}
+#libraryName {
+  width: 100%;
+}
+#chosenLocation {
+  display: block;
+  font-size: 11px;
+  margin-top: 9px;
+}
+.set-list-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.set-name-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.set-name-line .set-name {
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.set-actions {
+  flex-shrink: 0;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.set-actions button {
+  padding: 5px 8px;
+}
+@media (max-width: 780px) {
+  .set-name-line {
+    flex-wrap: wrap;
+  }
+  .set-name-line .set-name {
+    max-width: 100%;
+  }
+  .set-actions {
+    flex-wrap: wrap;
+  }
+  .library-create-row {
+    flex-wrap: wrap;
+  }
+  #libraryDisplay {
+    padding-top: 190px;
+  }
+  #libraryGroups {
+    width: 120px;
+  }
+  body[data-page="library"] .workspace > main {
+    margin-left: 120px;
+  }
+  #libraryForm {
+    width: calc(100vw - 216px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-page="library"]::before,
+  body[data-page="library"]::after {
+    animation: none;
+  }
+  [role="tab"]::after {
+    transition: none !important;
+  }
+}
+
+.workspace #compareToolbar.toolbar {
+  padding: 8px 6px 14px;
+}
+
+/* Keep the fixed attachment ribbon inside the white editing surface. */
+#editorPanel {
+  padding-top: 0;
+}
+#paper.display-area {
+  padding-top: 106px;
+}
+#attachmentGallery {
+  top: calc(var(--app-header-height) + 36px);
+  width: min(
+    calc(var(--display-width) - 26px),
+    calc(100vw - var(--app-bar-sidebar-width) - 74px)
+  );
+}

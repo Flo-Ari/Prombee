@@ -217,8 +217,11 @@ export function createLibraryUI({
       const row = el("div", undefined, "set-row"),
         info = el("div", undefined, "set-info"),
         name = el("button", s.name, "set-name");
-      name.title = "打开词集";
-      name.onclick = run(() => act({ action: "activateSet", id: s.id }, true));
+      name.title = "点击重命名词集";
+      name.onclick = () =>
+        editName(line, s.name, (name) =>
+          act({ action: "renameSet", id: s.id, name }),
+        );
       info.append(name, el("small", s.path));
       const actions = el("div", undefined, "set-actions"),
         group = el("button", "分组", "assign-group");
@@ -230,16 +233,28 @@ export function createLibraryUI({
             () => act({ action: "assignGroup", id: s.id, groupId: g.id }),
           ]),
         );
-      const rename = el("button", "重命名");
-      rename.onclick = () =>
-        editName(info, s.name, (name) =>
-          act({ action: "renameSet", id: s.id, name }),
-        );
+      const jump = el("button", "跳转");
+      jump.title = "打开这个词集并返回编写";
+      jump.onclick = run(() => act({ action: "activateSet", id: s.id }, true));
+      const saveAs = el("button", "另存为");
+      saveAs.title = "在所选位置保存一份独立的 TXT 副本";
+      saveAs.onclick = run(async () => {
+        await beforeAction();
+        const value = await request("/api/picker", {
+          kind: "save",
+          initial: s.path.replace(/[^/\\]+$/, ""),
+        });
+        if (value.path)
+          await act({ action: "saveAsSet", id: s.id, path: value.path });
+      });
       const remove = el("button", "删除");
       remove.title = "从词集管理移除，保留 TXT 文件";
       remove.onclick = run(() => act({ action: "deleteSet", id: s.id }));
-      actions.append(group, rename, remove);
-      row.append(info, actions);
+      actions.append(group, jump, saveAs, remove);
+      const line = el("div", undefined, "set-name-line");
+      line.append(name, actions);
+      info.prepend(line);
+      row.append(info);
       $("setsList").append(row);
     }
     if (!$("setsList").children.length)

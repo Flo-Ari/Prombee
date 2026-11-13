@@ -16,7 +16,7 @@ function dom() {
 test("settings use the logo as editor, an icon gear and nested toolbar tabs", () => {
   const $ = dom();
   assert.ok($("editorTab").querySelector("img"));
-  assert.ok($("editorTab").querySelector("strong[data-app-name]"));
+  assert.ok($("editorTab").querySelector("[data-app-name]"));
   assert.equal($("settingsTab").textContent.trim(), "");
   assert.equal($("settingsTab").nextElementSibling, $("theme"));
   assert.equal($("shortcutsTab").parentElement, $("settingsToolbar"));

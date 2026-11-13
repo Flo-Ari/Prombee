@@ -14,7 +14,7 @@ class WindowsFloating:
         self.window,self.close=window,close
         self.preferences=FloatingPreferences(data)
         self.background=False;self.hidden_by_user=False;self.focus_seen=False;self.was_foreground=False;self.focus_suspended=False
-        self.completed_switches=0;self.mode='editor';self.ready=False;self.orb_rect=None
+        self.completed_switches=0;self.mode='editor';self.ready=False;self.orb_rect=self.preferences.position
         self.lock=threading.RLock();self.stop=threading.Event();self.allow_close=False
         owner=self
         class Api:
@@ -72,7 +72,7 @@ class WindowsFloating:
 
     def dismiss_background(self):
         with self.lock:
-            self.orb_rect=self.rect(self.orb);self.mode='editor';self.background=False
+            self.orb_rect=self.rect(self.orb);self.preferences.save_position(self.orb_rect);self.mode='editor';self.background=False
             self.orb.hide();self.emit('pause')
 
     def command(self,msg):
@@ -151,9 +151,10 @@ class WindowsFloating:
     def open(self):
         with self.lock:
             if self.mode!='orb':return
-            self.orb_rect=self.rect(self.orb);self.mode='editor';self.background=False;self.completed_switches+=1
+            self.orb_rect=self.rect(self.orb);self.preferences.save_position(self.orb_rect);self.mode='editor';self.background=False;self.completed_switches+=1
             self.window.show();self.orb.hide();self.emit('pause')
 
     def hide(self):
+        if self.mode=='orb':self.orb_rect=self.rect(self.orb);self.preferences.save_position(self.orb_rect)
         self.hidden_by_user=True;self.background=False
         self.orb.hide();self.emit('pause');self.window.show();self.window.minimize();self.mode='editor'

@@ -137,4 +137,15 @@ class LibraryTests(unittest.TestCase):
         self.library.save({'state':state,'setId':entry['id'],'baseRevision':restored['revision'],'baseFingerprint':restored['fingerprint']})
         self.assertEqual(Library(ROOT,self.data,valid).load()['state'],state)
 
+
+    def test_save_as_keeps_original_and_reopens_a_standalone_copy_without_overwrite(self):
+        old=self.library.load();original=Path(old['set']['path']);before=original.read_bytes()
+        target=self.data/'独立副本.txt'
+        registry=self.library.action({'action':'saveAsSet','id':old['set']['id'],'path':str(target)})
+        copied=next(s for s in registry['sets'] if s['path']==str(target))
+        self.assertEqual(self.library.load(copied['id'])['state'],old['state'])
+        self.assertEqual(original.read_bytes(),before)
+        self.assertEqual(registry['active'],old['set']['id'])
+        with self.assertRaises(FileExistsError):self.library.action({'action':'saveAsSet','id':old['set']['id'],'path':str(target)})
+
 if __name__=='__main__':unittest.main()

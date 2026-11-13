@@ -87,3 +87,12 @@ test("IME committed Chinese punctuation is completed after composition, never du
   assert.equal(el.textContent, "（）");
   assert.equal(offset(), 1);
 });
+
+test('IME-alternated Chinese closing quotes start a fresh pair outside existing quotes',async()=>{
+ enabled=true;el.textContent='“完成”';caret();type('”');
+ assert.equal(el.textContent,'“完成”“”');assert.equal(offset(),5);
+ type('”');assert.equal(el.textContent,'“完成”“”');assert.equal(offset(),6);
+ // Composition commits can bypass insertText; normalize the already inserted glyph too.
+ el.textContent='“完成””';caret();el.dispatchEvent(new window.CompositionEvent('compositionend',{data:'”'}));await Promise.resolve();
+ assert.equal(el.textContent,'“完成”“”');assert.equal(offset(),5);
+});

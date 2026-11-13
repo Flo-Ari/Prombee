@@ -299,6 +299,14 @@ class Library:
                             raise
                         journal.unlink(missing_ok=True)
                     return registry
+            elif action == 'saveAsSet':
+                source=self.find(registry,request.get('id'))
+                package=self.read_entry(source)
+                target=Path(request.get('path','')).expanduser()
+                if not request.get('path') or not target.parent.is_dir():raise ValueError('请选择保存位置')
+                if target.suffix.lower()!='.txt':target=target.with_name(target.name+'.txt')
+                with target.open('x',encoding='utf-8',newline='\n') as output:output.write(encode_workspace(package['state'],package['revision']))
+                registry['sets'].append(self.entry(target,source.get('groupId','ungrouped')))
             elif action == 'assignGroup':
                 entry = self.find(registry, request.get('id'))
                 entry['groupId'] = self.group_id(registry, request.get('groupId'))

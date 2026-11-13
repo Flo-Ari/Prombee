@@ -5,13 +5,13 @@ import subprocess
 
 
 def choose_path(kind, initial=''):
-    title = '选择保存位置' if kind == 'folder' else '打开 TXT 词集'
+    title = {'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为'}[kind]
     if shutil.which('zenity'):
         args = ['zenity', '--file-selection', '--title=' + title]
-        args += ['--directory'] if kind == 'folder' else ['--file-filter=TXT | *.txt *.TXT']
+        args += ['--directory'] if kind == 'folder' else ['--save'] if kind=='save' else ['--file-filter=TXT | *.txt *.TXT'] if kind=='file' else []
         if initial and Path(initial).is_dir(): args += ['--filename=' + str(Path(initial).resolve()) + '/']
     elif shutil.which('kdialog'):
-        args = ['kdialog', '--getexistingdirectory' if kind == 'folder' else '--getopenfilename', initial or str(Path.home())]
+        args = ['kdialog', '--getexistingdirectory' if kind == 'folder' else '--getsavefilename' if kind=='save' else '--getopenfilename', initial or str(Path.home())]
         if kind == 'file': args += ['*.txt|TXT']
         args += ['--title', title]
     else:

@@ -126,7 +126,7 @@ class GtkFloating:
         self.menu_open=False;self.drag_press=None;self.drag_started=False;self.last_cursor=None
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
-        self.completed_switches=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=None
+        self.completed_switches=0;self.mode='editor';self.ready=False;self.pending=False;self.orb_rect=self.preferences.position
         self.x=XDesktop()
         self.orb=Gtk.Window(title=app_name())
         app.add_window(self.orb)
@@ -190,6 +190,7 @@ class GtkFloating:
 
     def dismiss_background(self):
         self.orb_rect=self.x.position(self.orb)
+        self.preferences.save_position(self.orb_rect)
         self.mode='editor';self.background=False
         self.orb.set_visible(False);self.emit('pause')
 
@@ -221,6 +222,7 @@ class GtkFloating:
             self.emit('frame')
         if self.mode=='orb':
             x,y=self.x.cursor(self.orb.get_scale_factor());r=self.x.position(self.orb)
+            self.orb_rect=r
             cursor=(x-r[0],y-r[1])
             if cursor!=self.last_cursor:
                 self.last_cursor=cursor;self.emit('cursor',dict(x=cursor[0],y=cursor[1]))
@@ -310,10 +312,12 @@ class GtkFloating:
             if self.mode=='editor':self.window.present()
             return
         self.menu_open=False;self.orb_rect=self.x.position(self.orb)
+        self.preferences.save_position(self.orb_rect)
         self.mode='editor';self.background=False;self.completed_switches+=1
         self.window.unminimize();self.window.present()
         self.orb.set_visible(False);self.emit('pause')
 
     def hide(self):
+        if self.mode=='orb':self.orb_rect=self.x.position(self.orb);self.preferences.save_position(self.orb_rect)
         self.menu_open=False;self.hidden_by_user=True;self.mode='hidden'
         self.orb.set_visible(False);self.emit('pause');self.window.present();self.window.minimize();return True

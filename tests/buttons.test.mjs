@@ -23,7 +23,7 @@ test("named styles preserve labels, native window controls and dynamically creat
   eye.setAttribute("aria-pressed", "true");
   document.body.append(eye);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.ok(eye.classList.contains("状态类样式"));
-  assert.ok(eye.classList.contains("compact-state"));
+  assert.ok(eye.classList.contains("无框按钮样式"));
+  assert.equal(eye.getAttribute("aria-pressed"),"true");
   disconnect();
 });

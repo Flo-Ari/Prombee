@@ -46,6 +46,11 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
     from .skills import SkillCatalog
     skills = SkillCatalog()
 
+    from .attachments import Attachments
+    from .display import DisplayPreferences
+    attachments=Attachments(data_dir)
+    display=DisplayPreferences(data_dir)
+
     class Handler(BaseHTTPRequestHandler):
         def send(self,status,data,kind='application/json; charset=utf-8'):
             self.send_response(status)
@@ -63,7 +68,30 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
 
         def do_GET(self):
             path=unquote(urlsplit(self.path).path)
-            if path == '/api/floating':
+            if path == '/api/display':
+                self.json(200,display.load())
+            elif path.startswith('/api/attachments/'):
+                try:
+                    entry=attachments.get(path.rsplit('/',1)[-1]);file=Path(entry['path']);size=file.stat().st_size
+                    start,end=0,size-1
+                    import re
+                    header=self.headers.get('Range','')
+                    if header:
+                        match=re.fullmatch(r'bytes=(\d+)-(\d*)',header)
+                        if not match:raise ValueError('附件范围无效')
+                        start=int(match[1]);end=min(size-1,int(match[2]) if match[2] else size-1)
+                        if not 0<=start<=end<size:raise ValueError('附件范围无效')
+                    self.send_response(206 if header else 200);self.send_header('Content-Type',entry['type']);self.send_header('X-Content-Type-Options','nosniff');self.send_header('Accept-Ranges','bytes');self.send_header('Content-Security-Policy',"default-src 'none'; sandbox");self.send_header('Content-Length',str(max(0,end-start+1)))
+                    if header:self.send_header('Content-Range',f'bytes {start}-{end}/{size}')
+                    self.end_headers()
+                    with file.open('rb') as stream:
+                        stream.seek(start);remaining=end-start+1
+                        while remaining>0:
+                            chunk=stream.read(min(1024*1024,remaining))
+                            if not chunk:break
+                            self.wfile.write(chunk);remaining-=len(chunk)
+                except (ValueError,OSError) as error:self.json(404,{'error':str(error)})
+            elif path == '/api/floating':
                 self.json(200, floating.reload())
             elif path == '/api/other':
                 try:self.json(200, other.load() if urlsplit(self.path).query == 'preferences=1' else other.snapshot())
@@ -93,7 +121,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/dropdowns.js','/dropdowns.css','/formatting.js','/entry-navigation.js','/pairs.js','/rounds.js','/skill-completion.js','/entry-metrics.js','/edge-surfaces.css','/entry-selection.js','/hit-regions.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/dropdowns.js','/dropdowns.css','/formatting.js','/entry-navigation.js','/pairs.js','/rounds.js','/skill-completion.js','/entry-metrics.js','/edge-surfaces.css','/entry-selection.js','/attachments.js','/display.js','/punctuation.js','/release-012.css','/wordmark.svg','/hit-regions.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -101,7 +129,17 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 self.json(404,dict(error='Not found'))
 
         def do_PUT(self):
-            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker', '/api/update', '/api/other', '/api/floating'):
+            if urlsplit(self.path).path=='/api/attachments/upload':
+                origin=self.headers.get('Origin')
+                if origin and origin!=f'http://{self.headers.get("Host")}':self.json(403,{'error':'Origin rejected'});return
+                try:
+                    from urllib.parse import parse_qs
+                    name=parse_qs(urlsplit(self.path).query).get('name',['附件'])[0]
+                    entry=attachments.add(name,self.rfile,int(self.headers.get('Content-Length',-1)))
+                    self.json(200,entry)
+                except (ValueError,OSError) as error:self.json(400,{'error':str(error)})
+                return
+            if self.path not in ('/api/state', '/api/library', '/api/speech', '/api/shortcuts', '/api/picker', '/api/update', '/api/other', '/api/floating','/api/attachments','/api/display','/api/reset'):
                 self.json(404,dict(error='Not found'));return
             origin=self.headers.get('Origin')
             if origin and origin!=f'http://{self.headers.get("Host")}':
@@ -111,7 +149,26 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if not 0 < length <= 20*1024*1024:
                     self.json(413,dict(error='Workspace too large'));return
                 payload=json.loads(self.rfile.read(length))
-                if self.path == '/api/floating':
+                if self.path == '/api/display':result=display.save(payload)
+                elif self.path == '/api/attachments':
+                    if payload.get('action')=='paths':
+                        paths=payload.get('paths',[])
+                        if not isinstance(paths,list) or len(paths)>100 or any(not isinstance(p,str) for p in paths):raise ValueError('附件列表无效')
+                        result={'attachments':[attachments.import_file(p) for p in paths]}
+                    elif payload.get('action')=='pick':
+                        from .picker import choose_path
+                        path=getattr(self.server,'pick_path',choose_path)('attachment','')
+                        result={'attachment':attachments.import_file(path) if path else None}
+                    else:raise ValueError('附件操作无效')
+                elif self.path == '/api/reset':
+                    if payload.get('confirm') is not True:raise ValueError('请先确认清除')
+                    with library.transaction():
+                        library.write_registry({'version':2,'active':None,'sets':[],'groups':[{'id':'ungrouped','name':'未分组','pinned':False}]})
+                        for name in ['other.json','shortcuts.json','floating.json','display.json']:(data_dir/name).unlink(missing_ok=True)
+                    callback=getattr(self.server,'floating_changed',None)
+                    if callback:callback()
+                    result={'ok':True}
+                elif self.path == '/api/floating':
                     result = floating.set_orb_enabled(payload.get('enabled'))
                     callback = getattr(self.server, 'floating_changed', None)
                     if callback: callback()
@@ -129,7 +186,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                     result = updater.action(payload.get('action'))
                 elif self.path == '/api/picker':
                     kind = payload.get('kind')
-                    if kind not in ('folder', 'file'): raise ValueError('文件选择类型无效')
+                    if kind not in ('folder', 'file', 'attachment', 'save'): raise ValueError('文件选择类型无效')
                     initial = payload.get('initial', '')
                     if not isinstance(initial, str): raise ValueError('文件位置无效')
                     from .picker import choose_path
@@ -157,6 +214,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             pass
 
     server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
+    server.attachments = attachments
     server.speech = speech
     server.other = other
     server.daemon_threads=True

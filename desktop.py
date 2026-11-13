@@ -74,6 +74,8 @@ def main():
             manager=self.web.get_user_content_manager()
             manager.register_script_message_handler('clipboardWrite',None)
             manager.connect('script-message-received::clipboardWrite',self.clipboard_write)
+            manager.register_script_message_handler('clipboardFiles',None)
+            manager.connect('script-message-received::clipboardFiles',self.clipboard_files)
             manager.register_script_message_handler('clipboard',None)
             manager.connect('script-message-received::clipboard',lambda m,value:Gdk.Display.get_default().get_clipboard().set(value.to_string()))
             manager.register_script_message_handler('theme',None)
@@ -118,8 +120,8 @@ def main():
                 cancellable = Gio.Cancellable()
                 self.file_picker_cancel = cancellable
                 if not hasattr(Gtk, 'FileDialog'):
-                    chooser = Gtk.FileChooserNative.new('选择保存位置' if kind == 'folder' else '打开 TXT 词集', self.window,
-                        Gtk.FileChooserAction.SELECT_FOLDER if kind == 'folder' else Gtk.FileChooserAction.OPEN, '选择', '取消')
+                    chooser = Gtk.FileChooserNative.new({'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为'}[kind], self.window,
+                        Gtk.FileChooserAction.SELECT_FOLDER if kind == 'folder' else Gtk.FileChooserAction.SAVE if kind=='save' else Gtk.FileChooserAction.OPEN, '保存' if kind=='save' else '选择', '取消')
                     if initial and Path(initial).is_dir(): chooser.set_current_folder(Gio.File.new_for_path(initial))
                     if kind == 'file':
                         file_filter=Gtk.FileFilter();file_filter.set_name('TXT');file_filter.add_pattern('*.txt');file_filter.add_pattern('*.TXT');chooser.add_filter(file_filter)
@@ -134,7 +136,7 @@ def main():
                     chooser.show()
                     return False
                 dialog = Gtk.FileDialog()
-                dialog.set_title('选择保存位置' if kind == 'folder' else '打开 TXT 词集')
+                dialog.set_title({'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为'}[kind])
                 if initial and Path(initial).is_dir(): dialog.set_initial_folder(Gio.File.new_for_path(initial))
                 if kind == 'file':
                     filters = Gio.ListStore.new(Gtk.FileFilter)
@@ -142,7 +144,7 @@ def main():
                     filters.append(file_filter);dialog.set_filters(filters)
                 def done(dialog, response, _):
                     try:
-                        selected = dialog.select_folder_finish(response) if kind == 'folder' else dialog.open_finish(response)
+                        selected = dialog.select_folder_finish(response) if kind == 'folder' else dialog.save_finish(response) if kind=='save' else dialog.open_finish(response)
                         result['path'] = selected.get_path() if selected else None
                     except GLib.Error as error:
                         if error.matches(Gtk.dialog_error_quark(), Gtk.DialogError.DISMISSED) or error.matches(Gtk.dialog_error_quark(), Gtk.DialogError.CANCELLED): result['path'] = None
@@ -152,6 +154,7 @@ def main():
                         finished.set()
                 try:
                     if kind == 'folder': dialog.select_folder(self.window, cancellable, done, None)
+                    elif kind=='save':dialog.save(self.window,cancellable,done,None)
                     else: dialog.open(self.window, cancellable, done, None)
                 except Exception as error:
                     result['error'] = str(error);finished.set()
@@ -166,10 +169,39 @@ def main():
             if 'error' in result: raise ValueError(result['error'])
             return result.get('path')
 
+        def clipboard_files(self,manager,value):
+            request=json.loads(value.to_string());clipboard=Gdk.Display.get_default().get_clipboard()
+            def answer(paths):
+                response=json.dumps({'id':request['id'],'paths':paths})
+                self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard-files',{detail:"+response+"}))",-1,None,None,None,None,None)
+            if not clipboard.get_formats().contain_mime_type('text/uri-list'):answer([]);return
+            def done(clipboard,result,_):
+                try:
+                    stream,mime=clipboard.read_finish(result)
+                    try:raw=stream.read_bytes(256*1024,None).get_data().decode('utf-8')
+                    finally:stream.close(None)
+                    paths=[]
+                    for uri in raw.splitlines():
+                        if uri.startswith('file:'):
+                            path=Gio.File.new_for_uri(uri).get_path()
+                            if path and Path(path).is_file():paths.append(path)
+                    answer(paths)
+                except Exception:answer([])
+            clipboard.read_async(['text/uri-list'],GLib.PRIORITY_DEFAULT,None,done,None)
+
         def clipboard_write(self,manager,value):
             request=json.loads(value.to_string())
             ok=True
-            try:Gdk.Display.get_default().get_clipboard().set(request['text'])
+            try:
+                paths=server.attachments.paths(request.get('files',[]))
+                if paths:
+                    uris=[Path(path).as_uri() for path in paths]
+                    providers=[Gdk.ContentProvider.new_for_bytes('text/plain;charset=utf-8',GLib.Bytes.new(request['text'].encode('utf-8'))),Gdk.ContentProvider.new_for_bytes('text/uri-list',GLib.Bytes.new(('\r\n'.join(uris)+'\r\n').encode())),Gdk.ContentProvider.new_for_bytes('x-special/gnome-copied-files',GLib.Bytes.new(('copy\n'+'\n'.join(uris)).encode()))]
+                    for path in paths:
+                        if Path(path).suffix.lower()=='.png':providers.append(Gdk.ContentProvider.new_for_bytes('image/png',GLib.Bytes.new(Path(path).read_bytes())));break
+                    self.clipboard_provider=Gdk.ContentProvider.new_union(providers)
+                    Gdk.Display.get_default().get_clipboard().set_content(self.clipboard_provider)
+                else:Gdk.Display.get_default().get_clipboard().set(request['text'])
             except Exception:ok=False
             response=json.dumps({'id':request['id'],'ok':ok})
             self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard',{detail:"+response+"}))",-1,None,None,None,None,None)

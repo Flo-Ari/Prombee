@@ -25,7 +25,17 @@ export function mountButtonStyles(root = document) {
         return;
       const kind =
         element.closest(".window-controls") ||
-        ["undo", "redo", "settingsTab"].includes(element.id)
+        [
+          "undo",
+          "redo",
+          "settingsTab",
+          "newDoc",
+          "deleteRound",
+          "newGroup",
+        ].includes(element.id) ||
+        element.matches(
+          ".add-heading,.eye,.remove,.group-menu,.group-name,.library-popover button,.attachment-add,.attachment-remove",
+        )
           ? "frameless"
           : element.id === "editorTab"
             ? "logo"

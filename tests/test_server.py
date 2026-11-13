@@ -120,4 +120,23 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:urlopen(request)
         self.assertEqual(error.exception.code,400);error.exception.close()
 
+    def test_attachment_upload_and_range_are_same_origin_and_registered_only(self):
+        request=Request(self.url+'/api/attachments/upload?name=fixture.txt',data=b'abcdef',headers={'Content-Type':'application/octet-stream'},method='POST')
+        with urlopen(request) as r:asset=json.load(r)
+        with urlopen(Request(self.url+'/api/attachments/'+asset['id'],headers={'Range':'bytes=1-3'})) as r:
+            self.assertEqual(r.status,206);self.assertEqual(r.read(),b'bcd');self.assertEqual(r.headers['Content-Range'],'bytes 1-3/6')
+        with self.assertRaises(HTTPError):urlopen(self.url+'/api/attachments/not-registered')
+        request=Request(self.url+'/api/attachments/upload?name=x',data=b'x',headers={'Origin':'https://foreign.example'},method='POST')
+        with self.assertRaises(HTTPError):urlopen(request)
+
+    def test_reset_clears_device_settings_and_registry_but_preserves_prompt_and_assets(self):
+        before=self.read();prompt=Path(before['set']['path']);raw=prompt.read_bytes()
+        request=Request(self.url+'/api/display',data=b'{"width":1440}',headers={'Content-Type':'application/json'},method='POST')
+        with urlopen(request) as r:self.assertEqual(json.load(r)['width'],1440)
+        request=Request(self.url+'/api/reset',data=b'{"confirm":true}',headers={'Content-Type':'application/json'},method='POST')
+        with urlopen(request) as r:self.assertTrue(json.load(r)['ok'])
+        self.assertEqual(prompt.read_bytes(),raw)
+        with urlopen(self.url+'/api/library') as r:self.assertEqual(json.load(r)['sets'],[])
+        with urlopen(self.url+'/api/display') as r:self.assertEqual(json.load(r)['width'],1120)
+
 if __name__=='__main__':unittest.main()

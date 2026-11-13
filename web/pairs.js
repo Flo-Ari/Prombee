@@ -18,6 +18,13 @@ const PAIRS = new Map(
     "〈": "〉",
   }),
 );
+const QUOTE_OPEN = { "”": "“", "’": "‘" };
+function unmatched(text, open, close) {
+  return [...text].reduce(
+    (n, c) => (c === open ? n + 1 : c === close ? Math.max(0, n - 1) : n),
+    0,
+  );
+}
 export function bindPairs(el, enabled) {
   const selection = () => {
     const s = window.getSelection();
@@ -79,11 +86,13 @@ export function bindPairs(el, enabled) {
       s.addRange(r);
       return;
     }
-    const close = PAIRS.get(c);
+    const normalized =
+      QUOTE_OPEN[c] && !unmatched(before, QUOTE_OPEN[c], c) ? QUOTE_OPEN[c] : c;
+    const close = PAIRS.get(normalized);
     if (!close) return;
     event.preventDefault();
     const selected = r.extractContents(),
-      open = document.createTextNode(c),
+      open = document.createTextNode(normalized),
       end = document.createTextNode(close),
       fragment = document.createDocumentFragment();
     fragment.append(open, selected, end);
@@ -95,15 +104,65 @@ export function bindPairs(el, enabled) {
     changed();
   });
   el.addEventListener("compositionend", (event) => {
-    if (!enabled() || event.data?.length !== 1 || !PAIRS.has(event.data))
+    const c = event.data;
+    if (!enabled() || c?.length !== 1 || (!PAIRS.has(c) && !QUOTE_OPEN[c]))
       return;
     queueMicrotask(() => {
       const s = selection();
       if (!s?.isCollapsed) return;
       const r = s.getRangeAt(0),
-        [before, after] = around(r),
-        close = PAIRS.get(event.data);
-      if (!before.endsWith(event.data) || after.startsWith(close)) return;
+        [before, after] = around(r);
+      if (!before.endsWith(c)) return;
+      const quote = QUOTE_OPEN[c];
+      if (
+        quote &&
+        (after.startsWith(c) || !unmatched(before.slice(0, -1), quote, c))
+      ) {
+        const walker = document.createTreeWalker(
+          el,
+          window.NodeFilter.SHOW_TEXT,
+        );
+        let offset = before.length - 1,
+          t,
+          start;
+        while ((t = walker.nextNode())) {
+          if (offset < t.length) {
+            start = [t, offset];
+            break;
+          }
+          offset -= t.length;
+        }
+        if (!start) return;
+        r.setStart(...start);
+        r.deleteContents();
+        if (after.startsWith(c)) {
+          const remaining = document.createTreeWalker(
+            el,
+            window.NodeFilter.SHOW_TEXT,
+          );
+          let count = before.length,
+            node;
+          while ((node = remaining.nextNode())) {
+            if (count <= node.length) {
+              r.setStart(node, count);
+              break;
+            }
+            count -= node.length;
+          }
+          r.collapse(true);
+        } else {
+          const value = document.createTextNode(quote + c);
+          r.insertNode(value);
+          r.setStart(value, 1);
+          r.collapse(true);
+        }
+        s.removeAllRanges();
+        s.addRange(r);
+        changed();
+        return;
+      }
+      const close = PAIRS.get(c);
+      if (!close || after.startsWith(close)) return;
       const end = document.createTextNode(close);
       r.insertNode(end);
       r.setStartBefore(end);

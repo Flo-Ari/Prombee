@@ -15,7 +15,7 @@ from prombee.server import start_server
 from prombee.branding import app_name, ui_language
 
 
-def clipboard_text(text=None):
+def clipboard_text(text=None,paths=None):
     """Read/write Unicode clipboard text using the Win32 clipboard API."""
     user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
     user32.OpenClipboard.argtypes = [wintypes.HWND]
@@ -46,22 +46,41 @@ def clipboard_text(text=None):
                 return ctypes.wstring_at(pointer)
             finally:
                 kernel32.GlobalUnlock(handle)
-        buffer = ctypes.create_unicode_buffer(str(text))
-        handle = kernel32.GlobalAlloc(0x0002, ctypes.sizeof(buffer))
-        if not handle:
-            raise ctypes.WinError()
-        pointer = kernel32.GlobalLock(handle)
-        if not pointer:
-            kernel32.GlobalFree(handle)
-            raise ctypes.WinError()
-        ctypes.memmove(pointer, buffer, ctypes.sizeof(buffer))
-        kernel32.GlobalUnlock(handle)
         user32.EmptyClipboard()
-        if not user32.SetClipboardData(13, handle):
-            kernel32.GlobalFree(handle)
-            raise ctypes.WinError()
+        def put(format_id,data):
+            handle=kernel32.GlobalAlloc(0x0002,len(data))
+            if not handle:raise ctypes.WinError()
+            pointer=kernel32.GlobalLock(handle)
+            if not pointer:kernel32.GlobalFree(handle);raise ctypes.WinError()
+            ctypes.memmove(pointer,data,len(data));kernel32.GlobalUnlock(handle)
+            if not user32.SetClipboardData(format_id,handle):kernel32.GlobalFree(handle);raise ctypes.WinError()
+        put(13,(str(text)+'\0').encode('utf-16-le'))
+        if paths:
+            import struct
+            # DROPFILES header: file list offset, POINT, fNC, fWide.
+            put(15,struct.pack('<IiiII',20,0,0,0,1)+('\0'.join(paths)+'\0\0').encode('utf-16-le'))
+            user32.RegisterClipboardFormatW.argtypes=[wintypes.LPCWSTR]
+            user32.RegisterClipboardFormatW.restype=wintypes.UINT
+            for path in paths:
+                if Path(path).suffix.lower()=='.png':put(user32.RegisterClipboardFormatW('PNG'),Path(path).read_bytes());break
     finally:
         user32.CloseClipboard()
+
+
+def clipboard_files():
+    user=ctypes.windll.user32;shell=ctypes.windll.shell32
+    user.OpenClipboard.argtypes=[wintypes.HWND];user.GetClipboardData.argtypes=[wintypes.UINT];user.GetClipboardData.restype=wintypes.HANDLE
+    shell.DragQueryFileW.argtypes=[wintypes.HANDLE,wintypes.UINT,wintypes.LPWSTR,wintypes.UINT];shell.DragQueryFileW.restype=wintypes.UINT
+    if not user.OpenClipboard(None):return []
+    try:
+        handle=user.GetClipboardData(15)
+        if not handle:return []
+        paths=[]
+        for i in range(min(100,shell.DragQueryFileW(handle,0xffffffff,None,0))):
+            length=shell.DragQueryFileW(handle,i,None,0);buffer=ctypes.create_unicode_buffer(length+1);shell.DragQueryFileW(handle,i,buffer,length+1)
+            if Path(buffer.value).is_file():paths.append(buffer.value)
+        return paths
+    finally:user.CloseClipboard()
 
 
 BRIDGE = """
@@ -92,8 +111,10 @@ def main():
     allow_close = threading.Event()
 
     class Api:
-        def clipboard(self, text):
-            clipboard_text(text)
+        def clipboard_files(self):return clipboard_files()
+
+        def clipboard(self, text, files=None):
+            clipboard_text(text,server.attachments.paths(files or []))
 
         def theme(self, dark):
             # Editor theme is shared; Windows owns the native title bar appearance.
@@ -124,8 +145,8 @@ def main():
 
     def pick_path(kind, initial=''):
         options = {'directory': initial} if initial and Path(initial).is_dir() else {}
-        if kind == 'file': options['file_types'] = ('TXT (*.txt)',)
-        selected = window.create_file_dialog(webview.FileDialog.FOLDER if kind == 'folder' else webview.FileDialog.OPEN, **options)
+        if kind in ('file','save'): options['file_types'] = ('TXT (*.txt)',)
+        selected = window.create_file_dialog(webview.FileDialog.FOLDER if kind == 'folder' else webview.FileDialog.SAVE if kind=='save' else webview.FileDialog.OPEN, **options)
         return selected[0] if selected else None
     server.pick_path = pick_path
 
@@ -170,8 +191,11 @@ def main():
             assert floating.completed_switches==2,'Native window switching did not complete both directions'
             result['floatingRoundTrip']=True
             marker = 'Prombee Windows 测试 🐝'
-            clipboard_text(marker)
+            attachment=data/'clipboard-附件.txt';attachment.write_text('fixture',encoding='utf-8')
+            clipboard_text(marker,[str(attachment.resolve())])
             assert clipboard_text() == marker, 'Unicode clipboard round trip failed'
+            assert clipboard_files()==[str(attachment.resolve())], 'File clipboard round trip failed'
+            result['attachmentClipboard']=True
             window.run_js("document.getElementById('newDoc').click(); const e=document.querySelector('.content'); e.textContent='Windows close-save 测试'; e.dispatchEvent(new Event('input',{bubbles:true}));")
             result.update(ok=True, ui=state, clipboard=True)
             window.destroy()  # Exercises close -> async save -> native close callback.

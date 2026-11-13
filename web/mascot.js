@@ -1483,7 +1483,7 @@ export function mountMascot(canvas, menu, send = () => {}) {
     }
     menu.hidden = false;
     send("menu");
-    menu.style.left = Math.max(6, Math.min(x, width - 272)) + "px";
+    menu.style.left = Math.max(6, Math.min(x, width - (menu.offsetWidth || 130) - 6)) + "px";
     menu.style.top =
       Math.max(6, Math.min(y, height - menu.offsetHeight - 6)) + "px";
     updateHitRegion(performance.now(), true);

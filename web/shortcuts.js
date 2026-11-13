@@ -11,7 +11,7 @@ export const SHORTCUT_GROUPS = [
       ["library", "文件", "Ctrl+Alt+O"],
       ["template", "模板", "Ctrl+Alt+T"],
       ["newRound", "新建一轮", "Ctrl+Shift+N"],
-      ["deleteRound", "删除本轮", ""],
+      ["deleteRound", "删除本轮", "Ctrl+Shift+D"],
       ["editor", "编写", "Ctrl+Alt+E"],
       ["compare", "历史", "Ctrl+Alt+D"],
       ["preview", "预览", "Ctrl+Alt+P"],

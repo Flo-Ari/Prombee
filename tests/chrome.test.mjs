@@ -20,7 +20,8 @@ test("unified window-header preserves control order and drags only blank space",
   assert.equal($("editorTab").nextElementSibling, $("copy"));
   assert.equal($("copy").nextElementSibling, $("template"));
   assert.ok($("commonTab").nextElementSibling.classList.contains("separator"));
-  assert.equal($("commonTab").nextElementSibling.nextElementSibling, $("settingsTab"));
+  assert.equal($("settingsTab").parentElement, $("minimizeWindow").parentElement);
+  assert.equal($("theme").nextElementSibling,$("minimizeWindow"));
   assert.equal($("settingsTab").nextElementSibling, $("theme"));
   assert.equal($("minimizeWindow").parentElement.className, "window-controls");
   for (const id of ["copy", "documents", "settingsTab", "theme"]) {

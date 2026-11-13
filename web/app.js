@@ -1,3 +1,6 @@
+import { mountAttachments } from "./attachments.js";
+import { mountDisplayWidth } from "./display.js";
+import { moveByPunctuation } from "./punctuation.js";
 import { mountSkillCompletion } from "./skill-completion.js";
 import { syncEntryMetrics } from "./entry-metrics.js";
 import { nextRoundNodes } from "./rounds.js";
@@ -47,6 +50,7 @@ const $ = (id) => document.getElementById(id);
 const bars = mountBars();
 mountButtonStyles();
 const dropdowns = mountDropdowns();
+const displayWidth = mountDisplayWidth();
 mountEntrySelection($("paper"));
 let state,
   revision = 0,
@@ -145,6 +149,8 @@ function buttons() {
   $("redo").disabled = !future.length;
 }
 function restore(snapshot) {
+  captureEditorView();
+  const caretView = editorViews.get(viewKey());
   let inverse;
   if (snapshot?.action === "restoreRound") {
     inverse = { action: "deleteRound", id: snapshot.document.id };
@@ -184,6 +190,10 @@ function restore(snapshot) {
     multi = false;
   }
   render();
+  if (!snapshot?.action && caretView) {
+    restoreEditorView(caretView);
+    if (!contentFor(caretView.active)) focus(doc().nodes[0]?.id, true);
+  }
   changed();
   return inverse;
 }
@@ -223,13 +233,15 @@ function render() {
   applyTheme();
   $("documents").replaceChildren();
   for (const d of state.documents) {
-    const o = element("option", "", d.name);
+    const o = element("option", "", d.name + (d.copied ? " ✓" : ""));
     o.value = d.id;
     $("documents").append(o);
   }
   $("documents").value = currentDoc().id;
   updatePages();
-  $("paper").replaceChildren();
+  $("paper").replaceChildren(
+    ...$("paper").querySelectorAll(":scope > .display-resizer"),
+  );
   const visibilityStates = visibility(doc().nodes);
   const folded = foldedNodes(doc().nodes);
   for (const n of doc().nodes) {
@@ -317,14 +329,23 @@ function render() {
     });
     bindPairs(content, () => otherUI.pairDelimiters());
     content.addEventListener("keydown", (e) => editKey(e, n, content));
-    content.addEventListener("paste", (e) => {
+    content.addEventListener("paste", async (e) => {
       e.preventDefault();
+      const pasteText = e.clipboardData.getData("text/plain"),
+        savedRange = window.getSelection()?.rangeCount
+          ? window.getSelection().getRangeAt(0).cloneRange()
+          : null;
+      if (attachments.hasPaste(e)) {
+        if (await attachments.paste(e, content, n)) return;
+        if (!content.isConnected) return;
+        content.focus();
+        if (savedRange) {
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(savedRange);
+        }
+      }
       remember();
-      document.execCommand(
-        "insertText",
-        false,
-        e.clipboardData.getData("text/plain"),
-      );
+      document.execCommand("insertText", false, pasteText);
       n.html = cleanHTML(content.innerHTML);
       const nextId = doc().nodes[doc().nodes.indexOf(n) + 1]?.id;
       if (mergeMarkdown(n.id)) {
@@ -410,6 +431,9 @@ function render() {
   buttons();
   refreshShortcutHints();
   $("listType").disabled = false;
+  for (const option of $("listType").options)
+    if (!option.value.startsWith("all-"))
+      option.disabled = !doc().nodes.some((n) => n.id === active);
   if (active) syncToolbar(contentFor(active));
   dropdowns.sync();
 }
@@ -511,8 +535,17 @@ function syncToolbar(el) {
   if (node) {
     $("headingLevel").value =
       node.kind === "heading" ? String(node.level) : "0";
-    $("listType").value = node.listType || "unordered";
-    $("listType").disabled = node.kind !== "item";
+    const index = doc().nodes.indexOf(node),
+      listNode =
+        node.kind === "heading"
+          ? doc()
+              .nodes.slice(index + 1, scopeEnd(doc().nodes, index))
+              .find((n) => n.kind === "item")
+          : node;
+    $("listType").value = listNode?.listType || "unordered";
+    $("listType").disabled = false;
+    for (const option of $("listType").options)
+      if (!option.value.startsWith("all-")) option.disabled = false;
   }
   dropdowns.sync();
 }
@@ -761,6 +794,17 @@ for (const b of $("headingMenu").querySelectorAll("[data-level]"))
   b.onclick = () => addHeading(Number(b.dataset.level));
 function editKey(e, n, el) {
   if (e.isComposing) return;
+  if (
+    e.ctrlKey &&
+    !e.altKey &&
+    !e.shiftKey &&
+    ["ArrowLeft", "ArrowRight"].includes(e.key)
+  ) {
+    e.preventDefault();
+    moveByPunctuation(el, e.key === "ArrowRight" ? 1 : -1);
+    saveSelection();
+    return;
+  }
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     if (mergeMarkdown(n.id)) {
@@ -811,7 +855,15 @@ function editKey(e, n, el) {
     !plain(el.innerHTML).trim()
   ) {
     e.preventDefault();
+    const index = doc().nodes.indexOf(n),
+      hidden = foldedNodes(doc().nodes),
+      next = (
+        e.key === "Backspace"
+          ? doc().nodes.slice(0, index).reverse()
+          : doc().nodes.slice(index + 1)
+      ).find((node) => !hidden.has(node.id));
     deleteNode(n.id, false);
+    if (next) focus(next.id, e.key === "Backspace");
   }
 }
 function mergeMarkdown(id) {
@@ -921,7 +973,7 @@ function copiedFeedback() {
     1400,
   );
 }
-function nativeClipboard(text) {
+function nativeClipboard(text, files = []) {
   return new Promise((resolve, reject) => {
     const id = uid();
     const done = (event) => {
@@ -940,7 +992,7 @@ function nativeClipboard(text) {
     window.addEventListener("prombee-clipboard", done);
     try {
       window.webkit.messageHandlers.clipboardWrite.postMessage(
-        JSON.stringify({ id, text }),
+        JSON.stringify({ id, text, files }),
       );
     } catch (error) {
       cleanup();
@@ -948,16 +1000,24 @@ function nativeClipboard(text) {
     }
   });
 }
-async function copyText(text, { jump = true, quiet = false } = {}) {
+async function copyText(text, { jump = true, quiet = false, files = [] } = {}) {
   let success = false;
   try {
     if (window.webkit?.messageHandlers?.clipboardWrite)
-      await nativeClipboard(text);
+      await nativeClipboard(text, files);
     else if (window.pywebview?.api?.clipboard)
-      await window.pywebview.api.clipboard(text);
+      await window.pywebview.api.clipboard(text, files);
     else await navigator.clipboard.writeText(text);
     success = true;
   } catch {
+    if (
+      files.length &&
+      (window.webkit?.messageHandlers?.clipboardWrite ||
+        window.pywebview?.api?.clipboard)
+    ) {
+      toast("附件复制失败，内容已保留，请重试");
+      return false;
+    }
     const previous = document.activeElement,
       ranges = [...Array(window.getSelection().rangeCount)].map((_, i) =>
         window.getSelection().getRangeAt(i).cloneRange(),
@@ -983,7 +1043,13 @@ async function copyText(text, { jump = true, quiet = false } = {}) {
   }
   if (!quiet) {
     copiedFeedback();
-    toast("已复制提示词");
+    toast(
+      files.length &&
+        !window.webkit?.messageHandlers?.clipboardWrite &&
+        !window.pywebview?.api?.clipboard
+        ? "已复制提示词与附件引用"
+        : "已复制提示词",
+    );
   }
   if (jump) {
     try {
@@ -1018,9 +1084,19 @@ async function cutEntry(id) {
   }
 }
 
-function copy() {
+async function copy() {
   if (integrateCurrent()) render();
-  return copyText(toMarkdown(doc().nodes, copyOptions()));
+  const collection = doc(),
+    bundle = attachments.bundle(toMarkdown(collection.nodes, copyOptions()));
+  if (await copyText(bundle.text, { files: bundle.files })) {
+    collection.copied = true;
+    changed();
+    const option = [...$("documents").options].find(
+      (o) => o.value === collection.id,
+    );
+    if (option) option.textContent = collection.name + " ✓";
+    dropdowns.sync();
+  }
 }
 function viewKey() {
   return `${page}:${doc().id}`;
@@ -1125,7 +1201,7 @@ function fillRounds(select, fallback) {
   const value = select.value;
   select.replaceChildren();
   for (const d of state.documents) {
-    const option = element("option", "", d.name);
+    const option = element("option", "", d.name + (d.copied ? " ✓" : ""));
     option.value = d.id;
     select.append(option);
   }
@@ -1178,7 +1254,7 @@ function updatePages() {
     "copy",
   ])
     $(id).disabled = noSet;
-  $("copy").hidden = ["library", ...settingsPages].includes(page);
+  $("copy").hidden = false;
   $("editorToolbar").hidden = !editing();
   $("editorPanel").hidden = !editing();
   $("previewToolbar").hidden = page !== "preview";
@@ -1208,6 +1284,7 @@ function updatePages() {
   );
   fillRounds($("compareRight"), currentDoc().id);
   bars.show(page);
+  attachments.paint();
   if (page === "preview") updatePreview();
   if (page === "compare") updateComparison();
 }
@@ -1300,11 +1377,15 @@ $("documents").onchange = () => {
   switchPage("editor", $("documents").value);
   changed();
 };
-$("template").onclick = () => switchPage("template");
+$("template").onclick = () =>
+  switchPage(page === "template" ? "editor" : "template");
 $("editorTab").onclick = () => switchPage("editor");
-$("preview").onclick = () => switchPage("preview");
-$("compare").onclick = () => switchPage("compare");
-$("commonTab").onclick = () => switchPage("common");
+$("preview").onclick = () =>
+  switchPage(page === "preview" ? "editor" : "preview");
+$("compare").onclick = () =>
+  switchPage(page === "compare" ? "editor" : "compare");
+$("commonTab").onclick = () =>
+  switchPage(page === "common" ? "editor" : "common");
 $("copyAll").onclick = copy;
 $("previewMode").onchange = updatePreview;
 $("previewRendered").onclick = () => {
@@ -1405,6 +1486,18 @@ const applySize = () => {
   $("size").value = value;
 };
 $("size").onchange = applySize;
+$("size").addEventListener(
+  "wheel",
+  (event) => {
+    event.preventDefault();
+    $("size").value = Math.max(
+      9,
+      Math.min(96, Number($("size").value) + (event.deltaY < 0 ? 1 : -1)),
+    );
+    applySize();
+  },
+  { passive: false },
+);
 let sizeTimer;
 $("size").addEventListener("input", () => {
   clearTimeout(sizeTimer);
@@ -1429,14 +1522,22 @@ $("color").oninput = () => {
 };
 $("listType").onchange = () => {
   const value = $("listType").value,
-    node = doc().nodes.find((n) => n.id === active);
-  if (!node || node.kind !== "item") return;
+    all = value.startsWith("all-"),
+    type = all ? value.slice(4) : value,
+    nodes = doc().nodes,
+    index = nodes.findIndex((n) => n.id === active);
+  if (!all && index < 0) return;
   remember();
-  node.listType = value;
+  const end = all
+    ? nodes.length
+    : nodes[index].kind === "heading"
+      ? scopeEnd(nodes, index)
+      : index + 1;
+  for (let i = all ? 0 : index; i < end; i++)
+    if (nodes[i].kind === "item") nodes[i].listType = type;
   renumber();
   changed();
-  focus(node.id, true);
-  syncToolbar(contentFor(node.id));
+  dropdowns.sync();
 };
 $("headingLevel").onchange = () => {
   if ($("headingLevel").value === "") return;
@@ -1492,7 +1593,7 @@ $("updatesTab").onclick = () => {
   updaterUI.show();
 };
 $("settingsTab").onclick = () => {
-  switchPage(lastSettingsPage);
+  switchPage(settingsPages.includes(page) ? "editor" : lastSettingsPage);
   if (lastSettingsPage === "updates") updaterUI.show();
   if (lastSettingsPage === "other") otherUI.show();
 };
@@ -1761,7 +1862,7 @@ function runShortcut(action) {
     switchPage(action);
     return true;
   }
-  if (action === "copy" && !["library", ...settingsPages].includes(page)) {
+  if (action === "copy") {
     copy();
     return true;
   }
@@ -1924,6 +2025,34 @@ function acceptWorkspace(data) {
   $("status").title = data.set?.path || "";
   if (dirty) changed();
 }
+const attachments = mountAttachments({
+  getDoc: doc,
+  editable: () => !!state && editing() && !noSet,
+  remember,
+  changed,
+  notify: toast,
+});
+$("clearUserData").onclick = async () => {
+  if (
+    !window.confirm(
+      "清除设置、分组和最近使用记录？磁盘上的 TXT 词集及附件会保留。",
+    )
+  )
+    return;
+  try {
+    await flushWorkspace();
+    const r = await fetch("/api/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: true }),
+    });
+    if (!r.ok) throw Error((await r.json()).error);
+    localStorage.removeItem("prombee-draft");
+    location.reload();
+  } catch (e) {
+    toast(e.message);
+  }
+};
 try {
   await otherUI.ready;
   const r = await fetch("/api/state");
@@ -1985,7 +2114,7 @@ try {
     },
   });
   $("libraryTab").onclick = () => {
-    switchPage("library");
+    switchPage(page === "library" ? "editor" : "library");
     libraryUI.begin();
     libraryUI.refresh();
   };

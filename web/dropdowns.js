@@ -63,6 +63,7 @@ export function mountDropdowns(root = document) {
       button.role = "option";
       button.id = control.popup.id + "-option-" + control.popup.children.length;
       button.textContent = option.textContent;
+      if (control.select.id === "font") button.style.fontFamily = option.value;
       button.disabled =
         option.disabled || option.parentElement.disabled === true;
       button.dataset.value = option.value;
@@ -121,6 +122,7 @@ export function mountDropdowns(root = document) {
     controls.set(select, control);
     const paint = () => {
       label.textContent = select.selectedOptions[0]?.textContent || "";
+      if (select.id === "font") label.style.fontFamily = select.value;
       trigger.title = label.textContent;
       trigger.disabled = select.disabled;
     };
