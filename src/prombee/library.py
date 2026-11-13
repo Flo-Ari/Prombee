@@ -220,8 +220,10 @@ class Library:
                 old = self.read_entry(entry)
                 if payload.get('baseRevision') != old['revision'] or (payload.get('baseFingerprint') and payload['baseFingerprint'] != old['fingerprint']):
                     raise ConflictError('词集已被另一窗口或外部程序修改，请先复制内容后重新打开')
+                previous={d['id']:d for d in old['state']['documents']}
+                incoming={**payload['state'],'documents':[{**d,**({'copied':True,'copiedAt':d.get('copiedAt') or previous[d['id']].get('copiedAt')} if previous.get(d['id'],{}).get('copied') else {})} for d in payload['state']['documents']]}
                 revision = old['revision'] + 1
-                text = encode_workspace(payload['state'], revision)
+                text = encode_workspace(incoming, revision)
                 atomic_write(entry['path'], text)
                 return {'revision': revision, 'fingerprint': hashlib.sha256(text.encode('utf-8')).hexdigest()}
 

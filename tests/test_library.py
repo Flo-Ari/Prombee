@@ -148,4 +148,13 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(registry['active'],old['set']['id'])
         with self.assertRaises(FileExistsError):self.library.action({'action':'saveAsSet','id':old['set']['id'],'path':str(target)})
 
+    def test_copy_receipts_survive_restart_and_older_editing_snapshots(self):
+        old=self.library.load();state=copy.deepcopy(old['state']);round_id=state['documents'][0]['id']
+        state['documents'][0].update(copied=True,copiedAt=1234)
+        response=self.library.save({'state':state,'setId':old['set']['id'],'baseRevision':old['revision']})
+        reopened=Library(ROOT,self.data,valid).load();self.assertTrue(reopened['state']['documents'][0]['copied'])
+        # A text undo snapshot from before the copy cannot erase activity history.
+        self.library.save({'state':old['state'],'setId':old['set']['id'],'baseRevision':response['revision']})
+        reopened=Library(ROOT,self.data,valid).load();self.assertTrue(reopened['state']['documents'][0]['copied']);self.assertEqual(reopened['state']['documents'][0]['copiedAt'],1234)
+
 if __name__=='__main__':unittest.main()

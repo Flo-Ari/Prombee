@@ -189,6 +189,12 @@ def main():
             while floating.mode!='editor' and time.monotonic()<deadline:time.sleep(.05)
             assert floating.mode=='editor','Expand did not finish'
             assert floating.completed_switches==2,'Native window switching did not complete both directions'
+            foreground=ctypes.windll.user32.GetForegroundWindow()
+            if foreground:
+                expected=int(window.native.Handle.ToInt64());deadline=time.monotonic()+2
+                while ctypes.windll.user32.GetForegroundWindow()!=expected and time.monotonic()<deadline:floating.activate_editor();time.sleep(.05)
+                assert ctypes.windll.user32.GetForegroundWindow()==expected,'Editor did not regain foreground'
+                result['foregroundRestore']=True
             result['floatingRoundTrip']=True
             marker = 'Prombee Windows 测试 🐝'
             attachment=data/'clipboard-附件.txt';attachment.write_text('fixture',encoding='utf-8')

@@ -195,3 +195,13 @@ class FloatingTests(unittest.TestCase):
                     self.assertEqual(error.exception.code,status)
                 self.assertFalse(FloatingPreferences(folder).orb_enabled)
             finally:server.shutdown();server.server_close()
+
+
+    def test_windows_maximize_event_cannot_flip_the_requested_icon_state_back(self):
+        from types import SimpleNamespace
+        from prombee.floating_windows import WindowsFloating
+        control=WindowsFloating.__new__(WindowsFloating);states=[]
+        control.maximized=False
+        control.window=SimpleNamespace(maximize=lambda:control.window_state(True),restore=lambda:control.window_state(False),run_js=states.append)
+        control.toggle_maximize();self.assertTrue(control.maximized);self.assertIn('true',states[-1])
+        control.toggle_maximize();self.assertFalse(control.maximized);self.assertIn('false',states[-1])

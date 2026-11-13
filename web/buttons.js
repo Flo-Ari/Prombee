@@ -17,6 +17,17 @@ export function mountButtonStyles(root = document) {
   function enhance(element) {
     if (element.matches("button")) {
       if (
+        ["deleteRound", "batchDelete", "clearUserData"].includes(element.id) ||
+        element.matches(".remove,.attachment-remove") ||
+        /^(删除|清除用户数据)/.test(element.textContent.trim()) ||
+        element.getAttribute("aria-label") === "删除"
+      )
+        element.classList.add("delete-action");
+      if (element.matches(".set-name")) {
+        element.classList.add("普通输入样式", "input-standard");
+        return;
+      }
+      if (
         element.matches(
           ".fold,[data-edge],.drag-handle,.dropdown-trigger,.dropdown-option,.skill-option,#theme,#listType",
         ) ||

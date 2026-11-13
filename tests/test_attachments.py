@@ -22,3 +22,10 @@ class AssetPreferencesTests(unittest.TestCase):
    self.assertEqual(FloatingPreferences(folder).position,(311,408,520,420))
    self.assertFalse(FloatingPreferences(folder).enabled)
    self.assertEqual(FloatingPreferences(folder).direction,'right')
+
+ def test_registered_references_follow_text_without_importing_unrelated_files(self):
+  with tempfile.TemporaryDirectory() as folder:
+   store=Attachments(folder);asset=store.add('图(1).txt',io.BytesIO(b'file'),4)
+   text='[图]('+Path(asset['path']).as_uri()+')'
+   self.assertEqual(store.references(text),[asset]);self.assertEqual(store.references('file:///etc/passwd'),[])
+   self.assertEqual(store.import_file(asset['path'])['id'],asset['id']);self.assertEqual(len(store.entries()),1)

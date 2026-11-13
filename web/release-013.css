@@ -1,0 +1,282 @@
+/* 普通输入样式 — shared by editable library names and the creation name field. */
+.普通输入样式.input-standard,
+button.set-name.普通输入样式 {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--text);
+  box-shadow: none;
+  padding: 8px 10px;
+  font: inherit;
+  min-height: 33px;
+  text-align: left;
+}
+.普通输入样式:is(:focus-visible, :hover) {
+  border-color: var(--blue);
+  outline: 0;
+}
+:is(#deleteRound, #batchDelete, #clearUserData, .delete-action):is(
+  :hover,
+  :focus-visible
+) {
+  color: #dc3547 !important;
+  background: #ef444414 !important;
+  border-color: #e54655 !important;
+  --state-accent: #dc3547;
+  --state-glow: #ef444440;
+}
+body.dark
+  :is(#deleteRound, #batchDelete, #clearUserData, .delete-action):is(
+    :hover,
+    :focus-visible
+  ) {
+  color: #ff8992 !important;
+  background: #e5465528 !important;
+}
+#newDoc,
+#deleteRound,
+#undo:not(:disabled),
+#redo:not(:disabled) {
+  color: #526780;
+}
+body.dark
+  :is(#newDoc, #deleteRound, #undo:not(:disabled), #redo:not(:disabled)) {
+  color: #c3d4ed;
+}
+.row:hover > .content {
+  background: color-mix(in srgb, var(--hover) 55%, transparent);
+}
+.row:has(.content:hover) .add-heading:not(:hover) {
+  background: transparent;
+  color: var(--muted);
+}
+/* A single rounded pointer sits outside the strip's overflow clipping boundary. */
+.window-header [role="tab"]:not(#editorTab)::after,
+.window-controls #settingsTab::after {
+  display: none !important;
+}
+.header-tab-pointer {
+  position: fixed;
+  z-index: 7;
+  width: 36px;
+  height: 12px;
+  fill: var(--blue);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    left 0.26s cubic-bezier(0.22, 0.7, 0.3, 1),
+    top 0.26s ease,
+    opacity 0.2s ease;
+}
+#editorTab.brand img.brand-lockup {
+  width: 136px;
+  height: 46px;
+  object-fit: contain;
+}
+#editorTab.brand.LOGO按钮样式 {
+  padding: 0 5px;
+}
+#editorTab.brand.LOGO按钮样式::before,
+#editorTab.brand.LOGO按钮样式::after {
+  display: none;
+}
+#editorTab.brand.LOGO按钮样式:hover {
+  color: var(--blue);
+  background: var(--hover);
+}
+#editorTab.brand.LOGO按钮样式[aria-selected="true"]:hover {
+  background: #1d4ed8;
+}
+.window-controls button svg {
+  display: block;
+  margin: auto;
+}
+/* Attachments: a fixed right-hand gallery reserves its own column. */
+:root {
+  --attachment-rail-width: 154px;
+}
+body.with-attachments .workspace > main {
+  margin-right: var(--attachment-rail-width);
+}
+#paper.display-area {
+  padding-top: 26px;
+}
+#attachmentGallery {
+  top: calc(var(--app-header-height) + 10px);
+  bottom: 44px;
+  right: 10px;
+  left: auto;
+  transform: none;
+  width: calc(var(--attachment-rail-width) - 18px);
+  height: auto;
+  max-height: calc(100vh - var(--app-header-height) - 54px);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.attachment-add {
+  flex: 0 0 34px;
+  height: 34px;
+}
+.attachment-card {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  max-width: 100%;
+  padding: 7px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: grab;
+}
+.attachment-card:active {
+  cursor: grabbing;
+}
+.attachment-card img {
+  width: 100%;
+  height: 78px;
+  object-fit: contain;
+  background: var(--hover);
+  border-radius: 5px;
+}
+.attachment-card .attachment-kind {
+  display: grid;
+  place-items: center;
+  height: 64px;
+  background: var(--hover);
+  border-radius: 5px;
+}
+.attachment-card > span:not(.attachment-kind) {
+  width: 100%;
+  max-width: 100%;
+  font-size: 11px;
+  text-align: center;
+}
+.attachment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+.attachment-reference {
+  min-width: 0;
+  min-height: 24px;
+  padding: 3px !important;
+  font-size: 10px;
+}
+.attachment-remove {
+  min-height: 24px;
+  padding: 1px 4px !important;
+}
+/* Footer navigation keeps both nodes mounted and slides the survivor into the center. */
+footer {
+  position: relative;
+  min-height: 34px;
+}
+footer #edgeNavigation {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 28px;
+  display: block;
+}
+footer #edgeNavigation button {
+  position: absolute;
+  left: calc(50% - 14px);
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-color: transparent !important;
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 1px 5px #163d6a0c;
+  transform: translateX(0);
+  transition:
+    transform 0.26s ease,
+    opacity 0.24s ease,
+    visibility 0s linear 0.24s;
+}
+footer #edgeNavigation button[data-visible="true"] {
+  transition:
+    transform 0.26s ease,
+    opacity 0.24s ease,
+    visibility 0s;
+}
+footer #edgeNavigation[data-layout="both"] [data-edge="up"] {
+  transform: translateX(-17px);
+}
+footer #edgeNavigation[data-layout="both"] [data-edge="down"] {
+  transform: translateX(17px);
+}
+footer #edgeNavigation button svg {
+  width: 17px;
+  height: 17px;
+}
+footer #status {
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#libraryGroups {
+  isolation: isolate;
+  background: transparent;
+}
+#libraryGroups::before {
+  content: "";
+  position: absolute;
+  inset: 0 -12px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgb(var(--edge-fade-rgb) / var(--edge-fade-start)),
+    rgb(var(--edge-fade-rgb) / var(--edge-fade-mid)) 65%,
+    rgb(var(--edge-fade-rgb) / 0)
+  );
+}
+/* Longer perimeter dashes keep dropdowns distinct from ordinary input outlines. */
+.dropdown-trigger:not(:focus-visible):not([aria-expanded="true"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Crect x='.6' y='.6' width='198.8' height='38.8' rx='6' fill='none' stroke='%23a6b6ce' stroke-width='1' stroke-dasharray='28 9'/%3E%3C/svg%3E");
+}
+body.dark .dropdown-trigger:not(:focus-visible):not([aria-expanded="true"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Crect x='.6' y='.6' width='198.8' height='38.8' rx='6' fill='none' stroke='%23455c79' stroke-width='1' stroke-dasharray='28 9'/%3E%3C/svg%3E");
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-tab-pointer,
+  footer #edgeNavigation button {
+    transition: none !important;
+  }
+}
+@media (max-width: 760px) {
+  :root {
+    --attachment-rail-width: 120px;
+  }
+  .attachment-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* Theme colors change immediately, even when WebKit has paused its frame clock in the background. */
+.button-standard.一般按钮样式,
+.dropdown-trigger {
+  transition: box-shadow 0.15s;
+}
+body.dark .button-standard.一般按钮样式,
+body.dark .dropdown-trigger {
+  transition: none;
+  box-shadow:
+    2px 2px 5px #0008,
+    inset 1px 1px 1px #ffffff0c;
+}

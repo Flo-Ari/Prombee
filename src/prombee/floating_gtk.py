@@ -42,6 +42,7 @@ class XDesktop:
             'XQueryPointer': ([C.c_void_p,C.c_ulong,C.POINTER(C.c_ulong),C.POINTER(C.c_ulong),C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_int),C.POINTER(C.c_uint)],C.c_int),
             'XSendEvent': ([C.c_void_p,C.c_ulong,C.c_int,C.c_long,C.POINTER(XEvent)],C.c_int),
             'XFlush': ([C.c_void_p],C.c_int),
+            'XRaiseWindow':([C.c_void_p,C.c_ulong],C.c_int),
             'XCloseDisplay': ([C.c_void_p],C.c_int),
         }
         for name,(args,result) in definitions.items():
@@ -89,6 +90,11 @@ class XDesktop:
         event.client.message_type=kind;event.client.format=32
         event.client.data.l[:]=values
         self.x.XSendEvent(self.display,self.root,0,(1<<20)|(1<<19),C.byref(event))
+
+    def activate(self,window):
+        xid=window.get_surface().get_xid()
+        self.message(xid,self.x.XInternAtom(self.display,b'_NET_ACTIVE_WINDOW',0),[2,0,0,0,0])
+        self.x.XRaiseWindow(self.display,xid);self.x.XFlush(self.display)
 
     def no_focus(self,window):
         xid=window.get_surface().get_xid()
@@ -194,7 +200,13 @@ class GtkFloating:
         self.mode='editor';self.background=False
         self.orb.set_visible(False);self.emit('pause')
 
+    def window_state(self):
+        if not getattr(self,'editor',None):return
+        maximized=bool(getattr(self.window,'is_maximized',lambda:False)() or getattr(self.window,'is_fullscreen',lambda:False)())
+        self.editor.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-window-state',{detail:"+json.dumps({'maximized':maximized})+"}))",-1,None,None,None,None,None)
+
     def editor_state_changed(self,surface,_):
+        self.window_state()
         minimized=bool(surface.get_state() & self.Gdk.ToplevelState.MINIMIZED)
         if not minimized and self.mode!='hidden':
             self.hidden_by_user=False
@@ -258,8 +270,10 @@ class GtkFloating:
             self.ready=True;self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction,'nativeDrag':True})
             if self.pending:self.pending=False;self.collapse()
         elif action=='collapse':self.collapse()
+        elif action=='windowState':self.window_state()
         elif action=='maximize':
-            if self.window.is_maximized():self.window.unmaximize()
+            if self.window.is_fullscreen():self.window.unfullscreen()
+            elif self.window.is_maximized():self.window.unmaximize()
             else:self.window.maximize()
         elif action=='close':self.window.close()
         elif action=='windowDrag':
@@ -309,13 +323,16 @@ class GtkFloating:
 
     def open(self):
         if self.mode!='orb':
-            if self.mode=='editor':self.window.present()
+            if self.mode=='editor':
+                self.window.present()
+                if hasattr(self.x,'activate'):self.x.activate(self.window)
             return
         self.menu_open=False;self.orb_rect=self.x.position(self.orb)
         self.preferences.save_position(self.orb_rect)
         self.mode='editor';self.background=False;self.completed_switches+=1
         self.window.unminimize();self.window.present()
         self.orb.set_visible(False);self.emit('pause')
+        if hasattr(self.x,'activate'):self.x.activate(self.window)
 
     def hide(self):
         if self.mode=='orb':self.orb_rect=self.x.position(self.orb);self.preferences.save_position(self.orb_rect)

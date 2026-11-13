@@ -22,6 +22,15 @@ export function mountEdgeNavigation(root, resolveScroller) {
           scroller.clientHeight,
         )
       : {};
+    const layout =
+      state.up && state.down
+        ? "both"
+        : state.up
+          ? "up"
+          : state.down
+            ? "down"
+            : "none";
+    if (root.dataset.layout !== layout) root.dataset.layout = layout;
     for (const button of buttons) {
       const shown = !!state[button.dataset.edge];
       if (button.dataset.visible === String(shown)) continue;
@@ -33,7 +42,7 @@ export function mountEdgeNavigation(root, resolveScroller) {
   };
   const schedule = () => {
     if (frame !== null || disposed) return;
-    frame = view.requestAnimationFrame(update);
+    frame = view.setTimeout(update, 16);
   };
   const click = (event) => {
     const button = event.target.closest("[data-edge]");
@@ -73,7 +82,7 @@ export function mountEdgeNavigation(root, resolveScroller) {
     update,
     dispose() {
       disposed = true;
-      if (frame !== null) view.cancelAnimationFrame(frame);
+      if (frame !== null) view.clearTimeout(frame);
       changes.disconnect();
       pages.disconnect();
       resize?.disconnect();

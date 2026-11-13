@@ -24,6 +24,8 @@ class WindowsFloating:
             frameless=True,easy_drag=False,transparent=True,on_top=True,shadow=False,text_select=False)
         self.orb.events.loaded+=self.loaded
         self.orb.events.closing+=self.on_closing
+        if hasattr(window.events,'maximized'):window.events.maximized+=lambda:self.window_state(True)
+        if hasattr(window.events,'restored'):window.events.restored+=lambda:self.window_state(False)
         self.thread=threading.Thread(target=self.track,daemon=True);self.thread.start()
 
     def on_closing(self):
@@ -102,6 +104,7 @@ class WindowsFloating:
             if self.mode=='orb':self.input_region(False)
         elif action=='hide':self.hide()
         elif action=='minimize':self.collapse()
+        elif action=='windowState':self.window_state()
         elif action=='maximize':self.toggle_maximize()
         elif action=='close':self.close()
         elif action=='drag' and self.mode=='orb':
@@ -125,10 +128,33 @@ class WindowsFloating:
         if not user.SetWindowRgn(hwnd,region,True):
             gdi.DeleteObject.argtypes=[W.HGDIOBJ];gdi.DeleteObject(region)
 
+    def window_state(self,maximized=None):
+        if maximized is not None:self.maximized=maximized
+        self.window.run_js("window.dispatchEvent(new CustomEvent('prombee-window-state',{detail:"+json.dumps({'maximized':getattr(self,'maximized',False)})+"}))")
+
+    def activate_editor(self):
+        if not getattr(self.window,'native',None):return
+        user,kernel=C.windll.user32,C.windll.kernel32
+        user.GetForegroundWindow.restype=W.HWND
+        user.GetWindowThreadProcessId.argtypes=[W.HWND,C.POINTER(W.DWORD)];user.GetWindowThreadProcessId.restype=W.DWORD
+        for name in ('IsIconic','SetForegroundWindow','BringWindowToTop'):getattr(user,name).argtypes=[W.HWND]
+        user.ShowWindow.argtypes=[W.HWND,C.c_int];user.AttachThreadInput.argtypes=[W.DWORD,W.DWORD,W.BOOL]
+        kernel.GetCurrentThreadId.restype=W.DWORD
+        hwnd=int(self.window.native.Handle.ToInt64());foreground=user.GetForegroundWindow()
+        thread=user.GetWindowThreadProcessId(foreground,None) if foreground else 0
+        current=kernel.GetCurrentThreadId();attached=False
+        try:
+            if thread and thread!=current:attached=bool(user.AttachThreadInput(current,thread,True))
+            user.ShowWindow(hwnd,9 if user.IsIconic(hwnd) else 5)
+            user.BringWindowToTop(hwnd);user.SetForegroundWindow(hwnd)
+        finally:
+            if attached:user.AttachThreadInput(current,thread,False)
+
     def toggle_maximize(self):
-        if getattr(self,'maximized',False):self.window.restore()
-        else:self.window.maximize()
-        self.maximized=not getattr(self,'maximized',False)
+        target=not getattr(self,'maximized',False)
+        if target:self.window.maximize()
+        else:self.window.restore()
+        self.window_state(target)
 
     def collapse(self,background=False):
         if not self.preferences.orb_enabled:
@@ -150,9 +176,12 @@ class WindowsFloating:
 
     def open(self):
         with self.lock:
-            if self.mode!='orb':return
+            if self.mode!='orb':
+                if self.mode=='editor':self.window.show();self.activate_editor()
+                return
             self.orb_rect=self.rect(self.orb);self.preferences.save_position(self.orb_rect);self.mode='editor';self.background=False;self.completed_switches+=1
             self.window.show();self.orb.hide();self.emit('pause')
+            self.activate_editor()
 
     def hide(self):
         if self.mode=='orb':self.orb_rect=self.rect(self.orb);self.preferences.save_position(self.orb_rect)

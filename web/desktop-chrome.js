@@ -3,10 +3,12 @@ import { mountMascot } from "./mascot.js";
 const platform = new URLSearchParams(location.search).get("desktop");
 const native = platform === "windows" || platform === "gtk";
 export function logoTarget() {
-  const r = document.querySelector(".brand img").getBoundingClientRect();
+  const image = document.querySelector(".brand img"),
+    r = image.getBoundingClientRect(),
+    lockup = image.classList.contains("brand-lockup");
   return {
-    x: r.x + r.width * 0.5,
-    y: r.y + (r.height * 53) / 128,
+    x: r.x + r.width * (lockup ? 26.5 / 190 : 0.5),
+    y: r.y + r.height * (lockup ? (7 + (51 * 53) / 128) / 64 : 53 / 128),
     dark: document.body.classList.contains("dark"),
   };
 }
@@ -34,6 +36,26 @@ chrome.querySelector("#maximizeWindow").onclick = () =>
       : document.documentElement.requestFullscreen?.();
 chrome.querySelector("#closeWindow").onclick = () =>
   native ? post("close") : document.exitFullscreen?.();
+function windowState(maximized) {
+  const button = chrome.querySelector("#maximizeWindow");
+  button.dataset.maximized = String(maximized);
+  button.title = maximized ? "还原" : "最大化";
+  button.setAttribute("aria-label", maximized ? "还原窗口" : "最大化窗口");
+  button.innerHTML = maximized
+    ? '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 8V4h12v12h-4M4 8h12v12H4z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+}
+window.addEventListener("prombee-window-state", (event) =>
+  windowState(!!event.detail?.maximized),
+);
+document.addEventListener("fullscreenchange", () =>
+  windowState(!!document.fullscreenElement),
+);
+windowState(false);
+if (native) post("windowState");
+window.addEventListener("pywebviewready", () => {
+  if (native) post("windowState");
+});
 const dragRegion = chrome.querySelector(".window-header");
 const interactive = (target) =>
   !!target.closest("button,select,input,a,label,[role=tab]");

@@ -31,6 +31,9 @@ class Attachments:
     def import_file(self,path):
         path=Path(path)
         if not path.is_file():raise ValueError('请选择文件')
+        resolved=path.resolve()
+        for entry in self.entries().values():
+            if Path(entry['path']).resolve()==resolved:return self.get(entry['id'])
         with path.open('rb') as source:return self.add(path.name,source,path.stat().st_size)
     def get(self,identifier):
         entry=self.entries().get(identifier)
@@ -39,3 +42,19 @@ class Attachments:
         if not path.is_relative_to(self.root.resolve()) or not path.is_file():raise ValueError('附件文件不存在')
         return entry
     def paths(self,identifiers):return [self.get(i)['path'] for i in dict.fromkeys(identifiers)]
+
+    def references(self,text):
+        import re
+        from urllib.parse import unquote,urlsplit
+        import os
+        if not isinstance(text,str):raise ValueError('附件引用无效')
+        by_path={str(Path(a['path']).resolve()).casefold() if os.name=='nt' else str(Path(a['path']).resolve()):a for a in self.entries().values()}
+        found={}
+        for match in re.finditer(r'file://[^\s<>"\[\])]+',text):
+            uri=urlsplit(match.group());path=unquote(uri.path)
+            if uri.netloc not in ('','localhost'):continue
+            if os.name=='nt' and re.match(r'^/[a-zA-Z]:',path):path=path[1:]
+            key=str(Path(path).resolve());entry=by_path.get(key.casefold() if os.name=='nt' else key)
+            if entry and Path(entry['path']).is_file():found[entry['id']]=entry
+            if len(found)>=100:break
+        return list(found.values())

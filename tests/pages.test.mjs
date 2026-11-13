@@ -156,7 +156,7 @@ test("common prompts have independent editing, scoped copy, full copy and matchi
   $("copy").click();
   await Promise.resolve();
   assert.equal(copied.at(-1), $("rawMarkdown").textContent);
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   assert.equal(document.querySelector(".content").textContent, "约束");
   assert.equal(document.querySelector(".copy-branch"), null);
   assert.equal($("copyAll").hidden, true);
@@ -191,7 +191,7 @@ test("split diff aligns left/right rows and reconstructs exact original texts", 
 });
 
 test("batch selection cycles, exclusion and subtree deletion can be undone", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("multiSelect").click();
   assert.equal($("multiSelect").textContent, "全选");
   assert.equal(
@@ -220,7 +220,7 @@ test("batch selection cycles, exclusion and subtree deletion can be undone", () 
 });
 
 test("folding changes visibility only; contextual add has item first and keeps ancestor levels enabled", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   const fold = document.querySelector(".fold");
   fold.click();
   assert.equal(document.querySelectorAll(".row")[1].hidden, true);
@@ -341,7 +341,7 @@ test("round deletion is reversible, numbering follows remaining rounds, and empt
   assert.equal($("documents").options.length, 0);
   $("template").click();
   assert.equal($("copyHierarchy").disabled, true);
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("newDoc").click();
   assert.equal(roundName(), "第1轮");
   const buttons = [...$("editorToolbar").querySelectorAll("button")];
@@ -404,7 +404,7 @@ const key = (key, options = {}, target = document.activeElement) => {
   return event;
 };
 test("Ctrl+N digits immediately create a heading; arrows select; Enter adds body; Escape cancels", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("newDoc").click();
   let fields = [...document.querySelectorAll(".content")];
   fields[0].focus();
@@ -435,7 +435,7 @@ test("Ctrl+N digits immediately create a heading; arrows select; Enter adds body
   assert.equal($("headingMenu").hidden, true);
 });
 test("up and down switch visible entries, preserve text and skip folded children", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   const fields = [...document.querySelectorAll(".content")];
   fields.at(-1).focus();
   key("n", { ctrlKey: true });
@@ -479,7 +479,7 @@ test("shortcut tab records, validates, saves and activates edited bindings witho
   assert.equal($("headingMenu").hidden, true);
   await $("saveShortcuts").onclick();
   assert.equal(savedShortcuts.insert, "Ctrl+K");
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   document.querySelector(".content").focus();
   key("k", { ctrlKey: true });
   assert.equal($("headingMenu").hidden, false);
@@ -496,7 +496,7 @@ test("shortcut tab records, validates, saves and activates edited bindings witho
   assert.equal($("saveShortcuts").disabled, false);
   // Restore and save defaults before returning to normal editing.
   await $("saveShortcuts").onclick();
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   document.querySelector(".content").focus();
   $("toast").classList.remove("show");
   const row = document.activeElement.closest(".row");
@@ -530,7 +530,7 @@ test("shortcut sections follow component positions, have one redo, and tooltips 
     key(value, options);
   }
   await $("saveShortcuts").onclick();
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   assert.equal(
     document.querySelector(".add-heading").title,
     "添加（Ctrl+Alt+N）",
@@ -554,11 +554,11 @@ test("shortcut sections follow component positions, have one redo, and tooltips 
   $("shortcutsTab").click();
   $("resetShortcuts").click();
   await $("saveShortcuts").onclick();
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
 });
 
 test("level selector converts body to every heading level and back without losing content", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   const field = document.querySelector(".content");
   field.focus();
   const id = field.dataset.id,
@@ -575,7 +575,7 @@ test("level selector converts body to every heading level and back without losin
   }
 });
 test("mouse-opened add menu accepts arrows and creates the selected level on Enter", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   document.querySelector(".add-heading").click();
   key("ArrowDown");
   key("ArrowDown");
@@ -590,7 +590,7 @@ test("mouse-opened add menu accepts arrows and creates the selected level on Ent
   );
 });
 test("keyboard sorting moves a heading and children as one block and supports cancel and undo", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   document.querySelector(".content").focus();
   // Ensure two independent sibling subtrees at the tail.
   let ids = [];
@@ -624,7 +624,7 @@ test("keyboard sorting moves a heading and children as one block and supports ca
 
 test("editing tabs restore independent caret, scroll and multi-selection state", () => {
   const main = document.querySelector("main");
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   let field = document.querySelector(".content");
   field.focus();
   field.textContent = "保存光标和位置";
@@ -647,7 +647,7 @@ test("editing tabs restore independent caret, scroll and multi-selection state",
   $("commonTab").click();
   main.scrollTop = 75;
   $("preview").click();
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   assert.equal(main.scrollTop, 325);
   assert.equal(document.activeElement.dataset.id, id);
   assert.equal(window.getSelection().toString(), "光标和");
@@ -689,7 +689,7 @@ test("header follows editor and floating entry order; successful copy fills its 
 });
 
 test("empty-entry filtering is a persistent copy option and never deletes editor rows", async () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("newDoc").click();
   const count = document.querySelectorAll(".row").length;
   if ($("deleteEmpty").getAttribute("aria-pressed") === "true")
@@ -707,7 +707,7 @@ test("empty-entry filtering is a persistent copy option and never deletes editor
   assert.equal(copied.at(-1), "");
   assert.equal(document.querySelectorAll(".row").length, count);
   $("preview").click();
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   assert.equal($("deleteEmpty").getAttribute("aria-pressed"), "true");
   await new Promise((resolve) => setTimeout(resolve, 350));
   assert.equal(saved.state.removeEmptyOnCopy, true);
@@ -718,7 +718,7 @@ test("empty-entry filtering is a persistent copy option and never deletes editor
 });
 
 test("cut without text selection copies only this entry and preserves children; undo restores it", async () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("newDoc").click();
   const heading = document.querySelector(".content");
   heading.focus();
@@ -799,7 +799,7 @@ test("floating setting saves a persistent switch without minimizing the editor",
 
 
 test("new rounds include Markdown hierarchy typed immediately before creation", () => {
-  $("editorTab").click();
+  if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("newDoc").click();
   const body = document.querySelector('.content[aria-label="正文条目"]');
   const row = body.closest('.row');

@@ -1,3 +1,5 @@
+import { mountSaveStatus } from "./save-status.js";
+import { mountHeaderIndicator } from "./header-indicator.js";
 import { mountAttachments } from "./attachments.js";
 import { mountDisplayWidth } from "./display.js";
 import { moveByPunctuation } from "./punctuation.js";
@@ -48,6 +50,8 @@ import { bindSpeech } from "./speech.js";
 import { createLibraryUI } from "./library.js";
 const $ = (id) => document.getElementById(id);
 const bars = mountBars();
+const saveStatus = mountSaveStatus($("status"));
+mountHeaderIndicator();
 mountButtonStyles();
 const dropdowns = mountDropdowns();
 const displayWidth = mountDisplayWidth();
@@ -74,6 +78,11 @@ let page = "editor",
   previewSource = null;
 const settingsPages = ["shortcuts", "floating", "updates", "other"];
 let lastSettingsPage = "shortcuts";
+let previousPage = "editor";
+const pageGroup = (p) => (settingsPages.includes(p) ? "settings" : p);
+function activateTab(target) {
+  switchPage(pageGroup(page) === pageGroup(target) ? previousPage : target);
+}
 let keyboardInsert = false,
   keyboardLevel = 0,
   shortcutBindings = { ...DEFAULT_SHORTCUTS };
@@ -176,6 +185,13 @@ function restore(snapshot) {
       state.documents[Math.min(index, state.documents.length - 1)]?.id || null;
     histories.delete(state.current);
   } else {
+    const before = doc(),
+      restored = JSON.parse(snapshot);
+    if (before.copied) {
+      restored.copied = true;
+      restored.copiedAt = before.copiedAt || Date.now();
+    }
+    snapshot = JSON.stringify(restored);
     inverse = JSON.stringify(doc());
     if (page === "template") state.template = JSON.parse(snapshot);
     else if (page === "common") state.common = JSON.parse(snapshot);
@@ -403,6 +419,26 @@ function render() {
     controls.append(plus, eye, remove);
     leading.append(mark);
     row.append(leading, content, controls);
+    row.addEventListener("click", (event) => {
+      if (!n.collapsed || event.target.closest("button,input,select,a")) return;
+      n.collapsed = false;
+      const hidden = foldedNodes(doc().nodes);
+      for (const element of $("paper").querySelectorAll(".row"))
+        element.hidden = hidden.has(element.dataset.id);
+      const fold = row.querySelector(".fold");
+      if (fold) {
+        fold.textContent = "▾";
+        fold.setAttribute("aria-expanded", "true");
+        fold.title = shortcutTitle("折叠", "fold", shortcutBindings);
+      }
+      changed();
+    });
+    content.addEventListener("dragover", (event) => {
+      if (attachments.acceptsDrop(event)) event.preventDefault();
+    });
+    content.addEventListener("drop", (event) =>
+      attachments.drop(event, content, n),
+    );
     $("paper").append(row);
   }
   if (!doc().nodes.length) {
@@ -662,7 +698,7 @@ function syncLatestTemplate() {
 function changed() {
   if (page !== "template") syncLatestTemplate();
   dirty = true;
-  $("status").textContent = "正在保存…";
+  saveStatus.dismiss();
   try {
     localStorage.setItem(
       "prombee-draft",
@@ -700,7 +736,8 @@ async function save() {
     const result = await r.json();
     revision = result.revision;
     fingerprint = result.fingerprint || fingerprint;
-    $("status").textContent = "已保存到本机";
+    if ($("status").textContent.startsWith("保存失败"))
+      $("status").textContent = "";
     if (!dirty) localStorage.removeItem("prombee-draft");
     else
       localStorage.setItem(
@@ -1088,9 +1125,20 @@ async function copy() {
   if (integrateCurrent()) render();
   const collection = doc(),
     bundle = attachments.bundle(toMarkdown(collection.nodes, copyOptions()));
-  if (await copyText(bundle.text, { files: bundle.files })) {
+  if (await copyText(bundle.text, { files: bundle.files, jump: false })) {
     collection.copied = true;
+    collection.copiedAt = Date.now();
     changed();
+    try {
+      await flushWorkspace();
+    } catch (error) {
+      toast("已复制，复制记录尚未保存：" + error.message);
+    }
+    try {
+      await otherUI.afterCopy();
+    } catch (error) {
+      toast("已复制，" + error.message);
+    }
     const option = [...$("documents").options].find(
       (o) => o.value === collection.id,
     );
@@ -1180,6 +1228,7 @@ function switchPage(next, roundId) {
     $("compareLeft").value = "";
     $("compareRight").value = "";
   }
+  if (pageGroup(next) !== pageGroup(page)) previousPage = page;
   page = next;
   ({ history, future } = histories.get(doc().id) || {
     history: [],
@@ -1225,6 +1274,9 @@ function updatePages() {
     $(id).setAttribute("aria-selected", String(page === target));
   }
   document.body.dataset.page = page;
+  const logoImage = $("editorTab").querySelector("img");
+  logoImage.src =
+    page === "editor" ? "brand-lockup-active.svg" : "brand-lockup.svg";
   $("libraryPanel").hidden = page !== "library";
   $("shortcutsPanel").hidden = page !== "shortcuts";
   $("floatingPanel").hidden = page !== "floating";
@@ -1377,15 +1429,11 @@ $("documents").onchange = () => {
   switchPage("editor", $("documents").value);
   changed();
 };
-$("template").onclick = () =>
-  switchPage(page === "template" ? "editor" : "template");
-$("editorTab").onclick = () => switchPage("editor");
-$("preview").onclick = () =>
-  switchPage(page === "preview" ? "editor" : "preview");
-$("compare").onclick = () =>
-  switchPage(page === "compare" ? "editor" : "compare");
-$("commonTab").onclick = () =>
-  switchPage(page === "common" ? "editor" : "common");
+$("template").onclick = () => activateTab("template");
+$("editorTab").onclick = () => activateTab("editor");
+$("preview").onclick = () => activateTab("preview");
+$("compare").onclick = () => activateTab("compare");
+$("commonTab").onclick = () => activateTab("common");
 $("copyAll").onclick = copy;
 $("previewMode").onchange = updatePreview;
 $("previewRendered").onclick = () => {
@@ -1593,7 +1641,7 @@ $("updatesTab").onclick = () => {
   updaterUI.show();
 };
 $("settingsTab").onclick = () => {
-  switchPage(settingsPages.includes(page) ? "editor" : lastSettingsPage);
+  activateTab(lastSettingsPage);
   if (lastSettingsPage === "updates") updaterUI.show();
   if (lastSettingsPage === "other") otherUI.show();
 };
@@ -1840,7 +1888,7 @@ function runShortcut(action) {
     return true;
   }
   if (action === "save") {
-    save();
+    manualSave();
     return true;
   }
   if (noSet) return true;
@@ -1956,6 +2004,18 @@ window.addEventListener("pagehide", () => {
       }),
     );
 });
+async function manualSave() {
+  if (noSet) {
+    $("status").textContent = "请新建或打开词集";
+    return;
+  }
+  try {
+    await flushWorkspace();
+    saveStatus.success("已保存到本机");
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
+}
 async function flushWorkspace() {
   clearTimeout(saveTimer);
   if (!saveRunning) await save();
@@ -2019,9 +2079,8 @@ function acceptWorkspace(data) {
   $("compareLeft").value = "";
   $("compareRight").value = "";
   render();
-  $("status").textContent = data.set
-    ? "已保存 · " + data.set.name + ".txt"
-    : "已保存到本机";
+  saveStatus.dismiss();
+  $("status").textContent = "";
   $("status").title = data.set?.path || "";
   if (dirty) changed();
 }
@@ -2031,6 +2090,7 @@ const attachments = mountAttachments({
   remember,
   changed,
   notify: toast,
+  copyReference: (text) => copyText(text, { jump: false, quiet: true }),
 });
 $("clearUserData").onclick = async () => {
   if (
@@ -2100,8 +2160,6 @@ try {
     onLocation: (entry) => {
       if (!entry) return;
       $("status").title = entry.path;
-      if (!dirty && !conflict && !saveRunning)
-        $("status").textContent = "已保存 · " + entry.name + ".txt";
     },
     notify: toast,
     showEditor: () => switchPage("editor"),
@@ -2114,7 +2172,7 @@ try {
     },
   });
   $("libraryTab").onclick = () => {
-    switchPage(page === "library" ? "editor" : "library");
+    activateTab("library");
     libraryUI.begin();
     libraryUI.refresh();
   };

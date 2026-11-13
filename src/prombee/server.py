@@ -121,7 +121,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             elif path=='/api/dev':
                 stamp=max(f.stat().st_mtime_ns for f in (root/'web').iterdir() if f.is_file()) if dev else 0
                 self.json(200,dict(enabled=dev,stamp=str(stamp)))
-            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/dropdowns.js','/dropdowns.css','/formatting.js','/entry-navigation.js','/pairs.js','/rounds.js','/skill-completion.js','/entry-metrics.js','/edge-surfaces.css','/entry-selection.js','/attachments.js','/display.js','/punctuation.js','/release-012.css','/wordmark.svg','/hit-regions.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
+            elif path in ('/','/index.html','/app.js','/updates.js','/bars.js','/bars.css','/buttons.js','/buttons.css','/dropdowns.js','/dropdowns.css','/formatting.js','/entry-navigation.js','/pairs.js','/rounds.js','/skill-completion.js','/entry-metrics.js','/edge-surfaces.css','/entry-selection.js','/attachments.js','/display.js','/punctuation.js','/release-012.css','/release-013.css','/save-status.js','/header-indicator.js','/brand-lockup.svg','/brand-lockup-active.svg','/wordmark.svg','/hit-regions.js','/other.js','/core.js','/style.css','/logo.svg','/review.js','/diagnostics.js','/library.js','/mascot.html','/bee-art.js','/bee-source.png','/bee-alpha.png','/mascot.js','/mascot.css','/desktop-chrome.js','/brand.js','/speech.js','/reorder.js','/edge-navigation.js','/shortcuts.js','/vendor/marked.esm.js','/vendor/purify.es.mjs'):
                 f=root/'web'/('index.html' if path=='/' else path[1:])
                 kind={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}[f.suffix]
                 self.send(200,f.read_bytes(),kind)
@@ -151,7 +151,12 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 payload=json.loads(self.rfile.read(length))
                 if self.path == '/api/display':result=display.save(payload)
                 elif self.path == '/api/attachments':
-                    if payload.get('action')=='paths':
+                    if payload.get('action')=='references':result={'attachments':attachments.references(payload.get('text',''))}
+                    elif payload.get('action')=='lookup':
+                        ids=payload.get('ids',[])
+                        if not isinstance(ids,list) or len(ids)>100 or any(not isinstance(i,str) for i in ids):raise ValueError('附件标识无效')
+                        result={'attachments':[attachments.get(i) for i in ids]}
+                    elif payload.get('action')=='paths':
                         paths=payload.get('paths',[])
                         if not isinstance(paths,list) or len(paths)>100 or any(not isinstance(p,str) for p in paths):raise ValueError('附件列表无效')
                         result={'attachments':[attachments.import_file(p) for p in paths]}
