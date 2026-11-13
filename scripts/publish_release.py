@@ -24,9 +24,17 @@ def main():
     rpms=list((ROOT/'dist').glob(f'prombee-{version}-*.noarch.rpm'))
     if len(rpms)!=1:parser.error('Exactly one tested RPM is required')
     inputs[rpms[0].name]=rpms[0]
+    # Validate every executable before staging any release files. In particular,
+    # a still-running Windows download must not silently reuse yesterday's EXE.
+    bundle_python=ROOT/'work/build-venv/bin/python'
     for name,source in inputs.items():
         if not source.is_file() or source.stat().st_size<1000000:parser.error('Missing tested artifact: '+str(source))
+        if source in (ROOT/'dist/Prombee',ROOT/'dist/windows/Prombee.exe'):
+            subprocess.run([str(bundle_python),str(ROOT/'scripts/check_bundle_version.py'),str(source),version],check=True)
+    for name,source in inputs.items():
         shutil.copy2(source,folder/name)
+        if hashlib.sha256(source.read_bytes()).digest()!=hashlib.sha256((folder/name).read_bytes()).digest():
+            parser.error('Artifact changed during staging: '+str(source))
     manifest=folder/f'Prombee-{version}-SHA256.txt'
     manifest.write_text(''.join(hashlib.sha256((folder/name).read_bytes()).hexdigest()+'  '+name+'\n' for name in inputs))
     tag='v'+version
