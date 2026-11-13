@@ -48,7 +48,7 @@ export function mountDisplayWidth({ request = fetch } = {}) {
         if (e.button !== 0) return;
         e.preventDefault();
         const start = e.clientX,
-          initial = width;
+          initial = surface.getBoundingClientRect().width || width;
         grip.setPointerCapture(e.pointerId);
         document.body.classList.add("resizing-display");
         grip.onpointermove = (event) => {

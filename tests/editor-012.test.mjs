@@ -186,3 +186,10 @@ test('Ctrl+left/right moves to punctuation boundaries within the active entry',(
  const f=caret('a'),prefix=()=>{const r=document.createRange();r.selectNodeContents(f);r.setEnd(window.getSelection().focusNode,window.getSelection().focusOffset);return r.toString();};
  key(f,'ArrowLeft',{ctrlKey:true});assert.equal(prefix(),'甲，乙。');key(f,'ArrowLeft',{ctrlKey:true});assert.equal(prefix(),'甲，');key(f,'ArrowRight',{ctrlKey:true});assert.equal(prefix(),'甲，乙。');
 });
+
+test('display dragging starts at the visible paper width without a capped-width dead zone',()=>{
+ const paper=$('paper'),grip=paper.querySelector('.display-resizer.right'),old=paper.getBoundingClientRect;
+ paper.getBoundingClientRect=()=>({width:800});grip.setPointerCapture=()=>{};
+ grip.onpointerdown({button:0,clientX:500,pointerId:1,preventDefault(){}});grip.onpointermove({clientX:480});
+ assert.equal(document.documentElement.style.getPropertyValue('--display-width'),'760px');grip.onpointerup();assert.equal(document.body.classList.contains('resizing-display'),false);paper.getBoundingClientRect=old;
+});
