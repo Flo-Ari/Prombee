@@ -6,6 +6,7 @@ export function mountAttachments({
   remember,
   changed,
   notify,
+  dropTarget = () => null,
   copyReference = async (text) => navigator.clipboard.writeText(text),
 }) {
   const gallery = document.createElement("nav");
@@ -20,6 +21,7 @@ export function mountAttachments({
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
         body: file,
+        signal: AbortSignal.timeout(60000),
       },
     );
     const value = await r.json();
@@ -90,6 +92,7 @@ export function mountAttachments({
         image.src = "/api/attachments/" + asset.id;
         image.alt = asset.name;
         image.loading = "lazy";
+        image.decoding = "async";
         card.append(image);
       } else {
         const icon = document.createElement("span");
@@ -109,10 +112,10 @@ export function mountAttachments({
       const copy = document.createElement("button");
       copy.className = "attachment-reference";
       copy.textContent = "复制引用";
-      copy.title = "复制此文件的 Markdown 引用地址";
+      copy.title = "复制此附件的文件名";
       copy.onclick = async () => {
         try {
-          await copyReference(reference(asset));
+          await copyReference(asset.name);
         } catch (error) {
           notify(error.message);
         }
@@ -139,20 +142,21 @@ export function mountAttachments({
     if (window.pywebview?.api?.clipboard_files)
       return window.pywebview.api.clipboard_files();
     if (!window.webkit?.messageHandlers?.clipboardFiles) return [];
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const id = crypto.randomUUID();
       let timer;
       const done = (e) => {
         if (e.detail?.id !== id) return;
         clearTimeout(timer);
         window.removeEventListener("prombee-clipboard-files", done);
-        resolve(e.detail.paths || []);
+        if (e.detail.error) reject(Error(e.detail.error));
+        else resolve(e.detail.paths || []);
       };
       window.addEventListener("prombee-clipboard-files", done);
       timer = setTimeout(() => {
         window.removeEventListener("prombee-clipboard-files", done);
-        resolve([]);
-      }, 1500);
+        reject(Error("读取剪贴板超时，请重试或使用添加附件"));
+      }, 17000);
       window.webkit.messageHandlers.clipboardFiles.postMessage(
         JSON.stringify({ id }),
       );
@@ -181,7 +185,9 @@ export function mountAttachments({
   });
   function acceptsDrop(event) {
     return [...(event.dataTransfer?.types || [])].some((type) =>
-      ["application/x-prombee-attachment", "Files"].includes(type),
+      ["application/x-prombee-attachment", "Files", "text/uri-list"].includes(
+        type,
+      ),
     );
   }
   async function drop(event, content, node) {
@@ -210,10 +216,32 @@ export function mountAttachments({
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(range);
     if (!id) {
+      const paths = (event.dataTransfer.getData("text/uri-list") || "")
+        .split(/\r?\n/)
+        .flatMap((uri) => {
+          try {
+            const url = new URL(uri);
+            if (
+              url.protocol !== "file:" ||
+              !["", "localhost"].includes(url.hostname)
+            )
+              return [];
+            let path = decodeURIComponent(url.pathname);
+            if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1);
+            return [path];
+          } catch {
+            return [];
+          }
+        });
+      if (!event.dataTransfer.files?.length && !paths.length) {
+        notify("请拖入图片文件，或复制图片后粘贴");
+        return;
+      }
       await paste(
         { clipboardData: event.dataTransfer, preventDefault() {} },
         content,
         node,
+        paths,
       );
       return;
     }
@@ -247,22 +275,46 @@ export function mountAttachments({
       notify(error.message);
     }
   }
-  async function paste(event, content, node) {
+  const surface =
+    document.querySelector("main") || document.getElementById("paper");
+  surface?.addEventListener("dragover", (event) => {
+    if (editable() && acceptsDrop(event)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    }
+  });
+  surface?.addEventListener("drop", (event) => {
+    if (event.defaultPrevented || !editable() || !acceptsDrop(event)) return;
+    event.preventDefault();
+    const target = dropTarget(event);
+    if (target) drop(event, target.content, target.node);
+  });
+  async function paste(event, content, node, suppliedPaths = null) {
     const files = [...(event.clipboardData?.files || [])],
-      text = event.clipboardData?.getData("text/plain") || "";
+      clipboardText = event.clipboardData?.getData("text/plain") || "";
     // Large fenced code remains intact as a text attachment instead of flooding one line.
-    if (!files.length && text.length >= 20000 && /^\s*```/.test(text))
+    if (
+      !files.length &&
+      clipboardText.length >= 20000 &&
+      /^\s*```/.test(clipboardText)
+    )
       files.push(
-        new File([text], "代码-" + Date.now() + ".txt", { type: "text/plain" }),
+        new File([clipboardText], "代码-" + Date.now() + ".txt", {
+          type: "text/plain",
+        }),
       );
     const native =
       window.pywebview?.api?.clipboard_files ||
       window.webkit?.messageHandlers?.clipboardFiles;
-    if (!files.length && text.includes("file://")) {
-      await syncReferences(text);
+    if (
+      !files.length &&
+      !suppliedPaths?.length &&
+      clipboardText.includes("file://")
+    ) {
+      await syncReferences(clipboardText);
       return false;
     }
-    if (!files.length && !native) return false;
+    if (!files.length && !native && !suppliedPaths?.length) return false;
     event.preventDefault();
     const collection = getDoc(),
       range = window.getSelection()?.rangeCount
@@ -272,7 +324,7 @@ export function mountAttachments({
       const assets = [];
       for (const file of files) assets.push(await upload(file));
       if (!files.length) {
-        const paths = await clipboardPaths();
+        const paths = suppliedPaths || (await clipboardPaths());
         if (!paths.length) return false;
         const response = await fetch("/api/attachments", {
           method: "POST",
@@ -284,7 +336,7 @@ export function mountAttachments({
         assets.push(...result.attachments);
       }
       register(collection, assets);
-      const pasted = event.clipboardData?.getData("text/plain") || "";
+      const pasted = files.length ? "" : clipboardText;
       const text =
         (pasted && !/^\s*file:/i.test(pasted) ? pasted + "\n" : "") +
         assets.map(reference).join("\n");

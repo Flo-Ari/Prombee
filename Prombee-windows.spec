@@ -3,6 +3,12 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 root = Path(SPECPATH)
 datas, binaries, hiddenimports = collect_all('webview')
+# Never ship a release that assumes WebView2 is preinstalled.
+installer = root / 'work/windows-runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
+if not installer.is_file() or not installer.with_suffix('.sha256').is_file():
+    raise SystemExit('Missing verified offline WebView2 installer; use the Windows packaging workflow')
+datas += [(str(installer), 'runtime'), (str(installer.with_suffix('.sha256')), 'runtime')]
+
 a = Analysis([str(root / 'desktop_windows.py')], pathex=[str(root / 'src')],
     binaries=binaries,
     datas=datas + [(str(root / 'web'), 'web'), (str(root / 'seed.json'), '.'), (str(root / 'LICENSE'), '.'), (str(root / 'NOTICE'), '.')],

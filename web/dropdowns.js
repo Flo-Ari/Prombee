@@ -134,6 +134,55 @@ export function mountDropdowns(root = document) {
       attributes: true,
       attributeFilter: ["disabled", "selected", "label"],
     });
+    // Keep one ordering for the whole hover gesture: opening a recent set
+    // moves it to the top of the model, which must not reverse the next tick.
+    if (["documents", "recentSets"].includes(select.id)) {
+      let order = null,
+        delta = 0;
+      const available = () =>
+        [...select.options].filter(
+          (o) => !o.disabled && !o.parentElement.disabled,
+        );
+      shell.addEventListener("pointerleave", () => {
+        order = null;
+        delta = 0;
+      });
+      shell.addEventListener(
+        "wheel",
+        (event) => {
+          if (
+            select.disabled ||
+            document.body.inert ||
+            event.ctrlKey ||
+            event.metaKey ||
+            !event.deltaY ||
+            Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          )
+            return;
+          event.preventDefault();
+          event.stopPropagation();
+          const options = available();
+          if (!order) order = options.map((o) => o.value);
+          const valid = new Set(options.map((o) => o.value));
+          order = order.filter((value) => valid.has(value));
+          if (!order.includes(select.value))
+            order = options.map((o) => o.value);
+          if (Math.sign(delta) !== Math.sign(event.deltaY)) delta = 0;
+          delta += event.deltaMode ? event.deltaY * 40 : event.deltaY;
+          if (Math.abs(delta) < 40) return;
+          const step = Math.sign(delta);
+          delta = 0;
+          const index = order.indexOf(select.value),
+            next = index + step;
+          if (index < 0 || next < 0 || next >= order.length) return;
+          close();
+          select.value = order[next];
+          paint();
+          select.dispatchEvent(new window.Event("change", { bubbles: true }));
+        },
+        { passive: false },
+      );
+    }
     trigger.onclick = () => (opened === control ? close() : open(control));
     trigger.onkeydown = (event) => {
       if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing)

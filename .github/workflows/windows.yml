@@ -30,16 +30,16 @@ jobs:
         run: python -m pip install -r requirements-windows.txt
       - name: Shared state persistence tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Ensure WebView2 runtime
+      - name: Bundle Microsoft offline WebView2 installer
         shell: pwsh
         run: |
-          $runtime = Get-ChildItem "${env:ProgramFiles(x86)}/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe" -ErrorAction SilentlyContinue
-          if ($runtime) { Write-Host "WebView2 is already installed."; exit 0 }
-          $installer = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
-          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $installer -TimeoutSec 60
-          $process = Start-Process $installer -ArgumentList '/silent', '/install' -PassThru
-          if (-not $process.WaitForExit(120000)) { $process.Kill(); Write-Host 'Bootstrapper timed out; native smoke will verify runtime availability.' }
-          else { Write-Host "WebView2 installer exit $($process.ExitCode)." }
+          New-Item -ItemType Directory -Force work/windows-runtime | Out-Null
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'work/windows-runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/?linkid=2124701' -OutFile $installer -TimeoutSec 180
+          $signature = Get-AuthenticodeSignature $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'WebView2 installer signature is not a valid Microsoft signature.' }
+          if ((Get-Item $installer).Length -lt 50000000) { throw 'Expected the complete offline x64 runtime installer.' }
+          (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content ([System.IO.Path]::ChangeExtension($installer, '.sha256')) -Encoding ascii
       - name: Build standalone executable
         run: python -m PyInstaller Prombee-windows.spec --noconfirm --workpath work/pyinstaller-windows --distpath dist/windows
       - name: Packaged native window, Unicode clipboard and close-save smoke test
@@ -48,7 +48,7 @@ jobs:
           $data = Join-Path $env:RUNNER_TEMP 'prombee-smoke'
           $report = Join-Path $env:GITHUB_WORKSPACE 'dist/windows/smoke-result.json'
           $process = Start-Process 'dist/windows/Prombee.exe' -ArgumentList '--smoke-test', '--data-dir', "`"$data`"", '--smoke-result', "`"$report`"" -PassThru
-          if (-not $process.WaitForExit(90000)) { $process.Kill(); throw 'Packaged Windows smoke test timed out.' }
+          if (-not $process.WaitForExit(300000)) { $process.Kill(); throw 'Packaged Windows smoke test timed out.' }
           if ($process.ExitCode -ne 0) { if (Test-Path $report) { Get-Content $report }; throw "Smoke test exited $($process.ExitCode)." }
           $result = Get-Content $report -Raw | ConvertFrom-Json
           if (-not ($result.ok -and $result.clipboard -and $result.closeSave -and $result.floatingRoundTrip)) { throw 'Smoke report is incomplete.' }

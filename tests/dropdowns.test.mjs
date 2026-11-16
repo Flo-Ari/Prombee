@@ -31,3 +31,48 @@ test("dropdowns keep native values and change events, keyboard navigation and pr
   ui.sync();
   assert.equal(trigger.disabled, true);
 });
+
+test("round and set wheels select, clamp, respect disabled state and keep recent ordering", () => {
+  const dom = new JSDOM(
+    '<select id="documents"><option>a</option><option disabled>b</option><option>c</option></select><select id="recentSets"><option>a</option><option>b</option><option>c</option></select>',
+  );
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  mountDropdowns();
+  const wheel = (id, dy = 100) =>
+    document
+      .querySelector(`[data-select-id="${id}"] .dropdown-trigger`)
+      .dispatchEvent(
+        new window.WheelEvent("wheel", {
+          deltaY: dy,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+  const rounds = document.getElementById("documents"),
+    sets = document.getElementById("recentSets");
+  let changes = 0;
+  rounds.onchange = () => changes++;
+  wheel("documents", 5);
+  assert.equal(rounds.value, "a");
+  wheel("documents");
+  assert.equal(rounds.value, "c");
+  assert.equal(changes, 1);
+  wheel("documents");
+  assert.equal(changes, 1);
+  wheel("documents", -100);
+  assert.equal(rounds.value, "a");
+  rounds.disabled = true;
+  wheel("documents");
+  assert.equal(rounds.value, "a");
+  wheel("recentSets");
+  assert.equal(sets.value, "b");
+  sets.prepend(sets.selectedOptions[0]);
+  sets.value = "b";
+  wheel("recentSets");
+  assert.equal(sets.value, "c");
+  document.body.inert = true;
+  wheel("recentSets", -100);
+  assert.equal(sets.value, "c");
+  dom.window.close();
+});

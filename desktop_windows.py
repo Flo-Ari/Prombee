@@ -103,6 +103,8 @@ def main():
         parser.error('This entry point requires Windows; use desktop.py on Linux.')
     data = args.data_dir or Path(os.environ.get('PROMBEE_DATA_DIR') or str(Path(os.environ['LOCALAPPDATA']) / 'Prombee'))
     data.mkdir(parents=True, exist_ok=True)
+    from prombee.windows_runtime import ensure_runtime
+    ensure_runtime(ROOT, startup_log)
     import webview
     webview.settings['ALLOW_FILE_URLS'] = False
     server = start_server(ROOT, data, native_bridge=True)
@@ -225,9 +227,10 @@ def main():
             result['closeSave'] = True
     except Exception as error:
         result.update(ok=False, error=str(error))
+        startup_log('WebView2 startup error: '+str(error))
         if not args.smoke_test:
             ctypes.windll.user32.MessageBoxW(None,
-                f'无法启动 {app_name()}。请安装 Microsoft Edge WebView2 Runtime 后重试。\n\n' + str(error),
+                f'无法启动 {app_name()}。\n\n' + str(error) + '\n\n启动日志：%LOCALAPPDATA%\\Prombee\\startup.log',
                 app_name(), 0x10)
     finally:
         server.speech.stop();server.shutdown()
@@ -238,5 +241,28 @@ def main():
     return 0 if not args.smoke_test or result['ok'] else 1
 
 
+def startup_log(message):
+    folder=Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'Prombee'
+    folder.mkdir(parents=True,exist_ok=True)
+    with (folder/'startup.log').open('a',encoding='utf-8') as log:
+        log.write(time.strftime('%Y-%m-%d %H:%M:%S ') + str(message) + '\n')
+
+
+def launch():
+    try:
+        startup_log('Starting Prombee')
+        return main()
+    except Exception:
+        import traceback
+        details=traceback.format_exc()
+        try:startup_log(details)
+        except OSError:pass
+        if os.name=='nt':
+            ctypes.windll.user32.MessageBoxW(None,
+                '无法启动提示蜂。\n\n'+details.splitlines()[-1]+
+                '\n\n启动日志：%LOCALAPPDATA%\\Prombee\\startup.log', app_name(), 0x10)
+        return 1
+
+
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(launch())

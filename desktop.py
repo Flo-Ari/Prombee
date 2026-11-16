@@ -171,23 +171,11 @@ def main():
 
         def clipboard_files(self,manager,value):
             request=json.loads(value.to_string());clipboard=Gdk.Display.get_default().get_clipboard()
-            def answer(paths):
-                response=json.dumps({'id':request['id'],'paths':paths})
+            from prombee.clipboard_gtk import read_clipboard
+            def answer(paths,error=None):
+                response=json.dumps({'id':request['id'],'paths':paths,'error':error})
                 self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard-files',{detail:"+response+"}))",-1,None,None,None,None,None)
-            if not clipboard.get_formats().contain_mime_type('text/uri-list'):answer([]);return
-            def done(clipboard,result,_):
-                try:
-                    stream,mime=clipboard.read_finish(result)
-                    try:raw=stream.read_bytes(256*1024,None).get_data().decode('utf-8')
-                    finally:stream.close(None)
-                    paths=[]
-                    for uri in raw.splitlines():
-                        if uri.startswith('file:'):
-                            path=Gio.File.new_for_uri(uri).get_path()
-                            if path and Path(path).is_file():paths.append(path)
-                    answer(paths)
-                except Exception:answer([])
-            clipboard.read_async(['text/uri-list'],GLib.PRIORITY_DEFAULT,None,done,None)
+            read_clipboard(clipboard,server.attachments,answer)
 
         def clipboard_write(self,manager,value):
             request=json.loads(value.to_string())

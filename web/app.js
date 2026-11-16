@@ -2090,6 +2090,25 @@ const attachments = mountAttachments({
   remember,
   changed,
   notify: toast,
+  dropTarget: () => {
+    let content =
+      [...$("paper").querySelectorAll(".row:not([hidden]) .content")].find(
+        (c) => c.dataset.id === active,
+      ) ||
+      [...$("paper").querySelectorAll(".row:not([hidden]) .content")].at(-1);
+    if (!content) {
+      remember();
+      const node = makeNode();
+      doc().nodes.push(node);
+      render();
+      changed();
+      content = $("paper").querySelector(`.content[data-id="${node.id}"]`);
+    }
+    return {
+      content,
+      node: doc().nodes.find((n) => n.id === content.dataset.id),
+    };
+  },
   copyReference: (text) => copyText(text, { jump: false, quiet: true }),
 });
 $("clearUserData").onclick = async () => {
