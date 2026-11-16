@@ -6,7 +6,7 @@ import { moveByPunctuation } from "./punctuation.js";
 import { mountSkillCompletion } from "./skill-completion.js";
 import { syncEntryMetrics } from "./entry-metrics.js";
 import { nextRoundNodes } from "./rounds.js";
-import { mountEntrySelection } from "./entry-selection.js";
+import { mountEntrySelection, mountSelectionStats } from "./entry-selection.js";
 import { bindPairs } from "./pairs.js";
 import { moveAcrossEntries } from "./entry-navigation.js";
 import { mountDropdowns } from "./dropdowns.js";
@@ -56,6 +56,7 @@ mountButtonStyles();
 const dropdowns = mountDropdowns();
 const displayWidth = mountDisplayWidth();
 mountEntrySelection($("paper"));
+const selectionStats = mountSelectionStats($("paper"), $("stats"));
 let state,
   revision = 0,
   active = null,
@@ -483,7 +484,7 @@ function renumber() {
     const row = rows.get(n.id);
     if (!row) continue;
     const text = plain(n.html);
-    characters += text.length;
+    characters += Array.from(text.replace(/\r\n?|\n/g, "")).length;
     let marker;
     if (n.kind === "heading") {
       number = 0;
@@ -503,7 +504,7 @@ function renumber() {
     const field = row.querySelector(".marker");
     if (field.textContent !== marker) field.textContent = marker;
   }
-  $("stats").textContent = `${doc().nodes.length} 个条目 · ${characters} 字`;
+  selectionStats.setTotal(doc().nodes.length, characters);
 }
 function contentFor(id) {
   return [...document.querySelectorAll(".content")].find(
@@ -2167,6 +2168,23 @@ try {
     (!draft.fingerprint || draft.fingerprint === fingerprint)
   ) {
     state = draft.state;
+    for (const collection of [
+      ...state.documents,
+      state.template,
+      state.common,
+    ].filter(Boolean)) {
+      const saved = [
+        ...data.state.documents,
+        data.state.template,
+        data.state.common,
+      ]
+        .filter(Boolean)
+        .find((c) => c.id === collection.id);
+      collection.attachments = [
+        ...(collection.attachments || []).filter((a) => !a.temporary),
+        ...(saved?.attachments || []).filter((a) => a.temporary),
+      ];
+    }
     dirty = true;
     render();
     changed();

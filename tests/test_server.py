@@ -139,4 +139,25 @@ class WorkspaceTests(unittest.TestCase):
         with urlopen(self.url+'/api/library') as r:self.assertEqual(json.load(r)['sets'],[])
         with urlopen(self.url+'/api/display') as r:self.assertEqual(json.load(r)['width'],1120)
 
+    def test_temporary_text_survives_set_reload_but_not_restart_and_can_save_as(self):
+        body=('temporary private body\n'*21).encode()
+        req=Request(self.url+'/api/attachments/upload?name=粘贴内容.txt&temporary=1'.replace('粘贴内容','pasted'),data=body,method='POST')
+        with urlopen(req) as response:asset=json.load(response)
+        self.assertTrue(asset['temporary']);package=self.read();state=package['state'];state['documents'][0]['attachments']=[asset]
+        self.assertEqual(self.put({'state':state,'baseRevision':package['revision'],'setId':package['set']['id']})[0],200)
+        current=self.read();self.assertEqual(current['state']['documents'][0]['attachments'],[asset])
+        saved=Path(package['set']['path']).read_text()
+        self.assertNotIn('temporary private body',saved);self.assertNotIn(asset['path'],saved)
+        destination=Path(self.temp.name)/'saved-as.txt';choices=[]
+        def picker(kind,name):choices.append((kind,name));return str(destination)
+        self.server.pick_path=picker
+        req=Request(self.url+'/api/attachments',data=json.dumps({'action':'saveAs','id':asset['id']}).encode(),method='POST')
+        with urlopen(req) as response:self.assertEqual(json.load(response)['path'],str(destination))
+        self.assertEqual(choices,[('saveAttachment',asset['name'])]);self.assertEqual(destination.read_bytes(),body)
+        other=start_server(ROOT,self.temp.name)
+        try:
+            with urlopen(f'http://127.0.0.1:{other.server_port}/api/state') as response:reopened=json.load(response)
+            self.assertEqual(reopened['state']['documents'][0]['attachments'],[])
+        finally:other.shutdown();other.server_close()
+
 if __name__=='__main__':unittest.main()

@@ -280,3 +280,56 @@ body.dark .dropdown-trigger {
     2px 2px 5px #0008,
     inset 1px 1px 1px #ffffff0c;
 }
+
+/* 附件栏收放样式：底部三角常驻，卡片区域单独滚动。 */
+#attachmentGallery {
+  overflow: hidden;
+}
+.attachment-items {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.attachment-items[hidden] {
+  display: none;
+}
+.attachment-toggle {
+  flex: 0 0 24px;
+  min-height: 24px;
+  width: 100%;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--muted);
+  cursor: pointer;
+}
+.attachment-toggle:hover {
+  color: var(--accent);
+}
+#attachmentGallery.collapsed {
+  top: auto;
+  width: 42px;
+  height: 36px;
+  padding: 4px;
+}
+body.with-attachments.attachments-collapsed .workspace > main {
+  margin-right: 58px;
+}
+.attachment-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 100px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 22px #203c5d20;
+}
+.attachment-menu button {
+  width: 100%;
+}

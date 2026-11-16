@@ -47,6 +47,7 @@ def encode_workspace(state, revision):
     collections += [(key, state[key]) for key in ('template', 'common') if key in state]
     for kind, collection in collections:
         meta = {k: v for k, v in collection.items() if k != 'nodes'}
+        if 'attachments' in meta:meta['attachments']=[a for a in meta['attachments'] if not a.get('temporary')]
         lines += ['', '@' + kind + ' ' + json.dumps(meta, ensure_ascii=False)]
         for node in collection['nodes']:
             meta = {k: v for k, v in node.items() if k != 'html'}

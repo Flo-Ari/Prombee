@@ -185,3 +185,28 @@ export function mountEntrySelection(paper) {
     field.dispatchEvent(new window.Event("input", { bubbles: true }));
   });
 }
+
+export function mountSelectionStats(paper, stats) {
+  let total = "",
+    timer;
+  const paint = () => {
+    const text = selectedEntryText(paper);
+    if (text === null || !text.length) {
+      stats.textContent = total;
+      return;
+    }
+    const normalized = text.replace(/\r\n?/g, "\n");
+    stats.textContent = `${normalized.split("\n").length} 行 · ${Array.from(normalized.replace(/\n/g, "")).length} 字`;
+  };
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(timer);
+    timer = setTimeout(paint, 16);
+  });
+  return {
+    setTotal(entries, characters) {
+      total = `${entries} 个条目 · ${characters} 字`;
+      paint();
+    },
+    paint,
+  };
+}

@@ -157,7 +157,8 @@ def main():
     def pick_path(kind, initial=''):
         options = {'directory': initial} if initial and Path(initial).is_dir() else {}
         if kind in ('file','save'): options['file_types'] = ('TXT (*.txt)',)
-        selected = window.create_file_dialog(webview.FileDialog.FOLDER if kind == 'folder' else webview.FileDialog.SAVE if kind=='save' else webview.FileDialog.OPEN, **options)
+        if kind=='saveAttachment': options['save_filename']=Path(initial).name
+        selected = window.create_file_dialog(webview.FileDialog.FOLDER if kind == 'folder' else webview.FileDialog.SAVE if kind in ('save','saveAttachment') else webview.FileDialog.OPEN, **options)
         return selected[0] if selected else None
     server.pick_path = pick_path
 

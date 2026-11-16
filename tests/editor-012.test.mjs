@@ -178,36 +178,108 @@ test("attachment gallery selection persists metadata and copies file IDs, refere
   await tick();
   assert.deepEqual(copied.at(-1).files, ["asset"]);
   assert.match(copied.at(-1).text, /甲，乙。丙/);
-  assert.match(copied.at(-1).text, /file:\/\/\//);
+  assert.match(copied.at(-1).text, /附件.txt/);
+  assert.ok(!copied.at(-1).text.includes("file:///"));
   assert.match($("documents").selectedOptions[0].textContent, /✓/);
 });
 
-test('Ctrl+left/right moves to punctuation boundaries within the active entry',()=>{
- const f=caret('a'),prefix=()=>{const r=document.createRange();r.selectNodeContents(f);r.setEnd(window.getSelection().focusNode,window.getSelection().focusOffset);return r.toString();};
- key(f,'ArrowLeft',{ctrlKey:true});assert.equal(prefix(),'甲，乙。');key(f,'ArrowLeft',{ctrlKey:true});assert.equal(prefix(),'甲，');key(f,'ArrowRight',{ctrlKey:true});assert.equal(prefix(),'甲，乙。');
+test("Ctrl+left/right moves to punctuation boundaries within the active entry", () => {
+  const f = caret("a"),
+    prefix = () => {
+      const r = document.createRange();
+      r.selectNodeContents(f);
+      r.setEnd(
+        window.getSelection().focusNode,
+        window.getSelection().focusOffset,
+      );
+      return r.toString();
+    };
+  key(f, "ArrowLeft", { ctrlKey: true });
+  assert.equal(prefix(), "甲，乙。");
+  key(f, "ArrowLeft", { ctrlKey: true });
+  assert.equal(prefix(), "甲，");
+  key(f, "ArrowRight", { ctrlKey: true });
+  assert.equal(prefix(), "甲，乙。");
 });
 
-test('display dragging starts at the visible paper width without a capped-width dead zone',()=>{
- const paper=$('paper'),grip=paper.querySelector('.display-resizer.right'),old=paper.getBoundingClientRect;
- paper.getBoundingClientRect=()=>({width:800});grip.setPointerCapture=()=>{};
- grip.onpointerdown({button:0,clientX:500,pointerId:1,preventDefault(){}});grip.onpointermove({clientX:480});
- assert.equal(document.documentElement.style.getPropertyValue('--display-width'),'760px');grip.onpointerup();assert.equal(document.body.classList.contains('resizing-display'),false);paper.getBoundingClientRect=old;
+test("display dragging starts at the visible paper width without a capped-width dead zone", () => {
+  const paper = $("paper"),
+    grip = paper.querySelector(".display-resizer.right"),
+    old = paper.getBoundingClientRect;
+  paper.getBoundingClientRect = () => ({ width: 800 });
+  grip.setPointerCapture = () => {};
+  grip.onpointerdown({
+    button: 0,
+    clientX: 500,
+    pointerId: 1,
+    preventDefault() {},
+  });
+  grip.onpointermove({ clientX: 480 });
+  assert.equal(
+    document.documentElement.style.getPropertyValue("--display-width"),
+    "760px",
+  );
+  grip.onpointerup();
+  assert.equal(document.body.classList.contains("resizing-display"), false);
+  paper.getBoundingClientRect = old;
 });
 
-test('clicking the active header tab returns to the previous tab, including settings and editor',()=>{
- if(document.body.dataset.page!=='editor')$('editorTab').click();
- $('commonTab').click();$('preview').click();$('preview').click();assert.equal(document.body.dataset.page,'common');
- $('settingsTab').click();assert.equal(document.body.dataset.page,'shortcuts');$('otherTab').click();$('settingsTab').click();assert.equal(document.body.dataset.page,'common');
- $('editorTab').click();$('editorTab').click();assert.equal(document.body.dataset.page,'common');$('editorTab').click();
+test("clicking the active header tab returns to the previous tab, including settings and editor", () => {
+  if (document.body.dataset.page !== "editor") $("editorTab").click();
+  $("commonTab").click();
+  $("preview").click();
+  $("preview").click();
+  assert.equal(document.body.dataset.page, "common");
+  $("settingsTab").click();
+  assert.equal(document.body.dataset.page, "shortcuts");
+  $("otherTab").click();
+  $("settingsTab").click();
+  assert.equal(document.body.dataset.page, "common");
+  $("editorTab").click();
+  $("editorTab").click();
+  assert.equal(document.body.dataset.page, "common");
+  $("editorTab").click();
 });
-test('clicking collapsed title content opens only this level and preserves child collapse state',()=>{
- const h=field('h').closest('.row'),child=field('sub').closest('.row');
- if(child.querySelector('.fold').getAttribute('aria-expanded')==='true')child.querySelector('.fold').click();
- h.querySelector('.fold').click();assert.equal(field('sub').closest('.row').hidden,true);
- field('h').click();assert.equal(field('sub').closest('.row').hidden,false);assert.equal(field('sub').closest('.row').querySelector('.fold').getAttribute('aria-expanded'),'false');assert.equal(field('b').closest('.row').hidden,true);
+test("clicking collapsed title content opens only this level and preserves child collapse state", () => {
+  const h = field("h").closest(".row"),
+    child = field("sub").closest(".row");
+  if (child.querySelector(".fold").getAttribute("aria-expanded") === "true")
+    child.querySelector(".fold").click();
+  h.querySelector(".fold").click();
+  assert.equal(field("sub").closest(".row").hidden, true);
+  field("h").click();
+  assert.equal(field("sub").closest(".row").hidden, false);
+  assert.equal(
+    field("sub")
+      .closest(".row")
+      .querySelector(".fold")
+      .getAttribute("aria-expanded"),
+    "false",
+  );
+  assert.equal(field("b").closest(".row").hidden, true);
 });
-test('copy receipt survives text editing undo and is persisted before copy completes',async()=>{
- $('copy').click();for(let i=0;i<30&&!saved?.state.documents.find(d=>d.id==='round').copied;i++)await tick();
- assert.equal(saved.state.documents.find(d=>d.id==='round').copied,true);
- let f=caret('a');f.dispatchEvent(new window.InputEvent('beforeinput',{inputType:'insertText',data:'x',bubbles:true}));f.textContent+='x';f.dispatchEvent(new window.Event('input',{bubbles:true}));$('undo').click();assert.match($('documents').selectedOptions[0].textContent,/✓/);
+test("copy receipt survives text editing undo and is persisted before copy completes", async () => {
+  $("copy").click();
+  for (
+    let i = 0;
+    i < 30 && !saved?.state.documents.find((d) => d.id === "round").copied;
+    i++
+  )
+    await tick();
+  assert.equal(
+    saved.state.documents.find((d) => d.id === "round").copied,
+    true,
+  );
+  let f = caret("a");
+  f.dispatchEvent(
+    new window.InputEvent("beforeinput", {
+      inputType: "insertText",
+      data: "x",
+      bubbles: true,
+    }),
+  );
+  f.textContent += "x";
+  f.dispatchEvent(new window.Event("input", { bubbles: true }));
+  $("undo").click();
+  assert.match($("documents").selectedOptions[0].textContent, /✓/);
 });

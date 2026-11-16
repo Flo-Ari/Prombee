@@ -49,7 +49,7 @@ def main():
         def __init__(self):
             super().__init__(application_id='app.prombee.Prombee',flags=Gio.ApplicationFlags.NON_UNIQUE if args.smoke_test else Gio.ApplicationFlags.DEFAULT_FLAGS)
             self.connect('activate',self.activate)
-            self.connect('shutdown',lambda app:(server.speech.stop(),server.shutdown()))
+            self.connect('shutdown',lambda app:(server.speech.stop(),server.shutdown(),server.server_close()))
 
         def activate(self,app):
             if hasattr(self,'window'):
@@ -119,10 +119,11 @@ def main():
             def begin():
                 cancellable = Gio.Cancellable()
                 self.file_picker_cancel = cancellable
-                if not hasattr(Gtk, 'FileDialog'):
-                    chooser = Gtk.FileChooserNative.new({'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为'}[kind], self.window,
-                        Gtk.FileChooserAction.SELECT_FOLDER if kind == 'folder' else Gtk.FileChooserAction.SAVE if kind=='save' else Gtk.FileChooserAction.OPEN, '保存' if kind=='save' else '选择', '取消')
+                if not hasattr(Gtk, 'FileDialog') or kind=='saveAttachment':
+                    chooser = Gtk.FileChooserNative.new({'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为','saveAttachment':'附件另存为'}[kind], self.window,
+                        Gtk.FileChooserAction.SELECT_FOLDER if kind == 'folder' else Gtk.FileChooserAction.SAVE if kind in ('save','saveAttachment') else Gtk.FileChooserAction.OPEN, '保存' if kind in ('save','saveAttachment') else '选择', '取消')
                     if initial and Path(initial).is_dir(): chooser.set_current_folder(Gio.File.new_for_path(initial))
+                    if kind=='saveAttachment':chooser.set_current_name(Path(initial).name)
                     if kind == 'file':
                         file_filter=Gtk.FileFilter();file_filter.set_name('TXT');file_filter.add_pattern('*.txt');file_filter.add_pattern('*.TXT');chooser.add_filter(file_filter)
                     def complete(chooser, response):
@@ -132,11 +133,12 @@ def main():
                         chooser.destroy();self.file_picker_cancel=None;finished.set()
                         return False
                     chooser.connect('response', complete)
-                    cancellable.connect('cancelled',lambda _:GLib.idle_add(complete,chooser,Gtk.ResponseType.CANCEL))
+                    cancellable.connect(lambda *unused:GLib.idle_add(complete,chooser,Gtk.ResponseType.CANCEL))
                     chooser.show()
                     return False
                 dialog = Gtk.FileDialog()
-                dialog.set_title({'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为'}[kind])
+                dialog.set_title({'folder':'选择保存位置','file':'打开 TXT 词集','attachment':'添加附件','save':'词集另存为','saveAttachment':'附件另存为'}[kind])
+                if kind=='saveAttachment':dialog.set_initial_name(Path(initial).name)
                 if initial and Path(initial).is_dir(): dialog.set_initial_folder(Gio.File.new_for_path(initial))
                 if kind == 'file':
                     filters = Gio.ListStore.new(Gtk.FileFilter)
@@ -144,7 +146,7 @@ def main():
                     filters.append(file_filter);dialog.set_filters(filters)
                 def done(dialog, response, _):
                     try:
-                        selected = dialog.select_folder_finish(response) if kind == 'folder' else dialog.save_finish(response) if kind=='save' else dialog.open_finish(response)
+                        selected = dialog.select_folder_finish(response) if kind == 'folder' else dialog.save_finish(response) if kind in ('save','saveAttachment') else dialog.open_finish(response)
                         result['path'] = selected.get_path() if selected else None
                     except GLib.Error as error:
                         if error.matches(Gtk.dialog_error_quark(), Gtk.DialogError.DISMISSED) or error.matches(Gtk.dialog_error_quark(), Gtk.DialogError.CANCELLED): result['path'] = None
@@ -154,7 +156,7 @@ def main():
                         finished.set()
                 try:
                     if kind == 'folder': dialog.select_folder(self.window, cancellable, done, None)
-                    elif kind=='save':dialog.save(self.window,cancellable,done,None)
+                    elif kind in ('save','saveAttachment'):dialog.save(self.window,cancellable,done,None)
                     else: dialog.open(self.window, cancellable, done, None)
                 except Exception as error:
                     result['error'] = str(error);finished.set()

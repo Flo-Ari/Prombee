@@ -75,7 +75,7 @@ test("gallery cards expose copyable references, drag into a precise text positio
     content,
     {},
   );
-  assert.match(content.textContent, /^he\[图.png\]\(file:.*llo$/);
+  assert.equal(content.textContent, "he图.pngllo");
   assert.equal(doc.attachments.length, 1);
   content.textContent = "[二.txt](file:///tmp/%E4%BA%8C.txt)";
   let r = document.createRange();
@@ -143,10 +143,7 @@ test("files dropped on editor blank space appear in the gallery and insert one r
     document.querySelector(".attachment-card").dataset.attachmentId,
     "png",
   );
-  assert.match(
-    content.textContent,
-    /text\[image.png\]\(file:\/\/\/tmp\/image.png\)/,
-  );
+  assert.equal(content.textContent, "textimage.png");
   assert.equal(document.querySelector("img").decoding, "async");
   dom.window.close();
 });
@@ -206,6 +203,93 @@ test("native screenshot path is inserted after the asynchronous clipboard respon
     node,
   );
   assert.equal(doc.attachments.length, 1);
-  assert.match(content.textContent, /before\[screenshot.png\]/);
+  assert.equal(content.textContent, "beforescreenshot.png");
+  dom.window.close();
+});
+
+test("21 pasted lines become temporary TXT; 20 lines remain text; collapse and Save As keep assets intact", async () => {
+  const dom = new JSDOM(
+    '<main><div id="paper"><section class="row"><div class="content">before</div></section></div></main>',
+    { url: "http://localhost/" },
+  );
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  const content = document.querySelector(".content"),
+    node = { id: "n", html: "before" },
+    doc = { nodes: [node] },
+    messages = [],
+    requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push([url, options]);
+    if (url.includes("/upload")) {
+      assert.ok(url.includes("temporary=1"));
+      assert.equal(await options.body.text(), long);
+      return {
+        ok: true,
+        json: async () => ({
+          id: "tmp",
+          name: "粘贴内容(1).txt",
+          path: "/tmp/temporary.txt",
+          type: "text/plain",
+          temporary: true,
+        }),
+      };
+    }
+    return { ok: true, json: async () => ({ path: "/chosen/kept.txt" }) };
+  };
+  const gallery = mountAttachments({
+    getDoc: () => doc,
+    editable: () => true,
+    remember() {},
+    changed() {},
+    notify: (m) => messages.push(m),
+  });
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  range.collapse(false);
+  window.getSelection().addRange(range);
+  const long = Array.from({ length: 21 }, (_, i) => "原文" + i).join("\r\n");
+  const paste = (text) => ({
+    clipboardData: { files: [], getData: () => text },
+    preventDefault() {},
+  });
+  assert.equal(gallery.hasPaste(paste("one\n".repeat(19) + "last")), false);
+  assert.equal(
+    await gallery.paste(paste("one\n".repeat(19) + "last"), content, node),
+    false,
+  );
+  assert.equal(gallery.hasPaste(paste(long)), true);
+  assert.equal(await gallery.paste(paste(long), content, node), true);
+  assert.equal(content.textContent, "before粘贴内容(1).txt");
+  assert.equal(doc.attachments[0].temporary, true);
+  assert.ok(!gallery.bundle(content.textContent).text.includes("/tmp/"));
+  assert.deepEqual(gallery.bundle("").files, ["tmp"]);
+  let toggle = document.querySelector(".attachment-toggle");
+  toggle.click();
+  assert.equal(document.querySelector("#attachmentItems").hidden, true);
+  assert.equal(
+    document.querySelector(".attachment-toggle").getAttribute("aria-expanded"),
+    "false",
+  );
+  gallery.paint();
+  assert.equal(document.querySelector("#attachmentItems").hidden, true);
+  document.querySelector(".attachment-toggle").click();
+  assert.equal(document.querySelector("#attachmentItems").hidden, false);
+  document
+    .querySelector(".attachment-card")
+    .dispatchEvent(
+      new window.MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 50,
+        clientY: 50,
+      }),
+    );
+  const save = document.querySelector(".attachment-menu button");
+  assert.equal(save.textContent, "另存为");
+  await save.onclick();
+  assert.equal(JSON.parse(requests.at(-1)[1].body).action, "saveAs");
+  assert.equal(doc.attachments.length, 1);
+  assert.deepEqual(messages, []);
   dom.window.close();
 });

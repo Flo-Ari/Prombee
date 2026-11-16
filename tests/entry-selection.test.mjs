@@ -74,3 +74,29 @@ test("cross-host dragging temporarily leaves editable mode and the next click re
   assert.equal(fields[0].getAttribute("contenteditable"), "true");
   assert.equal(fields[1].getAttribute("contenteditable"), "true");
 });
+
+test("selection statistics count selected content lines and Unicode characters, restoring total on collapse", async () => {
+  const { mountSelectionStats } = await import("../web/entry-selection.js");
+  const dom = new JSDOM(
+    '<article><section class="row"><b>H1</b><div class="content">中文🐝<br>ab</div><button>删除</button></section><section class="row"><div class="content">尾</div></section></article><span id="stats"></span>',
+  );
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  const paper = document.querySelector("article"),
+    stats = document.getElementById("stats"),
+    fields = paper.querySelectorAll(".content");
+  const ui = mountSelectionStats(paper, stats);
+  ui.setTotal(2, 6);
+  assert.equal(stats.textContent, "2 个条目 · 6 字");
+  const range = document.createRange();
+  range.setStart(fields[0].firstChild, 1);
+  range.setEnd(fields[1].firstChild, 1);
+  window.getSelection().addRange(range);
+  document.dispatchEvent(new window.Event("selectionchange"));
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(stats.textContent, "3 行 · 5 字");
+  window.getSelection().collapseToEnd();
+  ui.paint();
+  assert.equal(stats.textContent, "2 个条目 · 6 字");
+  dom.window.close();
+});

@@ -1,5 +1,5 @@
-const reference = (a) =>
-  `[${a.name.replace(/[\[\]]/g, "")}](${new URL("file://" + (a.path.startsWith("/") ? "" : "/") + a.path.replace(/\\/g, "/")).href.replace(/\(/g, "%28").replace(/\)/g, "%29")})`;
+const reference = (a) => a.name;
+const longText = (text) => text.replace(/\r\n?/g, "\n").split("\n").length > 20;
 export function mountAttachments({
   getDoc,
   editable,
@@ -13,10 +13,13 @@ export function mountAttachments({
   gallery.id = "attachmentGallery";
   gallery.setAttribute("aria-label", "附件画廊");
   document.body.append(gallery);
-  let busy = false;
-  async function upload(file) {
+  let busy = false,
+    collapsed = false;
+  async function upload(file, temporary = false) {
     const r = await fetch(
-      "/api/attachments/upload?name=" + encodeURIComponent(file.name),
+      "/api/attachments/upload?name=" +
+        encodeURIComponent(file.name) +
+        (temporary ? "&temporary=1" : ""),
       {
         method: "POST",
         headers: { "Content-Type": "application/octet-stream" },
@@ -43,9 +46,16 @@ export function mountAttachments({
   }
   function paint() {
     document.body.classList.toggle("with-attachments", editable());
+    document.body.classList.toggle("attachments-collapsed", collapsed);
+    gallery.classList.toggle("collapsed", collapsed);
     gallery.hidden = !editable();
     gallery.replaceChildren();
     if (gallery.hidden) return;
+    const list = document.createElement("div");
+    list.className = "attachment-items";
+    list.id = "attachmentItems";
+    list.hidden = collapsed;
+    gallery.append(list);
     const add = document.createElement("button");
     add.className = "attachment-add";
     add.textContent = "＋";
@@ -72,11 +82,17 @@ export function mountAttachments({
         paint();
       }
     };
-    gallery.append(add);
+    list.append(add);
     for (const asset of getDoc().attachments || []) {
       const card = document.createElement("div");
       card.className = "attachment-card";
-      card.title = asset.name + "\n" + asset.path;
+      card.title =
+        asset.name +
+        (asset.temporary ? "\n临时附件 · 退出后清理 · 右键另存为" : "");
+      card.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        showContextMenu(asset, event);
+      });
       card.draggable = true;
       card.dataset.attachmentId = asset.id;
       card.addEventListener("dragstart", (event) => {
@@ -135,9 +151,65 @@ export function mountAttachments({
       };
       actions.append(remove);
       card.append(actions);
-      gallery.append(card);
+      list.append(card);
     }
+    const toggle = document.createElement("button");
+    toggle.className = "attachment-toggle";
+    toggle.textContent = collapsed ? "▴" : "▾";
+    toggle.title = collapsed ? "展开附件栏" : "收起附件栏";
+    toggle.setAttribute("aria-label", toggle.title);
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-controls", "attachmentItems");
+    toggle.onclick = () => {
+      collapsed = !collapsed;
+      paint();
+    };
+    gallery.append(toggle);
   }
+  function showContextMenu(asset, event) {
+    document.querySelector(".attachment-menu")?.remove();
+    const menu = document.createElement("div");
+    menu.className = "attachment-menu";
+    menu.role = "menu";
+    const save = document.createElement("button");
+    save.textContent = "另存为";
+    save.role = "menuitem";
+    save.onclick = async () => {
+      menu.remove();
+      try {
+        const response = await fetch("/api/attachments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "saveAs", id: asset.id }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error);
+      } catch (error) {
+        notify(error.message);
+      }
+    };
+    menu.append(save);
+    document.body.append(menu);
+    menu.style.left =
+      Math.max(
+        8,
+        Math.min(event.clientX, window.innerWidth - menu.offsetWidth - 8),
+      ) + "px";
+    menu.style.top =
+      Math.max(
+        8,
+        Math.min(event.clientY, window.innerHeight - menu.offsetHeight - 8),
+      ) + "px";
+    save.focus();
+  }
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".attachment-menu"))
+      document.querySelector(".attachment-menu")?.remove();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape")
+      document.querySelector(".attachment-menu")?.remove();
+  });
   async function clipboardPaths() {
     if (window.pywebview?.api?.clipboard_files)
       return window.pywebview.api.clipboard_files();
@@ -163,7 +235,7 @@ export function mountAttachments({
     });
   }
   async function syncReferences(text, collection = getDoc()) {
-    if (!text?.includes("file://")) return;
+    if (!text) return;
     const response = await fetch("/api/attachments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -292,28 +364,15 @@ export function mountAttachments({
   async function paste(event, content, node, suppliedPaths = null) {
     const files = [...(event.clipboardData?.files || [])],
       clipboardText = event.clipboardData?.getData("text/plain") || "";
-    // Large fenced code remains intact as a text attachment instead of flooding one line.
-    if (
-      !files.length &&
-      clipboardText.length >= 20000 &&
-      /^\s*```/.test(clipboardText)
-    )
+    // Keep the original copied text intact; only the paste becomes a temporary TXT.
+    const temporary = !files.length && longText(clipboardText);
+    if (temporary)
       files.push(
-        new File([clipboardText], "代码-" + Date.now() + ".txt", {
-          type: "text/plain",
-        }),
+        new File([clipboardText], "粘贴内容.txt", { type: "text/plain" }),
       );
     const native =
       window.pywebview?.api?.clipboard_files ||
       window.webkit?.messageHandlers?.clipboardFiles;
-    if (
-      !files.length &&
-      !suppliedPaths?.length &&
-      clipboardText.includes("file://")
-    ) {
-      await syncReferences(clipboardText);
-      return false;
-    }
     if (!files.length && !native && !suppliedPaths?.length) return false;
     event.preventDefault();
     const collection = getDoc(),
@@ -322,10 +381,13 @@ export function mountAttachments({
         : null;
     try {
       const assets = [];
-      for (const file of files) assets.push(await upload(file));
+      for (const file of files) assets.push(await upload(file, temporary));
       if (!files.length) {
         const paths = suppliedPaths || (await clipboardPaths());
-        if (!paths.length) return false;
+        if (!paths.length) {
+          await syncReferences(clipboardText, collection);
+          return false;
+        }
         const response = await fetch("/api/attachments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -336,10 +398,7 @@ export function mountAttachments({
         assets.push(...result.attachments);
       }
       register(collection, assets);
-      const pasted = files.length ? "" : clipboardText;
-      const text =
-        (pasted && !/^\s*file:/i.test(pasted) ? pasted + "\n" : "") +
-        assets.map(reference).join("\n");
+      const text = assets.map(reference).join("\n");
       if (
         getDoc() === collection &&
         content.isConnected &&
@@ -379,8 +438,7 @@ export function mountAttachments({
         !!window.pywebview?.api?.clipboard_files ||
         !!window.webkit?.messageHandlers?.clipboardFiles ||
         !!event.clipboardData?.files?.length ||
-        (/^\s*```/.test(event.clipboardData?.getData("text/plain") || "") &&
-          (event.clipboardData?.getData("text/plain") || "").length >= 20000)
+        longText(event.clipboardData?.getData("text/plain") || "")
       );
     },
     bundle(text) {

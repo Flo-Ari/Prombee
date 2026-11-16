@@ -114,7 +114,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 try:
                     from urllib.parse import parse_qs
                     query = parse_qs(urlsplit(self.path).query)
-                    if path == '/api/state': self.json(200, library.load(query.get('setId', [None])[0]))
+                    if path == '/api/state': self.json(200, attachments.restore_session(library.load(query.get('setId', [None])[0])))
                     else: self.json(200, library.snapshot())
                 except (ValueError, OSError, KeyError) as error:
                     self.json(400, {'error': str(error)})
@@ -135,7 +135,8 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 try:
                     from urllib.parse import parse_qs
                     name=parse_qs(urlsplit(self.path).query).get('name',['附件'])[0]
-                    entry=attachments.add(name,self.rfile,int(self.headers.get('Content-Length',-1)))
+                    temporary=parse_qs(urlsplit(self.path).query).get('temporary',['0'])[0]=='1'
+                    entry=attachments.add(name,self.rfile,int(self.headers.get('Content-Length',-1)),temporary=temporary)
                     self.json(200,entry)
                 except (ValueError,OSError) as error:self.json(400,{'error':str(error)})
                 return
@@ -152,6 +153,11 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 if self.path == '/api/display':result=display.save(payload)
                 elif self.path == '/api/attachments':
                     if payload.get('action')=='references':result={'attachments':attachments.references(payload.get('text',''))}
+                    elif payload.get('action')=='saveAs':
+                        entry=attachments.get(payload.get('id'))
+                        from .picker import choose_path
+                        destination=getattr(self.server,'pick_path',choose_path)('saveAttachment',entry['name'])
+                        result={'path':attachments.save_as(entry['id'],destination) if destination else None}
                     elif payload.get('action')=='lookup':
                         ids=payload.get('ids',[])
                         if not isinstance(ids,list) or len(ids)>100 or any(not isinstance(i,str) for i in ids):raise ValueError('附件标识无效')
@@ -191,7 +197,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                     result = updater.action(payload.get('action'))
                 elif self.path == '/api/picker':
                     kind = payload.get('kind')
-                    if kind not in ('folder', 'file', 'attachment', 'save'): raise ValueError('文件选择类型无效')
+                    if kind not in ('folder', 'file', 'attachment', 'save', 'saveAttachment'): raise ValueError('文件选择类型无效')
                     initial = payload.get('initial', '')
                     if not isinstance(initial, str): raise ValueError('文件位置无效')
                     from .picker import choose_path
@@ -205,6 +211,7 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                     result = speech.start() if action=='start' else speech.stop()
                 else:
                     result = library.save(payload) if self.path == '/api/state' else library.action(payload)
+                    if self.path == '/api/state':attachments.remember_session(payload['state'],payload.get('setId') or library.snapshot().get('active'))
                 self.json(200,result)
             except ConflictError as error:
                 self.json(409,dict(error=str(error)))
@@ -219,6 +226,10 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
             pass
 
     server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
+    original_close=server.server_close
+    def close():
+        original_close();attachments.close()
+    server.server_close=close
     server.attachments = attachments
     server.speech = speech
     server.other = other

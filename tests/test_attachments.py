@@ -29,3 +29,22 @@ class AssetPreferencesTests(unittest.TestCase):
    text='[图]('+Path(asset['path']).as_uri()+')'
    self.assertEqual(store.references(text),[asset]);self.assertEqual(store.references('file:///etc/passwd'),[])
    self.assertEqual(store.import_file(asset['path'])['id'],asset['id']);self.assertEqual(len(store.entries()),1)
+
+ def test_duplicate_names_are_numbered_without_overwriting_concurrent_uploads(self):
+  import concurrent.futures
+  with tempfile.TemporaryDirectory() as folder:
+   store=Attachments(folder);self.addCleanup(store.close)
+   with concurrent.futures.ThreadPoolExecutor() as pool:
+    assets=list(pool.map(lambda i:store.add('图.png',io.BytesIO(bytes([i])),1),range(4)))
+   self.assertEqual({a['name'] for a in assets},{'图.png','图(1).png','图(2).png','图(3).png'})
+   self.assertEqual({Path(a['path']).read_bytes() for a in assets},{bytes([i]) for i in range(4)})
+   self.assertTrue(all(Path(a['path']).name==a['name'] for a in assets))
+
+ def test_temporary_text_has_no_permanent_body_and_save_as_survives_cleanup(self):
+  with tempfile.TemporaryDirectory() as folder:
+   store=Attachments(folder);asset=store.add('粘贴内容.txt',io.BytesIO(b'complete original text'),22,temporary=True)
+   self.assertFalse(Path(asset['path']).is_relative_to(Path(folder)))
+   self.assertFalse(store.index.exists());self.assertEqual(store.references(asset['name']),[asset])
+   destination=Path(folder)/'kept.txt';store.save_as(asset['id'],destination)
+   temporary=Path(asset['path']);store.close()
+   self.assertFalse(temporary.exists());self.assertEqual(destination.read_bytes(),b'complete original text')

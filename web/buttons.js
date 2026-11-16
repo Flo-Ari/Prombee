@@ -45,7 +45,7 @@ export function mountButtonStyles(root = document) {
           "newGroup",
         ].includes(element.id) ||
         element.matches(
-          ".add-heading,.eye,.remove,.group-menu,.group-name,.library-popover button,.attachment-add,.attachment-remove",
+          ".add-heading,.eye,.remove,.group-menu,.group-name,.library-popover button,.attachment-add,.attachment-remove,.attachment-toggle",
         )
           ? "frameless"
           : element.id === "editorTab"
