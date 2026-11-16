@@ -152,7 +152,7 @@ class WorkspaceTests(unittest.TestCase):
         def picker(kind,name):choices.append((kind,name));return str(destination)
         self.server.pick_path=picker
         req=Request(self.url+'/api/attachments',data=json.dumps({'action':'saveAs','id':asset['id']}).encode(),method='POST')
-        with urlopen(req) as response:self.assertEqual(json.load(response)['path'],str(destination))
+        with urlopen(req) as response:self.assertEqual(Path(json.load(response)['path']).resolve(),destination.resolve())
         self.assertEqual(choices,[('saveAttachment',asset['name'])]);self.assertEqual(destination.read_bytes(),body)
         other=start_server(ROOT,self.temp.name)
         try:
