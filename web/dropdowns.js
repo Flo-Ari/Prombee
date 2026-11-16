@@ -144,6 +144,7 @@ export function mountDropdowns(root = document) {
           (o) => !o.disabled && !o.parentElement.disabled,
         );
       shell.addEventListener("pointerleave", () => {
+        if (document.body.inert) return;
         order = null;
         delta = 0;
       });

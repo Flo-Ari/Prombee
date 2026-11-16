@@ -98,17 +98,26 @@ def main():
     parser.add_argument('--data-dir', type=Path)
     parser.add_argument('--smoke-test', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--smoke-result', type=Path, help=argparse.SUPPRESS)
+    parser.add_argument('--smoke-install-runtime', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if os.name != 'nt':
         parser.error('This entry point requires Windows; use desktop.py on Linux.')
     data = args.data_dir or Path(os.environ.get('PROMBEE_DATA_DIR') or str(Path(os.environ['LOCALAPPDATA']) / 'Prombee'))
     data.mkdir(parents=True, exist_ok=True)
-    from prombee.windows_runtime import ensure_runtime
-    ensure_runtime(ROOT, startup_log)
+    from prombee.windows_runtime import ensure_runtime, runtime_version
+    # Exercise the packaged installer and native preparation window in CI even
+    # when the runner image already contains WebView2.
+    first_probe = [args.smoke_test and args.smoke_install_runtime]
+    def probe():
+        if first_probe[0]:
+            first_probe[0] = False
+            return None
+        return runtime_version()
+    prepared = ensure_runtime(ROOT, startup_log, probe=probe)
     import webview
     webview.settings['ALLOW_FILE_URLS'] = False
     server = start_server(ROOT, data, native_bridge=True)
-    result = {'ok': False}
+    result = {'ok': False, 'runtimePrepared': prepared}
     closing = threading.Event()
     allow_close = threading.Event()
 
