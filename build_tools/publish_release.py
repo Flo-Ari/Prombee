@@ -18,13 +18,13 @@ def main():
     if not version.startswith('0.'):parser.error('This publisher is for pre-1.0 preview releases')
     folder=ROOT/'dist'/('release-'+version)
     folder.mkdir(exist_ok=True)
-    inputs={'Prombee-'+version:ROOT/'dist/Prombee',
-            'Prombee-'+version+'.exe':ROOT/'dist/windows/Prombee.exe',
-            f'prombee_{version}_all.deb':ROOT/f'dist/prombee_{version}_all.deb'}
-    rpms=list((ROOT/'dist').glob(f'prombee-{version}-*.noarch.rpm'))
+    inputs={'Prombee-'+version+'-Linux-x86_64-Portable':ROOT/'dist/Prombee',
+            'Prombee-'+version+'-Windows-x64-Portable.exe':ROOT/'dist/windows/Prombee.exe',
+            f'Prombee-{version}-Linux-Debian-all.deb':ROOT/f'dist/Prombee-{version}-Linux-Debian-all.deb'}
+    rpms=list((ROOT/'dist').glob(f'Prombee-{version}-Linux-RedHat-noarch.rpm'))
     if len(rpms)!=1:parser.error('Exactly one tested RPM is required')
     inputs[rpms[0].name]=rpms[0]
-    installer=ROOT/'dist/windows'/f'Prombee-{version}-Setup-x64.exe'
+    installer=ROOT/'dist/windows'/f'Prombee-{version}-Windows-x64-Setup.exe'
     inputs[installer.name]=installer
     # Validate every executable before staging any release files. In particular,
     # a still-running Windows download must not silently reuse yesterday's EXE.

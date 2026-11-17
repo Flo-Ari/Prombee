@@ -1,6 +1,6 @@
 # Prombee 架构
 
-前端使用 React、Vite、TypeScript；后端使用 FastAPI、Uvicorn。桌面仍使用 Fedora / Debian 的 GTK / WebKitGTK 和 Windows 的 WebView2。安装后的软件只运行 Python 与预先编译的界面，不需要 Node.js 或开发服务器。
+前端使用 React、Vite、TypeScript；后端使用 FastAPI、Uvicorn。桌面仍使用 Linux 的 GTK / WebKitGTK 和 Windows 的 WebView2。安装后的软件只运行 Python 与预先编译的界面，不需要 Node.js 或开发服务器。
 
 ## 目录与职责
 
@@ -53,7 +53,7 @@ npm --prefix frontend test
 npm --prefix frontend run build
 ```
 
-测试使用临时数据目录，不读写用户实际词集。Linux 单文件构建使用 `build_tools/build.sh`；Windows、Fedora、Debian 工作流先构建 React 界面，再按各平台原有方式打包并做原生窗口检查。
+测试使用临时数据目录，不读写用户实际词集。Linux 单文件构建使用 `build_tools/build.sh`；Windows、Red Hat 系 RPM、Debian 工作流先构建 React 界面，再按各平台原有方式打包并做原生窗口检查。
 
 ## 兼容范围与验证
 
@@ -79,6 +79,6 @@ Windows 工作流构建便携 EXE 和 Inno Setup 安装程序，测试真实鼠�
 
 ## 系统适配与安装配置的边界
 
-`build_tools/packaging/` 保存 Windows 安装程序定义与图标、Fedora RPM 规格、Debian 元数据和启动器；这些是构建输入，不参与运行时业务。
+`build_tools/packaging/` 保存 Windows 安装程序定义与图标、Red Hat 系 RPM 规格、Debian 元数据和启动器；这些是构建输入，不参与运行时业务。
 
 `backend/prombee/adapters/` 承接运行时系统差异：`clipboard_windows.py` / `clipboard_gtk.py` 处理剪贴板，`floating_windows.py` / `floating_gtk.py` 处理原生窗口和悬浮球，`windows_runtime.py` 处理 WebView2 准备，`data_location.py` 处理原生目录选择，`filelock.py` 处理不同系统的锁。共用 API 与业务用例依赖这些适配接口；入口 `desktop.py` / `desktop_windows.py` 负责启动与界面宿主装配。

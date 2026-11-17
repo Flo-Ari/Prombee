@@ -27,7 +27,7 @@ npm --prefix frontend run build
 ## 打包
 
 - Linux 单文件：`build_tools/build.sh`
-- Fedora RPM：先构建前端，再执行 `python3 build_tools/build_rpm.py`
+- Red Hat 系 RPM：先构建前端，再执行 `python3 build_tools/build_rpm.py`
 - Debian：先构建前端，再执行 `python3 build_tools/build_deb.py`
 - Windows：`build_tools/build-windows.ps1`，还需准备经签名验证的离线 WebView2 组件，完整流程见 Windows 工作流。
 

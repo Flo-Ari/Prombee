@@ -11,3 +11,5 @@
 四个已通过测试的包与校验清单必须属于同一提交。将 Linux 单文件、Windows、RPM、DEB 放入 dist 后，执行 `build_tools/publish_release.py --commit COMMIT --notes-file NOTES`。脚本先创建草稿、上传全部包和清单，再发布为预览版。不要在发布后单独覆盖安装包；更改任何包时应发布新版本，避免校验清单失配。常规构建工作流只上传 Actions 产物，不会覆盖 Releases。
 
 资料：[GitHub Releases API](https://docs.github.com/en/rest/releases/releases)、[polkit 图形授权](https://polkit.pages.freedesktop.org/polkit/pkexec.1.html)。
+
+从 0.9.19 起仅发布带平台和安装方式的新文件名，不保留旧名兼容附件。0.9.18 及更早的更新器无法识别新文件名，需要手动安装一次。新版更新器优先选择新命名，仍可读取旧版历史发布信息；Red Hat 系通过 ID / ID_LIKE 识别，未知系统不会默认按 Fedora 处理。RPM 为单个不带 `.fcNN` 后缀的 noarch 包；运行依赖与发行版兼容性另行检查，RHEL 10 官方仓库缺少 WebKitGTK，当前尚不能直接支持。

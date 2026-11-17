@@ -21,7 +21,7 @@
 - **历史与预览**：选择两轮左右对比；预览即将复制的内容，并可切换原始 Markdown。
 - **剪切条目**：未选中文字时，Ctrl+X 复制当前条目的纯文字并仅删除该条目，子条目保留；已选中文字时使用普通剪切。
 - **复制后跳转**：在“设置 → 其他”开启并选择已打开窗口、已安装应用或网页地址，设置自动保存；复制成功后跳转，剪切条目不触发跳转。窗口列表中的浏览器页面以当前标签为准。Linux 窗口列表使用 X11 / XWayland；原生 Wayland 窗口可选择对应应用或网页地址。
-- **设置与更新**：点击主题按钮左边的齿轮，进入快捷键、悬浮球或更新页。更新页显示版本，检查后点击“更新并重启”即可下载、校验并安装；Fedora / Debian 可能需要在系统窗口确认管理员授权。
+- **设置与更新**：点击主题按钮左边的齿轮，进入快捷键、悬浮球或更新页。更新页显示版本，检查后点击“更新并重启”即可下载、校验并安装；Linux 安装包可能需要在系统窗口确认管理员授权。
 - **复制选项**：“排除空项”是持续开关，开启后复制与预览自动过滤空项，保留编辑区内容。批量“排除”可在排除和不排除之间切换。
 - **常用**：集中保存可复用内容，逐项复制当前条目及其子层级，或用“全部复制”复制整页，均包含 Markdown 层级。
 - **选择复制范围**：用眼睛按钮控制条目是否参与复制，关闭标题时连同下级一起排除；开启“排除空项”后，复制时略过没有正文的标题分支，保留有正文子级的父标题。
@@ -43,15 +43,17 @@
 
 ## 安装方法
 
-在 [下载页面](https://github.com/Flo-Ari/Prombee/releases) 下载最新版本中适合系统的文件。已安装用户可在“设置 → 更新”中更新。
+在 [下载页面](https://github.com/Flo-Ari/Prombee/releases) 下载最新版本中适合系统的文件。从 0.9.19 起，下载文件名明确标出平台、架构和安装方式。0.9.18 及更早版本需要手动安装一次 0.9.19，此后可继续在“设置 → 更新”中更新。
 
 | 你的系统                                        | 下载文件                           | 打开方式                           |
 | ----------------------------------------------- | ---------------------------------- | ---------------------------------- |
-| Windows 10 22H2 / Windows 11，64 位 Intel / AMD | `Prombee-0.9.18-Setup-x64.exe` | 安装版：选择安装位置并创建快捷方式 |
-| Windows 便携版，同上系统 | `Prombee-0.9.18.exe` | 直接运行，数据放在程序旁 `Prombee-data` |
-| Fedora 44                                       | `prombee-0.9.18-1.fc44.noarch.rpm` | 使用下方 dnf 指令安装              |
-| Ubuntu 24.04 / 带 WebKitGTK 6 的 Debian         | `prombee_0.9.18_all.deb`           | 使用下方 apt 指令安装              |
-| Linux x86_64 单文件版                           | `Prombee-0.9.18`（没有扩展名）     | 允许执行后运行，仍需系统图形运行库 |
+| Windows 10 22H2 / Windows 11，64 位 Intel / AMD | `Prombee-0.9.19-Windows-x64-Setup.exe` | 安装版：选择安装位置并创建快捷方式 |
+| Windows 便携版，同上系统 | `Prombee-0.9.19-Windows-x64-Portable.exe` | 直接运行，数据放在程序旁 `Prombee-data` |
+| Red Hat 系 RPM 发行版（需满足下方依赖） | `Prombee-0.9.19-Linux-RedHat-noarch.rpm` | 使用下方 dnf 指令安装              |
+| Ubuntu 24.04 / 带 WebKitGTK 6 的 Debian         | `Prombee-0.9.19-Linux-Debian-all.deb`           | 使用下方 apt 指令安装              |
+| Linux x86_64 单文件版                           | `Prombee-0.9.19-Linux-x86_64-Portable`（没有扩展名）     | 允许执行后运行，仍需系统图形运行库 |
+
+`all` / `noarch` 表示安装包内是 Python 和界面资源，图形运行库由系统提供；`x64` / `x86_64` 表示 64 位 Intel / AMD。`Setup` 为安装版，`Portable` 为直接运行版。
 
 Windows 版已包含 Python、程序资源和微软官方 WebView2 离线安装组件。首次运行缺少 WebView2 时会显示准备窗口并自动补齐，无需另下文件或联网；已有组件则直接打开。首次准备可能需要几分钟，之后正常打开。
 
@@ -64,24 +66,24 @@ Windows 版已包含 Python、程序资源和微软官方 WebView2 离线安装�
 下载 `.deb` 文件后安装：
 
 ```bash
-sudo apt install ./prombee_0.9.18_all.deb
+sudo apt install ./Prombee-0.9.19-Linux-Debian-all.deb
 ```
 
 安装后，从应用菜单打开“提示蜂”。
 
-### Fedora 44
+### Red Hat 系 RPM 发行版
 
 下载 `.rpm` 文件，在其所在文件夹打开终端，安装一次：
 
 ```bash
-sudo dnf install ./prombee-0.9.18-1.fc44.noarch.rpm
+sudo dnf install ./Prombee-0.9.19-Linux-RedHat-noarch.rpm
 ```
 
-之后按 Super 键搜索 **提示蜂** 打开，也可在终端输入 `prombee`。安装包会通过 Fedora 仓库安装所需的 GTK、WebKitGTK 和 XWayland 依赖。
+之后按 Super 键搜索 **提示蜂** 打开，也可在终端输入 `prombee`。统一 RPM 包由系统仓库解析依赖，不绑定 Fedora 的发行版后缀。需要 Python 3.10+、FastAPI、Uvicorn、GTK 4、WebKitGTK 6 和 XWayland。已在 Fedora 44 验证；其他 Red Hat 系系统需先确认其仓库提供这些依赖。RHEL 10 已移除 WebKitGTK，当前不能仅使用其官方仓库直接安装本程序，不能将 RPM 格式等同于支持所有系统版本。见 [Red Hat 官方说明](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/pdf/10.0_release_notes/index)。
 
-如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.9.18`，再运行 `./Prombee-0.9.18`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
+如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.9.19-Linux-x86_64-Portable`，再运行 `./Prombee-0.9.19-Linux-x86_64-Portable`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
 
-打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.9.18`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
+打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.9.19-Linux-x86_64-Portable`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
 
 ### 提示词保存位置
 

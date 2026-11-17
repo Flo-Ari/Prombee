@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'backend'))
-from prombee.services.updater import Updater, choose_asset, version_key, API, LINUX_RESTART, WINDOWS_RESTART
+from prombee.services.updater import distribution_package_mode, Updater, choose_asset, version_key, API, LINUX_RESTART, WINDOWS_RESTART
 
 class Response(io.BytesIO):
     status=200
@@ -95,3 +95,29 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(arguments[5],str(self.path))
         helper=Path(arguments[1]).read_text()
         self.assertIn('PROMBEE_DATA_DIR="$data_dir" /usr/bin/gio launch /usr/share/applications/prombee.desktop',helper)
+
+
+class PlatformArtifactTests(unittest.TestCase):
+    def test_semantic_assets_win_over_legacy_and_setup_is_not_a_portable_update(self):
+        version='0.9.19'
+        names=['Prombee-0.9.19.exe', 'prombee-0.9.19-1.fc44.noarch.rpm',
+               'Prombee-0.9.19-Windows-x64-Setup.exe',
+               'Prombee-0.9.19-Windows-x64-Portable.exe',
+               'Prombee-0.9.19-Linux-RedHat-noarch.rpm',
+               'Prombee-0.9.19-Linux-Debian-all.deb',
+               'Prombee-0.9.19-Linux-x86_64-Portable']
+        expected={'windows':names[3], 'rpm':names[4], 'deb':names[5], 'linux':names[6]}
+        for mode,name in expected.items():
+            with self.subTest(mode=mode):self.assertEqual(choose_asset(names,version,mode),name)
+        self.assertIsNone(choose_asset([names[2]],version,'windows'))
+        self.assertIsNone(choose_asset(names,'0.9.20','rpm'))
+
+    def test_redhat_family_and_derivatives_use_rpm_without_a_fedora_default(self):
+        for distro in ['fedora','rhel','centos','rocky','almalinux','ol','amzn']:
+            with self.subTest(distro=distro):
+                self.assertEqual(distribution_package_mode('ID="'+distro+'"'), 'rpm')
+        self.assertEqual(distribution_package_mode('ID=custom\nID_LIKE="rhel fedora"'),'rpm')
+        self.assertEqual(distribution_package_mode('ID=custom\nID_LIKE=debian'),'deb')
+        self.assertEqual(distribution_package_mode('ID=ubuntu'),'deb')
+        self.assertEqual(distribution_package_mode('ID=unknown'),'source')
+        self.assertEqual(distribution_package_mode(''),'source')

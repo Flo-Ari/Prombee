@@ -11,8 +11,8 @@ on:
       windows_run:
         description: Successful Windows run ID
         required: true
-      fedora_run:
-        description: Successful Fedora run ID
+      redhat_run:
+        description: Successful Red Hat RPM run ID
         required: true
       debian_run:
         description: Successful Debian run ID
@@ -29,7 +29,7 @@ jobs:
       TARGET: ${{ inputs.target }}
       VERSION: ${{ inputs.version }}
       WINDOWS_RUN: ${{ inputs.windows_run }}
-      FEDORA_RUN: ${{ inputs.fedora_run }}
+      REDHAT_RUN: ${{ inputs.redhat_run }}
       DEBIAN_RUN: ${{ inputs.debian_run }}
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
           assert re.fullmatch(r'0\.\d+\.\d+',version) and re.fullmatch(r'[0-9a-f]{40}',target)
           assert json.loads(Path('frontend/package.json').read_text())['version']==version
           repo=os.environ['GITHUB_REPOSITORY']
-          for key,path in [('WINDOWS_RUN','.github/workflows/windows.yml'),('FEDORA_RUN','.github/workflows/fedora.yml'),('DEBIAN_RUN','.github/workflows/debian.yml')]:
+          for key,path in [('WINDOWS_RUN','.github/workflows/windows.yml'),('REDHAT_RUN','.github/workflows/redhat.yml'),('DEBIAN_RUN','.github/workflows/debian.yml')]:
               run=os.environ[key];assert run.isdigit()
               value=gh('api',f'repos/{repo}/actions/runs/{run}')
               assert value['head_sha']==target and value['conclusion']=='success' and value['path']==path
@@ -60,9 +60,9 @@ jobs:
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
         with:
-          name: Prombee-Fedora
-          path: staged/fedora
-          run-id: ${{ inputs.fedora_run }}
+          name: Prombee-Linux-RedHat-RPM
+          path: staged/redhat
+          run-id: ${{ inputs.redhat_run }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
         with:
@@ -77,13 +77,13 @@ jobs:
         run: |
           python -m pip install PyInstaller==6.22.3
           mkdir -p release
-          gh release download "v$VERSION" --pattern "Prombee-$VERSION" --dir release
+          gh release download "v$VERSION" --pattern "Prombee-$VERSION-Linux-x86_64-Portable" --dir release
           python3 - <<'PY'
           from pathlib import Path
           import hashlib,os,shutil,subprocess,sys
           version=os.environ['VERSION'];out=Path('release')
-          names=[f'Prombee-{version}',f'Prombee-{version}.exe',f'prombee-{version}-1.fc44.noarch.rpm',f'prombee_{version}_all.deb',f'Prombee-{version}-Setup-x64.exe']
-          sources=[Path('staged/windows/Prombee.exe'),Path('staged/fedora')/names[2],Path('staged/debian')/names[3],Path('staged/windows')/names[4]]
+          names=[f'Prombee-{version}-Linux-x86_64-Portable',f'Prombee-{version}-Windows-x64-Portable.exe',f'Prombee-{version}-Linux-RedHat-noarch.rpm',f'Prombee-{version}-Linux-Debian-all.deb',f'Prombee-{version}-Windows-x64-Setup.exe']
+          sources=[Path('staged/windows/Prombee.exe'),Path('staged/redhat')/names[2],Path('staged/debian')/names[3],Path('staged/windows')/names[4]]
           for source,name in zip(sources,names[1:]):
               assert source.is_file() and source.stat().st_size>1000000
               shutil.copy2(source,out/name)
@@ -92,5 +92,5 @@ jobs:
           PY
       - name: Publish only after all tested packages are available
         run: |
-          gh release upload "v$VERSION" "release/Prombee-$VERSION.exe" "release/prombee-$VERSION-1.fc44.noarch.rpm" "release/prombee_${VERSION}_all.deb" "release/Prombee-$VERSION-SHA256.txt" "release/Prombee-$VERSION-Setup-x64.exe" --clobber
+          gh release upload "v$VERSION" "release/Prombee-$VERSION-Windows-x64-Portable.exe" "release/Prombee-$VERSION-Linux-RedHat-noarch.rpm" "release/Prombee-$VERSION-Linux-Debian-all.deb" "release/Prombee-$VERSION-SHA256.txt" "release/Prombee-$VERSION-Windows-x64-Setup.exe" --clobber
           gh release edit "v$VERSION" --draft=false --prerelease

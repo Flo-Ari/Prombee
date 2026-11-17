@@ -24,11 +24,31 @@ def version_key(value):
 
 
 def choose_asset(names, version, mode):
-    patterns = {'rpm':rf'prombee-{re.escape(version)}-\d+\.fc\d+\.noarch\.rpm',
-                'deb':rf'prombee_{re.escape(version)}_all\.deb',
-                'windows':rf'Prombee-{re.escape(version)}\.exe',
-                'linux':rf'Prombee-{re.escape(version)}'}
-    return next((name for name in names if mode in patterns and re.fullmatch(patterns[mode], name)), None)
+    escaped = re.escape(version)
+    # Prefer explicit platform/package names; legacy names allow inspecting old releases.
+    canonical = {'rpm': f'Prombee-{version}-Linux-RedHat-noarch.rpm',
+                 'deb': f'Prombee-{version}-Linux-Debian-all.deb',
+                 'windows': f'Prombee-{version}-Windows-x64-Portable.exe',
+                 'linux': f'Prombee-{version}-Linux-x86_64-Portable'}
+    preferred = canonical.get(mode)
+    if preferred in names: return preferred
+    legacy = {'rpm': rf'prombee-{escaped}-\d+(?:\.fc\d+)?\.noarch\.rpm',
+              'deb': rf'prombee_{escaped}_all\.deb',
+              'windows': rf'Prombee-{escaped}\.exe',
+              'linux': rf'Prombee-{escaped}'}
+    return next((name for name in names if mode in legacy and re.fullmatch(legacy[mode], name)), None)
+
+
+def distribution_package_mode(os_release):
+    values = {}
+    for line in os_release.splitlines():
+        key, separator, value = line.partition('=')
+        if separator and key in ('ID', 'ID_LIKE'):
+            values[key] = value.strip().strip('\"\'').lower()
+    identities = {values.get('ID', ''), *values.get('ID_LIKE', '').split()}
+    if identities & {'fedora', 'rhel', 'centos', 'rocky', 'almalinux', 'ol', 'amzn'}: return 'rpm'
+    if identities & {'debian', 'ubuntu'}: return 'deb'
+    return 'source'
 
 
 class Updater:
@@ -40,7 +60,7 @@ class Updater:
             if getattr(sys, 'frozen', False): self.mode = 'windows' if sys.platform == 'win32' else 'linux'
             elif self.root == Path('/usr/share/prombee'):
                 os_release = Path('/etc/os-release').read_text() if Path('/etc/os-release').exists() else ''
-                self.mode = 'rpm' if re.search(r'^ID=fedora$', os_release, re.M) else 'deb' if re.search(r'^ID=(ubuntu|debian)$', os_release, re.M) else 'source'
+                self.mode = distribution_package_mode(os_release)
         if self.mode in ('linux','windows') and platform.machine().lower() not in ('x86_64','amd64'): self.mode='source'
         self.state = {'current':__version__, 'status':'idle', 'latest':None, 'progress':0, 'message':'', 'mode':self.mode,
                       'canInstall':self.mode != 'source', 'channel':'preview'}

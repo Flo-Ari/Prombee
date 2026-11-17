@@ -7,6 +7,7 @@ it never embeds PyInstaller binaries built on a different Linux distribution.
 import argparse
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import re
@@ -40,7 +41,7 @@ def ar_member(name, content, timestamp):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', default='0.9.18')
+    parser.add_argument('--version', default=json.loads((ROOT / 'frontend/package.json').read_text())['version'])
     parser.add_argument('--output', type=Path, default=ROOT / 'dist')
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9][0-9A-Za-z.+~:-]*', args.version):
@@ -59,15 +60,15 @@ def main():
         for source in sorted((ROOT / directory).rglob('*')):
             if source.is_file() and '__pycache__' not in source.parts and source.suffix != '.pyc':
                 add(source, 'usr/share/prombee/' + source.relative_to(ROOT).as_posix())
-    add(ROOT / 'build_tools/packaging/debian/prombee', 'usr/bin/prombee', 0o755)
-    add(ROOT / 'build_tools/packaging/debian/prombee.desktop', 'usr/share/applications/prombee.desktop')
+    add(ROOT / 'build_tools/packaging/linux/prombee', 'usr/bin/prombee', 0o755)
+    add(ROOT / 'build_tools/packaging/linux/prombee.desktop', 'usr/share/applications/prombee.desktop')
     add(ROOT / 'frontend/dist/logo.svg', 'usr/share/icons/hicolor/scalable/apps/prombee.svg')
     size = (sum(len(data) for data, _ in files.values()) + 1023) // 1024
     control = (ROOT / 'build_tools/packaging/debian/control.in').read_text().replace('@VERSION@', args.version).replace('@SIZE@', str(size))
     md5sums = ''.join(f'{hashlib.md5(content).hexdigest()}  {name}\n' for name, (content, _) in sorted(files.items()))
     control_archive = tar_bytes({'control': (control.encode(), 0o644), 'md5sums': (md5sums.encode(), 0o644)}, timestamp)
     args.output.mkdir(parents=True, exist_ok=True)
-    destination = args.output / f'prombee_{args.version}_all.deb'
+    destination = args.output / f'Prombee-{args.version}-Linux-Debian-all.deb'
     destination.write_bytes(b'!<arch>\n' + ar_member('debian-binary', b'2.0\n', timestamp) + ar_member('control.tar.xz', control_archive, timestamp) + ar_member('data.tar.xz', tar_bytes(files, timestamp), timestamp))
     print(destination)
 

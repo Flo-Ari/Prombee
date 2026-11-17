@@ -1,4 +1,4 @@
-name: Fedora package
+name: Red Hat family RPM
 on:
   pull_request:
   push:
@@ -7,13 +7,13 @@ on:
 permissions:
   contents: read
 jobs:
-  fedora:
+  rpm:
     runs-on: ubuntu-24.04
     container: fedora:44
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install Fedora packaging and headless test tools
+      - name: Install RPM packaging and headless test tools
         run: dnf install -y rpm-build python3 tar gzip libatomic xorg-x11-server-Xvfb dbus-daemon desktop-file-utils
       - uses: actions/setup-node@v4
         with:
@@ -25,12 +25,12 @@ jobs:
           npm --prefix frontend ci
           npm --prefix frontend run build
           npm --prefix frontend test
-      - name: Build Fedora-native RPM
+      - name: Build distribution-neutral Red Hat family RPM
         run: python3 build_tools/build_rpm.py
       - name: Install and test the packaged application
         shell: bash
         run: |
-          dnf install -y ./dist/prombee-*.noarch.rpm
+          dnf install -y ./dist/Prombee-*-Linux-RedHat-noarch.rpm
           desktop-file-validate /usr/share/applications/prombee.desktop
           Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp &
           trap 'kill $!' EXIT
@@ -41,6 +41,6 @@ jobs:
           test -d "$RUNNER_TEMP/prombee-smoke/prombee"
       - uses: actions/upload-artifact@v4
         with:
-          name: Prombee-Fedora
+          name: Prombee-Linux-RedHat-RPM
           path: dist/*.rpm
           if-no-files-found: error
