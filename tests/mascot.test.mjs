@@ -40,7 +40,7 @@ Object.defineProperties(canvas, {
   clientWidth: { value: 520 },
   clientHeight: { value: 420 },
 });
-const { mountMascot, SCENES } = await import("../web/mascot.js");
+const { mountMascot, SCENES } = await import("../frontend/src/editor/mascot.ts");
 function start() {
   now = 0;
   const messages = [];
@@ -119,7 +119,7 @@ test("hidden mascot pauses; showing it restarts the 60-second idle timer", () =>
 });
 
 test("all scenes enter from the current pose and return continuously to live flight", async () => {
-  const { flightPose, scenePose } = await import("../web/mascot.js");
+  const { flightPose, scenePose } = await import("../frontend/src/editor/mascot.ts");
   const began = 12345,
     origin = flightPose(began);
   for (let index = 0; index < SCENES.length; index++) {
@@ -168,7 +168,7 @@ test("switching scenes retains the current bee position, scale, rotation and ene
   api.destroy();
 });
 test("fracture is clipped to a small patch regardless of canvas dimensions", async () => {
-  const { CRACK_RADIUS } = await import("../web/mascot.js");
+  const { CRACK_RADIUS } = await import("../frontend/src/editor/mascot.ts");
   const radii = [];
   ctx.arc = (x, y, r) => radii.push(r);
   const { api } = start();
@@ -255,7 +255,7 @@ test("native full-screen pointer updates remain authoritative outside the compan
   api.destroy();
 });
 test("combat rays align with the live bug and blade impact occurs at its tip", async () => {
-  const { combatPose } = await import("../web/mascot.js");
+  const { combatPose } = await import("../frontend/src/editor/mascot.ts");
   for (let t = 3100; t < 11900; t += 41) {
     const p = combatPose(t),
       dx = p.target.x - p.muzzle.x,
@@ -272,7 +272,7 @@ test("combat rays align with the live bug and blade impact occurs at its tip", a
   );
 });
 test("feeding tokens reach the mouth, idle labels omit names and the menu only offers reversing flight", async () => {
-  const { scenePose, mouthPoint } = await import("../web/mascot.js");
+  const { scenePose, mouthPoint } = await import("../frontend/src/editor/mascot.ts");
   const mouth = mouthPoint(scenePose(2, 6500, 6500), 1);
   assert.ok(Math.abs(mouth.x + 4) < 1e-6);
   assert.ok(Math.abs(mouth.y - 31) < 1e-6);

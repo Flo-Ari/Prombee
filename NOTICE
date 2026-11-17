@@ -13,3 +13,8 @@ Windows distribution bundles the Microsoft Edge WebView2 Evergreen Standalone In
 provided by Microsoft Corporation under its own license (not Apache-2.0).
 https://developer.microsoft.com/microsoft-edge/webview2/
 https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution
+
+React and React DOM (Meta Platforms, Inc.) are distributed under the MIT License.
+License copies are included in web/vendor/react-MIT.txt and react-dom-MIT.txt.
+FastAPI and Pydantic use the MIT License; Starlette and Uvicorn use the BSD 3-Clause License.
+Vite and TypeScript are build-time dependencies and are not required on the end user's device.

@@ -1500,3 +1500,6 @@ footer {
 .row .drag-handle {
   height: calc(var(--entry-font-size, var(--doc-size)) * 1.45);
 }
+
+/* React mount is layout-transparent in both desktop windows. */
+#root { display: contents; }

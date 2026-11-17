@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { mountDropdowns } from "../web/dropdowns.js";
+import { mountDropdowns } from "../frontend/src/editor/dropdowns.ts";
 test("dropdowns keep native values and change events, keyboard navigation and programmatic display sync", () => {
   const dom = new JSDOM(
     '<select id="font" aria-label="字体"><option value="a">甲</option><option value="b">乙</option></select>',

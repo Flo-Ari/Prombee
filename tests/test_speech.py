@@ -3,12 +3,12 @@ import sys
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from prombee.speech import Speech
+from prombee.services.speech import Speech
 
 class SpeechTests(unittest.TestCase):
     def test_unavailable_system_engine_returns_brief_failure(self):
         service=Speech(None)
-        with patch('prombee.speech.platform.system',return_value='Linux'),patch('prombee.speech.shutil.which',return_value=None):
+        with patch('prombee.services.speech.platform.system',return_value='Linux'),patch('prombee.services.speech.shutil.which',return_value=None):
             self.assertEqual(service.start()['state'],'error')
         self.assertEqual(service.status()['state'],'idle')
 
@@ -20,7 +20,7 @@ class SpeechTests(unittest.TestCase):
             if args==('ibus','engine'):return 'xkb:us'
             return ''
         service.command=command
-        with patch('prombee.speech.platform.system',return_value='Linux'),patch('prombee.speech.shutil.which',side_effect=lambda name:name=='ibus'):
+        with patch('prombee.services.speech.platform.system',return_value='Linux'),patch('prombee.services.speech.shutil.which',side_effect=lambda name:name=='ibus'):
             self.assertEqual(service.start()['state'],'listening')
             service.stop()
         self.assertIn(('ibus','engine','speech-local'),calls)

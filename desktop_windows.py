@@ -12,7 +12,7 @@ import time
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'src'))
 from prombee.server import start_server
-from prombee.branding import app_name, ui_language
+from prombee.adapters.branding import app_name, ui_language
 
 
 def clipboard_text(text=None,paths=None):
@@ -104,7 +104,7 @@ def main():
         parser.error('This entry point requires Windows; use desktop.py on Linux.')
     data = args.data_dir or Path(os.environ.get('PROMBEE_DATA_DIR') or str(Path(os.environ['LOCALAPPDATA']) / 'Prombee'))
     data.mkdir(parents=True, exist_ok=True)
-    from prombee.windows_runtime import ensure_runtime, runtime_version
+    from prombee.adapters.windows_runtime import ensure_runtime, runtime_version
     # Exercise the packaged installer and native preparation window in CI even
     # when the runner image already contains WebView2.
     first_probe = [args.smoke_test and args.smoke_install_runtime]
@@ -150,7 +150,7 @@ def main():
                                    js_api=Api(), width=1080, height=800, min_size=(640, 450), text_select=True,
                                    frameless=True, easy_drag=False)
 
-    from prombee.floating_windows import WindowsFloating
+    from prombee.adapters.floating_windows import WindowsFloating
     floating = WindowsFloating(webview,window,f'http://127.0.0.1:{server.server_port}/',data,lambda:window.destroy())
     server.floating_changed=floating.preferences_changed
 

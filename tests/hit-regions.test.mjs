@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { alphaRegions } from "../web/hit-regions.js";
+import { alphaRegions } from "../frontend/src/editor/hit-regions.ts";
 test("alpha mask leaves transparent holes clickable through and coalesces equal adjacent runs", () => {
   const data = new Uint8ClampedArray(4 * 4 * 4);
   for (const [x, y] of [

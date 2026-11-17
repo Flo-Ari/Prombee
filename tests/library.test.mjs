@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile } from "./helpers/read-fixture.mjs";
 import { JSDOM } from "jsdom";
-import { createLibraryUI } from "../web/library.js";
+import { createLibraryUI } from "../frontend/src/editor/library.ts";
 test("group management filters sets, creates inline, assigns metadata and opens TXT from the creation form", async () => {
   const dom = new JSDOM(
     await readFile(new URL("../web/index.html", import.meta.url), "utf8"),

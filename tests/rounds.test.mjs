@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { nextRoundNodes } from "../web/rounds.js";
-import { hierarchyNodes } from "../web/core.js";
+import { nextRoundNodes } from "../frontend/src/editor/rounds.ts";
+import { hierarchyNodes } from "../frontend/src/editor/core.ts";
 globalThis.document = new JSDOM("").window.document;
 const h = (id, level, html) => ({ id, kind: "heading", level, html }),
   b = (id, html = "") => ({ id, kind: "item", level: 1, html });

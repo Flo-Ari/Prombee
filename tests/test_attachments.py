@@ -1,9 +1,9 @@
 import unittest,tempfile,sys,io,json
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from prombee.attachments import Attachments,MAX_SIZE
-from prombee.display import DisplayPreferences
-from prombee.floating import FloatingPreferences
+from prombee.services.attachments import Attachments,MAX_SIZE
+from prombee.services.display import DisplayPreferences
+from prombee.services.floating import FloatingPreferences
 class AssetPreferencesTests(unittest.TestCase):
  def test_uploaded_bytes_survive_restart_and_ids_cannot_escape(self):
   with tempfile.TemporaryDirectory() as folder:

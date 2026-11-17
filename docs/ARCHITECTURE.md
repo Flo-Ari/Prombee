@@ -1,0 +1,63 @@
+# Prombee 架构
+
+前端使用 React、Vite、TypeScript；后端使用 FastAPI、Uvicorn。桌面仍使用 Fedora / Debian 的 GTK / WebKitGTK 和 Windows 的 WebView2。安装后的软件只运行 Python 与预先编译的界面，不需要 Node.js 或开发服务器。
+
+## 目录与职责
+
+| 目录 | 职责 |
+| --- | --- |
+| `frontend/src/components/` | React 窗口、工具栏、各显示区和条目组件 |
+| `frontend/src/editor/` | TypeScript 编辑控制器、Markdown 规则、选区、快捷键、附件与动画逻辑 |
+| `frontend/src/types/` | 词集、条目、附件、桌面桥接类型 |
+| `frontend/public/` | 原有 CSS、图像、SVG 与浏览器静态资源，保留命名样式 |
+| `src/prombee/api/` | FastAPI 路由、HTTP 校验、安全响应、附件流与静态界面 |
+| `src/prombee/services/` | 词集、轮次、附件命名、偏好、语音、技能、更新和应用用例 |
+| `src/prombee/adapters/` | 原子写入、跨进程锁、原生选择器、GTK / Windows 窗口与剪贴板、内嵌 HTTP 宿主 |
+| `src/prombee/server.py` | 桌面与开发预览共用的稳定启动入口 |
+| `web/` | Vite 编译产物，桌面及安装包实际使用的界面，不在这里修改功能 |
+| `tests/` | 原有行为回归、React 结构兼容、FastAPI 安全与生命周期检查 |
+
+HTTP 路由通过 `ApplicationServices` 调用业务用例。原生文件选择通过 `PathPicker` 协议注入，悬浮球状态变化通过回调通知桌面，业务用例不依赖 HTTP Request 或 GUI 对象。文件锁和原子写入集中在适配层。已有的数据编解码和业务规则保留，以免格式和细节在重构中漂移。
+
+## 编辑与 React 的边界
+
+React 创建窗口结构、各页面与条目。`EditorEntries` 通过 portal 保持条目直接位于 `#paper` 下，同时保留显示区拖动边框。正文采用不受控 `contenteditable`：控制器管理正文 DOM、输入法、Range、撤销、粘贴与光标，React 不在每次输入时覆盖这些节点。显式的结构变更同步提交后，再恢复原有光标和滚动状态。
+
+页面结构只挂载一次，原生桌面通信所依赖的 ID、类名、事件及 DOM 层级保留。现有内容渲染仍经原有 HTML 清理和 Markdown 净化。悬浮球的 React 组件创建画布和菜单，原有 Canvas 动画及图像分片算法保持不变。
+
+开发环境使用 Vite 编译与代理；界面在后台保存完成后自动重载，避免热替换正文节点打断输入法和选区。没有在正文上启用 React Fast Refresh。
+
+## 本地开发
+
+需要 Node.js 22.12 或以上及 Python 3.10 或以上；Linux 桌面另需原有 GTK / WebKitGTK 系统库。
+
+```sh
+python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+npm ci
+npm run build
+npm run dev
+```
+
+Windows 对应 Python 路径为 `.venv\Scripts\python.exe`。可用 `PROMBEE_PYTHON` 指定 Python。`npm run dev` 同时启动 API（127.0.0.1:8765）和 Vite（127.0.0.1:5173）；浏览器打开后者。Ctrl+C 同时退出二者。已有 API 启动时可用 `npm run dev:ui` 单独启动 Vite。
+
+`dev.py --data-dir <目录>` 可用独立目录运行预览；默认 `data/`。桌面数据位置和 TXT 格式未更改。开发 API 文档在 `http://127.0.0.1:8765/api/docs`，正式安装包不开放文档界面。
+
+```sh
+npm run typecheck
+npm test
+.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+npm run build
+```
+
+测试使用临时数据目录，不读写用户实际词集。Linux 单文件构建使用 `scripts/build.sh`；Windows、Fedora、Debian 工作流先构建 React 界面，再按各平台原有方式打包并做原生窗口检查。
+
+## 兼容范围与验证
+
+- 保留 TXT 词集版本、分组注册表、修订与指纹冲突保护、用户偏好、存储路径和临时附件生命周期。
+- 保留 `/api/*` 现有路径、响应字段、POST / PUT、同源限制、附件 Range 读取、桌面文件选择和回调行为。
+- 保留原有 UI 样式与图像；React 结构测试以 0.9.16 的固定快照核对所有控件 ID、类型、标题、下拉选项及原生集成选择器。
+- 原有编辑行为测试迁移后继续执行；折叠测试在结构重绘后重新获取当前按钮，避免操作已脱离 DOM 的旧引用。
+- 使用真实 WebKit 桌面检查光标、撤销、选区行数、附件、临时文件另存为、显示区宽度、模板、常用、历史、预览与主题；Windows 工作流检查 WebView2、剪贴板、前台恢复与悬浮球收放。
+
+自动化检查不能证明所有环境下的绝对无差异。若发现回归，应增加覆盖该交互的检查后修复，避免通过改变现有预期掩盖差异。

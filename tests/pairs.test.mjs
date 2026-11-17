@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { bindPairs } from "../web/pairs.js";
+import { bindPairs } from "../frontend/src/editor/pairs.ts";
 const dom = new JSDOM("<div contenteditable></div>");
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;

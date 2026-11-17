@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { selectedEntryText } from "../web/entry-selection.js";
+import { selectedEntryText } from "../frontend/src/editor/entry-selection.ts";
 test("cross-entry copy uses selected text and line breaks, excluding heading/list markers and action controls", () => {
   const dom = new JSDOM(
     '<main><article><section class="row"><span>H1</span><div class="content">标题</div><button>复制</button></section><section class="row"><span>1.</span><div class="content">第一行<br>第二行</div><button>删除</button></section><section class="row" hidden><div class="content">折叠</div></section></article></main>',
@@ -31,7 +31,7 @@ test("cross-host dragging temporarily leaves editable mode and the next click re
   globalThis.document = dom.window.document;
   globalThis.requestAnimationFrame = () => 1;
   globalThis.cancelAnimationFrame = () => {};
-  const { mountEntrySelection } = await import("../web/entry-selection.js"),
+  const { mountEntrySelection } = await import("../frontend/src/editor/entry-selection.ts"),
     paper = document.querySelector("article"),
     fields = paper.querySelectorAll(".content");
   document.elementFromPoint = (x) => fields[x < 10 ? 0 : 1];
@@ -76,7 +76,7 @@ test("cross-host dragging temporarily leaves editable mode and the next click re
 });
 
 test("selection statistics count selected content lines and Unicode characters, restoring total on collapse", async () => {
-  const { mountSelectionStats } = await import("../web/entry-selection.js");
+  const { mountSelectionStats } = await import("../frontend/src/editor/entry-selection.ts");
   const dom = new JSDOM(
     '<article><section class="row"><b>H1</b><div class="content">中文🐝<br>ab</div><button>删除</button></section><section class="row"><div class="content">尾</div></section></article><span id="stats"></span>',
   );
@@ -102,7 +102,7 @@ test("selection statistics count selected content lines and Unicode characters, 
 });
 
 test("selection keeps the final selected newline and counts wrapped lines without double counting formatting spans", async () => {
-  const { mountSelectionStats } = await import("../web/entry-selection.js");
+  const { mountSelectionStats } = await import("../frontend/src/editor/entry-selection.ts");
   const dom = new JSDOM(
     '<article><section class="row"><div class="content">第一行<br>第二行<br></div></section></article><span id="stats"></span>',
   );

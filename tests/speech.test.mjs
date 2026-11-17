@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bindSpeech } from "../web/speech.js";
+import { bindSpeech } from "../frontend/src/editor/speech.ts";
 import { JSDOM } from "jsdom";
 const createButton = () =>
   new JSDOM(`<button><svg></svg></button>`).window.document.querySelector(

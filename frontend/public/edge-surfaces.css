@@ -1,0 +1,58 @@
+/* app-bar / 边缘渐隐背景 — edge-fade-surfaces skill, Apache-2.0.
+   Background layers alone fade; controls keep full contrast and their hit areas. */
+:root {
+  --edge-fade-rgb: 255 255 255;
+  --app-header-height: 65px;
+  --edge-fade-start: 0.96;
+  --edge-fade-mid: 0.48;
+}
+body.dark {
+  --edge-fade-rgb: 8 11 16;
+}
+header.window-chrome.app-bar {
+  position: relative;
+  isolation: isolate;
+  z-index: 4;
+  background: transparent;
+}
+header.window-chrome.app-bar::before,
+.workspace::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--edge-fade-direction),
+    rgb(var(--edge-fade-rgb) / var(--edge-fade-start)),
+    rgb(var(--edge-fade-rgb) / var(--edge-fade-mid)) 65%,
+    rgb(var(--edge-fade-rgb) / 0)
+  );
+  -webkit-mask-image: var(--edge-fade-mask, none);
+  mask-image: var(--edge-fade-mask, none);
+}
+header.window-chrome.app-bar::before {
+  inset: 0 0 -16px;
+  --edge-fade-direction: to bottom;
+}
+.workspace {
+  isolation: isolate;
+  z-index: 1;
+}
+/* Extend only the rail's background behind the header; toolbar content starts unchanged. */
+.workspace::before {
+  top: calc(-1 * var(--app-header-height));
+  bottom: 0;
+  left: 0;
+  width: calc(var(--app-bar-sidebar-width) + 12px);
+  --edge-fade-direction: to right;
+}
+.workspace.without-rail::before {
+  display: none;
+}
+.app-bar,
+.workspace .toolbar.app-bar {
+  background: transparent;
+}
+.tool-rail {
+  position: relative;
+}

@@ -1,7 +1,7 @@
 import sys,json,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from prombee.shortcuts import Shortcuts,IDS
+from prombee.services.shortcuts import Shortcuts,IDS
 
 class ShortcutsTests(unittest.TestCase):
     def test_settings_survive_restart_without_changing_prompt_documents(self):

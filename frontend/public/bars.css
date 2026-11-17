@@ -1,0 +1,198 @@
+/* app-bar — shared appearance of the window header and every page tool bar.
+   Change these variables to restyle both bars together. */
+:root {
+  --app-bar-background: var(--paper);
+  --app-bar-color: var(--text);
+  --app-bar-gap: 7px;
+  --app-bar-padding: 10px 14px;
+  --app-bar-sidebar-width: 90px;
+}
+body.dark {
+  --app-bar-background: var(--paper);
+  --app-bar-color: var(--text);
+}
+.app-bar {
+  background: var(--app-bar-background);
+  color: var(--app-bar-color);
+  border: 0;
+}
+header.window-chrome.app-bar {
+  border-bottom: 0;
+}
+.toolbar.app-bar {
+  border: 0;
+  gap: var(--app-bar-gap);
+  padding: var(--app-bar-padding);
+  background: var(--app-bar-background);
+}
+.window-chrome {
+  flex-wrap: nowrap;
+  padding: var(--app-bar-padding);
+  gap: var(--app-bar-gap);
+  user-select: none;
+}
+.window-chrome .window-header {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--app-bar-gap);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.window-header > * {
+  flex-shrink: 0;
+}
+.window-header .spacer {
+  flex: 1 0 10px;
+  align-self: stretch;
+  min-height: 38px;
+}
+/* Native-style window controls intentionally have no button frames. */
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.window-controls button {
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  height: 31px;
+  width: 42px;
+  padding: 0;
+  background: transparent;
+  font: 16px sans-serif;
+  color: inherit;
+  box-shadow: none;
+}
+.window-controls button:hover {
+  background: var(--hover);
+  color: var(--blue);
+}
+.window-controls #closeWindow:hover {
+  background: #e5484d;
+  color: white;
+}
+@media (max-width: 1190px) {
+  header.window-chrome {
+    padding: 10px 10px 10px 14px;
+    gap: var(--app-bar-gap);
+  }
+  .window-chrome .window-header {
+    gap: var(--app-bar-gap);
+  }
+}
+@media (max-width: 760px) {
+  header.window-chrome {
+    flex-wrap: nowrap;
+    padding: 8px;
+    gap: 7px;
+  }
+  .window-chrome .brand {
+    flex: 0 0 auto;
+  }
+  .window-chrome .window-header > * {
+    order: 0;
+  }
+  .window-chrome .window-header .spacer {
+    display: block;
+  }
+  .window-controls {
+    gap: 3px;
+  }
+  .window-controls button {
+    width: 30px;
+  }
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+.workspace > main {
+  min-width: 0;
+}
+.tool-rail {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+}
+.workspace .tool-rail {
+  width: var(--app-bar-sidebar-width);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.workspace .toolbar.app-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  overflow: visible;
+  padding: 8px 6px 14px;
+  gap: 7px;
+}
+.workspace .toolbar > button,
+.workspace .toolbar > select,
+.workspace .toolbar > input,
+.workspace .toolbar > .color-control {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.workspace .toolbar .separator {
+  width: 100%;
+  height: 1px;
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+.workspace .toolbar .spacer {
+  display: none;
+}
+.workspace .toolbar label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.workspace #batchControls,
+.workspace #hierarchyControls {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.workspace #hierarchyControls select {
+  width: 100%;
+}
+.workspace #compareToolbar label {
+  padding: 0;
+  display: flex;
+  border: 0;
+}
+.workspace #compareToolbar select {
+  width: 100%;
+  max-width: none;
+}
+.workspace #compareToolbar .toolbar-note {
+  display: block;
+}
+.workspace :is(#font, #size, #headingLevel, #voiceInput) {
+  width: 100%;
+  max-width: none;
+}
+
+.tool-rail .toolbar > button {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.workspace #compareToolbar {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+}

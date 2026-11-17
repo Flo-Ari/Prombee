@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { readFile } from "node:fs/promises";
-import { mountBars } from "../web/bars.js";
+import { readFile } from "./helpers/read-fixture.mjs";
+import { mountBars } from "../frontend/src/editor/bars.ts";
 test("fixed sidebar preserves the editor and has no drag or docking controls", async () => {
   const dom = new JSDOM(
     await readFile(new URL("../web/index.html", import.meta.url), "utf8"),

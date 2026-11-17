@@ -9,8 +9,8 @@ try:
     from gi.repository import Gio, GLib
 except ImportError:
     Gio = GLib = None
-from prombee.attachments import Attachments
-from prombee.clipboard_gtk import read_clipboard
+from prombee.services.attachments import Attachments
+from prombee.adapters.clipboard_gtk import read_clipboard
 
 
 @unittest.skipIf(GLib is None, 'GTK clipboard is Linux-only')

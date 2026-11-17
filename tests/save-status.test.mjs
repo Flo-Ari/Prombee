@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mountSaveStatus } from "../web/save-status.js";
+import { mountSaveStatus } from "../frontend/src/editor/save-status.ts";
 test("explicit save receipt expires in five seconds; new edits and newer errors are never cleared by its old timer", () => {
   const root = { textContent: "" };
   let callback,

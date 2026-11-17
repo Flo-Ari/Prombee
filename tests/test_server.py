@@ -104,7 +104,7 @@ class WorkspaceTests(unittest.TestCase):
         import mimetypes
         from unittest.mock import patch
         with patch.object(mimetypes, 'guess_type', return_value=('text/plain',None)):
-            for path in ['/app.js','/review.js','/vendor/marked.esm.js','/vendor/purify.es.mjs']:
+            for path in ['/assets/' + f.name for f in (ROOT/'web/assets').glob('*.js')] + ['/vendor/marked.esm.js','/vendor/purify.es.mjs']:
                 with urlopen(self.url+path) as response:
                     self.assertEqual(response.headers.get_content_type(),'text/javascript')
 

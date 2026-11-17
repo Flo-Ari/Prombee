@@ -7,7 +7,7 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
-from prombee.library import Library, encode_workspace, decode_workspace, ConflictError
+from prombee.services.library import Library, encode_workspace, decode_workspace, ConflictError
 from prombee.server import valid
 
 

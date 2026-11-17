@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Desktop entry point; the same web/ files are used by dev.py."""
+"""Desktop entry point; the same Vite-built UI is used by dev.py."""
 import argparse
 import sys
 import os
@@ -9,8 +9,8 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT/'src'))
 from prombee.server import start_server
-from prombee.floating import SWITCH_DURATION_MS
-from prombee.branding import app_name, ui_language
+from prombee.services.floating import SWITCH_DURATION_MS
+from prombee.adapters.branding import app_name, ui_language
 
 
 def main():
@@ -95,7 +95,7 @@ def main():
             manager.connect('script-message-received::mascot',lambda m,value:self.floating.command(json.loads(value.to_string())))
             self.web.load_uri(url+'?desktop=gtk&lang='+ui_language())
             self.window.present()
-            from prombee.floating_gtk import GtkFloating
+            from prombee.adapters.floating_gtk import GtkFloating
             self.floating=GtkFloating(self,self.window,self.web,url,data)
             # Capture the native pointer device/time before the asynchronous JS bridge.
             gesture=Gtk.GestureClick();gesture.set_button(1)
@@ -173,7 +173,7 @@ def main():
 
         def clipboard_files(self,manager,value):
             request=json.loads(value.to_string());clipboard=Gdk.Display.get_default().get_clipboard()
-            from prombee.clipboard_gtk import read_clipboard
+            from prombee.adapters.clipboard_gtk import read_clipboard
             def answer(paths,error=None):
                 response=json.dumps({'id':request['id'],'paths':paths,'error':error})
                 self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard-files',{detail:"+response+"}))",-1,None,None,None,None,None)

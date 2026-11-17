@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile } from "./helpers/read-fixture.mjs";
 import { JSDOM } from "jsdom";
 
 test("unified window-header preserves control order and drags only blank space", async () => {
@@ -12,7 +12,7 @@ test("unified window-header preserves control order and drags only blank space",
   Object.defineProperty(globalThis, "navigator", { value: dom.window.navigator, configurable: true });
   const messages = [];
   window.webkit = { messageHandlers: { mascot: { postMessage: (raw) => messages.push(JSON.parse(raw)) } } };
-  await import("../web/desktop-chrome.js");
+  await import("../frontend/src/editor/desktop-chrome.ts");
   assert.equal(messages.shift().action,"windowState");
   const $ = (id) => document.getElementById(id);
   const header = document.querySelector(".window-header");

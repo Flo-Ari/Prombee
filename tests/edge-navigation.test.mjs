@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { edgeState, mountEdgeNavigation } from "../web/edge-navigation.js";
+import { edgeState, mountEdgeNavigation } from "../frontend/src/editor/edge-navigation.ts";
 
 test("short, top, middle and bottom states tolerate fractional scroll positions", () => {
   assert.deepEqual(edgeState(0, 500, 500), { up: false, down: false });

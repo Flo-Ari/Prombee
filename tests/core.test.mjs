@@ -1,4 +1,4 @@
-import { makeNode } from "../web/core.js";
+import { makeNode } from "../frontend/src/editor/core.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
@@ -6,8 +6,8 @@ import { JSDOM } from 'jsdom';
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://127.0.0.1/' });
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
-const { visibility, scopeEnd, nextRoundName, toMarkdown, cleanHTML } = await import('../web/core.js');
-const { renderMarkdown, lineDiff } = await import('../web/review.js');
+const { visibility, scopeEnd, nextRoundName, toMarkdown, cleanHTML } = await import('../frontend/src/editor/core.ts');
+const { renderMarkdown, lineDiff } = await import('../frontend/src/editor/review.ts');
 const heading = (id, level, html, excluded = false) => ({ id, kind: 'heading', level, html, excluded });
 const item = (id, html, excluded = false) => ({ id, kind: 'item', level: 1, html, excluded, listType: 'ordered' });
 
@@ -80,7 +80,7 @@ test('history line diff reconstructs both source texts without treating content 
   assert.ok(diff.some(l => l.type === 'remove' && l.text === 'Old'));
 });
 
-const { subtreeMarkdown, markdownHeadings } = await import('../web/core.js');
+const { subtreeMarkdown, markdownHeadings } = await import('../frontend/src/editor/core.ts');
 
 test('authored Markdown overrides generated prefixes without rewriting lists or fenced content', () => {
   const nodes=[heading('h',2,'# 原始标题'),item('m','1. 原始列表<br>2. 第二条<br><br>```md<br># 代码中的标题<br>```'),heading('peer',2,'后续标题'),item('peer-body','后续正文')];
@@ -122,7 +122,7 @@ test('authored heading Markdown wins over display emphasis and setext levels sta
   assert.equal(toMarkdown(nodes),'# 原始标题\n\n## 子级\n1. 甲\n\n另一个标题\n===\n\n## 其子级\n1. 乙\n\n### 恢复\n1. 丙\n');
 });
 
-const { integrateMarkdown, foldedNodes, selectionScope, contextLevel } = await import('../web/core.js');
+const { integrateMarkdown, foldedNodes, selectionScope, contextLevel } = await import('../frontend/src/editor/core.ts');
 test('Markdown integration creates editable headings and retains code, conflicting peers and unaffected siblings', () => {
   const source=[heading('root',2,'# 自定义<br>正文<br>## 冲突<br>```md<br># 代码<br>```'),heading('child',3,'原子级'),heading('peer',2,'冲突')];
   const result=integrateMarkdown(source,'root');
@@ -158,7 +158,7 @@ test('contenteditable multiline paste preserves the first block boundary and Mar
 });
 
 test("drag sorting retains excluded and collapsed children and rejects self drops", async () => {
-  const { moveSubtree } = await import("../web/reorder.js");
+  const { moveSubtree } = await import("../frontend/src/editor/reorder.ts");
   const nodes = [
     { id: "a", kind: "heading", level: 1 },
     { id: "body", kind: "item", level: 1 },
@@ -192,7 +192,7 @@ test('copy prunes empty and excluded-only branches without changing stored headi
  assert.equal(toMarkdown([heading('inline',1,'# 标题<br>直接写在标题中的正文')]),'# 标题\n直接写在标题中的正文\n');
 });
 test('template hierarchy includes excluded ancestors and excluded descendants with fresh copy flags', async()=>{
- const {hierarchyNodes}=await import('../web/core.js');
+ const {hierarchyNodes}=await import('../frontend/src/editor/core.ts');
  const source=[heading('root',1,'被排除的父级',true),heading('child',2,'子级',true),item('body','历史正文')];
  const copy=hierarchyNodes(source);
  assert.deepEqual(copy.filter(n=>n.kind==='heading').map(n=>n.html),['被排除的父级','子级']);assert.ok(copy.every(n=>!n.excluded));

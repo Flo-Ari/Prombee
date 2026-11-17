@@ -1,0 +1,487 @@
+/* 一般按钮样式 — .一般按钮样式 / .button-standard
+   Embossed paper and physical press, observed in the supplied Amelia video. */
+:root {
+  --button-face: var(--paper);
+  --button-outline: #7387a4;
+  --button-depth: #536b8c;
+  --button-radius: 7px;
+  --brand-accent: #2563eb;
+  --control-outline: #8a98ad;
+  --paper-button-shadow: #b3bcc840;
+  --paper-button-highlight: #fff;
+  --state-accent: #2563eb;
+  --state-glow: rgb(37 99 235 / 0.3);
+}
+body.dark {
+  --button-face: var(--paper);
+  --button-outline: #66768e;
+  --button-depth: #39465a;
+  --state-accent: #3b82f6;
+  --state-glow: rgb(59 130 246 / 0.35);
+}
+/* Embossed paper, observed in Amelia's supplied video: raised paper settles into its surface on press. */
+.button-standard.一般按钮样式 {
+  border: 1px solid var(--control-outline);
+  border-radius: 7px;
+  background: var(--button-face);
+  color: var(--text);
+  box-shadow:
+    3px 3px 7px var(--paper-button-shadow),
+    -3px -3px 7px var(--paper-button-highlight),
+    inset 1px 1px 1px #ffffff80;
+  transition:
+    box-shadow 0.15s,
+    background-color 0.15s;
+  transform: none;
+}
+.button-standard.一般按钮样式:hover {
+  background: var(--button-face);
+  color: var(--blue);
+}
+.button-standard.一般按钮样式:active {
+  box-shadow:
+    inset 2px 2px 5px var(--paper-button-shadow),
+    inset -2px -2px 5px var(--paper-button-highlight);
+}
+.button-standard.一般按钮样式:is(
+    .selected-tab,
+    .selected,
+    .active,
+    [aria-selected="true"]
+  ) {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+body.dark {
+  --paper-button-shadow: #0009;
+  --paper-button-highlight: #2d354340;
+}
+
+/* 状态类样式 — .状态类样式 / .button-state
+   Center-out fill and hover glow, reference supplied by user: Uiverse.io / gharsh11032000. */
+.button-state.状态类样式 {
+  cursor: pointer;
+  position: relative;
+  min-height: 33px;
+  padding: 6px 10px;
+  color: var(--control-outline);
+  border: 2px solid var(--control-outline);
+  border-radius: 34px;
+  background: transparent;
+  font-weight: 600;
+  text-align: center;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    color 0.3s cubic-bezier(0.23, 1, 0.32, 1),
+    transform 0.3s cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.button-state.状态类样式::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: max(50px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: scale(0);
+  z-index: -1;
+  background: var(--state-accent);
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+}
+.button-state.状态类样式:is(
+    :hover,
+    :focus-visible,
+    [aria-pressed="true"],
+    .active,
+    :has(input:checked)
+  )::before {
+  transform: scale(1.5);
+}
+.button-state.状态类样式:is(
+    :hover,
+    :focus-visible,
+    [aria-pressed="true"],
+    .active,
+    :has(input:checked)
+  ) {
+  color: #fff;
+  background: transparent;
+}
+.button-state.状态类样式:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px var(--state-glow);
+}
+.button-state.状态类样式:active {
+  transform: scale(1);
+}
+.button-state.状态类样式:disabled {
+  transform: none;
+  box-shadow: none;
+  cursor: default;
+}
+.button-state.状态类样式:disabled:not([aria-pressed="true"])::before {
+  transform: scale(0);
+}
+.button-state.状态类样式:disabled:not([aria-pressed="true"]) {
+  color: var(--control-outline);
+}
+.button-state.状态类样式.compact-state {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.setting-switch.状态类样式 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.setting-switch.状态类样式 input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+.setting-switch.状态类样式:has(input:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* LOGO按钮样式 — reference supplied by user: Uiverse.io / doniaskima (btn-17). */
+#editorTab.brand.LOGO按钮样式 {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 2px solid var(--brand-accent);
+  border-radius: 99rem;
+  padding: 4px 9px;
+  background: transparent;
+  color: var(--brand-accent);
+  box-shadow: none;
+  --logo-sweep: var(--brand-accent);
+}
+#editorTab.brand.LOGO按钮样式[aria-selected="true"] {
+  background: var(--brand-accent);
+  color: #fff;
+  --logo-sweep: var(--paper);
+  box-shadow: none;
+}
+#editorTab.LOGO按钮样式 strong {
+  color: inherit;
+}
+.logo-text-container {
+  overflow: hidden;
+  position: relative;
+  display: block;
+}
+.logo-text {
+  display: block;
+  position: relative;
+}
+#editorTab.LOGO按钮样式:hover .logo-text {
+  animation: logo-text-up 0.3s forwards;
+}
+@keyframes logo-text-up {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(80%);
+  }
+  51% {
+    transform: translateY(-80%);
+  }
+}
+#editorTab.LOGO按钮样式::before,
+#editorTab.LOGO按钮样式::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  width: 100%;
+  height: 102%;
+  left: -60%;
+  top: -104%;
+  background: var(--logo-sweep);
+  transform: skew(30deg) translateY(0);
+  transition: transform 0.2s;
+  z-index: -1;
+}
+#editorTab.LOGO按钮样式::after {
+  left: 60%;
+  top: 102%;
+}
+#editorTab.LOGO按钮样式:hover::before {
+  transform: skew(30deg) translateY(100%);
+}
+#editorTab.LOGO按钮样式:hover::after {
+  transform: skew(30deg) translateY(-102%);
+}
+#editorTab.LOGO按钮样式:hover {
+  color: #fff;
+}
+#editorTab.LOGO按钮样式[aria-selected="true"]:hover {
+  color: var(--brand-accent);
+}
+#editorTab.LOGO按钮样式:disabled {
+  color: var(--blue);
+  background: transparent;
+}
+
+/* 复制按钮样式 — reference supplied by user: Uiverse.io / ryota1231. */
+#copy.复制按钮样式 {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid var(--blue);
+  border-radius: 100px;
+  background: transparent;
+  color: var(--blue);
+  box-shadow: none;
+  overflow: hidden;
+  transition:
+    border-radius 0.6s,
+    box-shadow 0.6s;
+}
+#copy .copy-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: #dbeafe;
+  border-radius: 50%;
+  opacity: 0;
+  transition:
+    width 0.8s,
+    height 0.8s,
+    opacity 0.8s;
+}
+#copy svg {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  transition:
+    left 0.8s,
+    right 0.8s,
+    opacity 0.2s;
+}
+#copy .copy-arr-1 {
+  right: 8px;
+}
+#copy .copy-arr-2 {
+  left: -70%;
+}
+#copy:hover {
+  border-radius: 12px;
+  box-shadow: 0 0 0 8px transparent;
+}
+#copy:hover .copy-arr-1 {
+  right: -70%;
+}
+#copy:hover .copy-arr-2 {
+  left: 8px;
+}
+#copy:hover .copy-circle {
+  width: 120px;
+  height: 120px;
+  opacity: 1;
+}
+#copy .copy-check {
+  opacity: 0;
+}
+#copy.copied .copy-icon {
+  opacity: 0;
+}
+#copy.copied .copy-check {
+  opacity: 1;
+  color: #fff;
+}
+#copy.copied .copy-circle {
+  width: 120px;
+  height: 120px;
+  opacity: 1;
+  background: var(--brand-accent);
+}
+#copy:active {
+  transform: scale(0.95);
+}
+body.dark #copy .copy-circle {
+  background: #1e3a5f;
+}
+body.dark #copy.copied .copy-circle {
+  background: var(--brand-accent);
+}
+
+/* 无框按钮样式 — shared by window controls, undo and redo. */
+.button-frameless.无框按钮样式 {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  padding: 4px;
+  font-size: 18px;
+  transform: none;
+}
+.button-frameless.无框按钮样式:hover {
+  background: var(--hover);
+  color: var(--blue);
+  box-shadow: none;
+}
+.window-controls .button-frameless {
+  padding: 0;
+  font: 16px sans-serif;
+}
+@media (prefers-reduced-motion: reduce) {
+  .状态类样式,
+  .状态类样式::before,
+  #editorTab.LOGO按钮样式::before,
+  #editorTab.LOGO按钮样式::after,
+  #copy,
+  #copy svg,
+  #copy .copy-circle {
+    transition: none;
+  }
+  #editorTab.LOGO按钮样式:hover .logo-text {
+    animation: none;
+  }
+}
+
+/* 主题开关样式 — Uiverse.io / chase2k25: light on means the light theme. */
+#theme.theme-switch {
+  position: relative;
+  width: 54px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50px;
+  background: #e5efff;
+  box-shadow:
+    inset -3px -3px 6px #fff,
+    inset 3px 3px 6px #b6cbee;
+}
+.theme-toggle {
+  position: absolute;
+  width: 29px;
+  height: 24px;
+  top: 3px;
+  left: 3px;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  border-radius: 50px;
+  background: linear-gradient(145deg, #ffffff, #dbeafe);
+  box-shadow:
+    -2px -2px 4px #fff,
+    2px 2px 4px #b6cbee;
+  transition:
+    left 0.3s ease-in-out,
+    box-shadow 0.3s;
+}
+.theme-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dbeafe;
+  box-shadow: 0 0 5px #0003;
+  transition:
+    background 0.3s,
+    box-shadow 0.3s;
+}
+#theme[aria-checked="true"] .theme-toggle {
+  left: 22px;
+}
+#theme[aria-checked="true"] .theme-led {
+  background: #2563eb;
+  box-shadow: 0 0 9px 2px #2563eb;
+}
+#theme:hover .theme-toggle {
+  box-shadow:
+    -2px -2px 6px #fff,
+    2px 2px 6px #a8c4ee;
+}
+body.dark #theme {
+  background: #0c1c32;
+  box-shadow:
+    inset -3px -3px 6px #15345a,
+    inset 3px 3px 6px #111;
+}
+body.dark .theme-toggle {
+  background: linear-gradient(145deg, #1c3c64, #10253e);
+  box-shadow:
+    -2px -2px 4px #244b7a,
+    2px 2px 4px #111;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle,
+  .theme-led {
+    transition: none;
+  }
+}
+
+/* LOGO glitch accent — Uiverse.io / andrew-demchenk0, adapted to Prombee blue/white. */
+.logo-glitch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: linear-gradient(90deg, #38bdf866, transparent 45%, #ffffffb3);
+  clip-path: polygon(0 0, 0 0, 0 0, 0 0);
+}
+#editorTab[aria-selected="true"] .logo-glitch {
+  animation: logo-glitch 5s infinite;
+}
+#editorTab:hover .logo-glitch {
+  animation: logo-glitch 2s infinite;
+}
+@keyframes logo-glitch {
+  0%,
+  12%,
+  100% {
+    opacity: 0;
+    clip-path: polygon(0 0, 0 0, 0 0, 0 0);
+    transform: translateX(0);
+  }
+  2%,
+  6% {
+    opacity: 0.7;
+    clip-path: polygon(0 22%, 100% 22%, 100% 32%, 0 32%);
+    transform: translateX(-3px);
+  }
+  4%,
+  8% {
+    opacity: 0.5;
+    clip-path: polygon(0 66%, 100% 66%, 100% 80%, 0 80%);
+    transform: translateX(3px);
+  }
+  10% {
+    opacity: 0.6;
+    clip-path: polygon(0 43%, 100% 43%, 100% 48%, 0 48%);
+    transform: translateX(-1px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #editorTab .logo-glitch {
+    animation: none;
+  }
+}

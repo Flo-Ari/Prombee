@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { readFile } from "node:fs/promises";
-import { mountUpdates } from "../web/updates.js";
+import { readFile } from "./helpers/read-fixture.mjs";
+import { mountUpdates } from "../frontend/src/editor/updates.ts";
 const html = await readFile(
   new URL("../web/index.html", import.meta.url),
   "utf8",

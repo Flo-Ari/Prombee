@@ -1,0 +1,101 @@
+.mascot-surface {
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+  user-select: none;
+  font:
+    13px "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+  color: #25395a;
+}
+#mascotCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  cursor: pointer;
+  touch-action: none;
+}
+#mascotCanvas:focus-visible {
+  outline: 2px solid #7da7ef;
+  outline-offset: -4px;
+}
+#mascotMenu {
+  position: fixed;
+  z-index: 10000;
+  width: 130px;
+  box-sizing: border-box;
+  padding: 4px;
+  border: 1px solid #dce5f2;
+  border-radius: 12px;
+  background: #fffffff5;
+  box-shadow: 0 12px 44px #162c5230;
+  color: #25395a;
+  font:
+    13px "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+  backdrop-filter: blur(16px);
+}
+#mascotMenu[hidden] {
+  display: none;
+}
+#mascotMenu button {
+  display: block;
+  width: 100%;
+  padding: 8px 6px;
+  min-height: 0;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: normal;
+  cursor: pointer;
+}
+#mascotMenu button:hover,
+#mascotMenu button:focus-visible {
+  background: #eaf2ff;
+  color: #2563eb;
+  outline: none;
+}
+#mascotMenu hr {
+  height: 1px;
+  background: #e6edf7;
+  border: 0;
+  margin: 5px;
+}
+#mascotDemo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #e8effa55;
+  backdrop-filter: blur(3px);
+}
+#mascotDemo[hidden] {
+  display: none;
+}
+#mascotDemo .demo-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border: 1px solid #dce5f2;
+  border-radius: 24px;
+  background: #ffffffeb;
+  color: #627797;
+  font: 12px sans-serif;
+  pointer-events: none;
+}
+#mascotMenu button[role="menuitemradio"][aria-checked="true"] {
+  background: #eaf2ff;
+  color: #2563eb;
+}
+#mascotMenu button[role="menuitemradio"][aria-checked="true"]::after {
+  content: "✓";
+  float: right;
+}

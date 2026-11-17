@@ -5,7 +5,7 @@ import {
   prepareFormatting,
   restoreFormattingCaret,
   readFormatting,
-} from "../web/formatting.js";
+} from "../frontend/src/editor/formatting.ts";
 test("collapsed formatting targets one entire entry then restores the caret; explicit selections stay scoped", () => {
   const dom = new JSDOM(
     '<div id="a"><span style="font-family:serif;font-size:22pt;color:#123456;font-weight:700">abcd</span></div><div id="b">neighbor</div>',

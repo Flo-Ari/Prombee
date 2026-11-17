@@ -14,7 +14,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Fedora packaging and headless test tools
-        run: dnf install -y rpm-build python3 xorg-x11-server-Xvfb dbus-daemon desktop-file-utils
+        run: dnf install -y rpm-build python3 tar gzip libatomic xorg-x11-server-Xvfb dbus-daemon desktop-file-utils
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build React UI and run editor regression tests
+        run: |
+          npm ci
+          npm run build
+          npm test
       - name: Build Fedora-native RPM
         run: python3 scripts/build_rpm.py
       - name: Install and test the packaged application

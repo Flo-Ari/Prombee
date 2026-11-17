@@ -12,12 +12,12 @@ test("browser and desktop surfaces show exactly one name in the active language"
     configurable: true,
   });
   globalThis.location = { search: "" };
-  const zh = await import("../web/brand.js?zh");
+  const zh = await import("../frontend/src/editor/brand.ts?zh");
   assert.equal(zh.productName, "提示蜂");
   assert.equal(document.title, "提示蜂");
   assert.equal(document.querySelector("[data-app-name]").textContent, "提示蜂");
   globalThis.location = { search: "?desktop=windows&lang=en" };
-  const en = await import("../web/brand.js?en");
+  const en = await import("../frontend/src/editor/brand.ts?en");
   assert.equal(en.productName, "Prombee");
   assert.equal(document.title, "Prombee");
   assert.equal(
@@ -29,6 +29,6 @@ test("browser and desktop surfaces show exactly one name in the active language"
     value: { languages: ["en-US"], language: "en-US" },
     configurable: true,
   });
-  const native = await import("../web/brand.js?native");
+  const native = await import("../frontend/src/editor/brand.ts?native");
   assert.equal(native.productName, "提示蜂");
 });

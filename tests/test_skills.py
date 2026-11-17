@@ -3,7 +3,7 @@ from pathlib import Path
 import sys,tempfile,unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from prombee.skills import SkillCatalog
+from prombee.services.skills import SkillCatalog
 class SkillTests(unittest.TestCase):
     def test_agent_catalogs_are_local_separate_and_project_skills_override_personal(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'CODEX_HOME':str(Path(folder)/'.codex')}):

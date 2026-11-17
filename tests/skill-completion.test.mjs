@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { mountSkillCompletion } from "../web/skill-completion.js";
+import { mountSkillCompletion } from "../frontend/src/editor/skill-completion.ts";
 test("$ completion filters actual catalog entries, replaces only the query, and handles keyboard selection before editor arrows", async () => {
   const dom = new JSDOM(
     '<main><article><section class="row"><div class="content" contenteditable="true">请使用 $map</div></section></article></main>',

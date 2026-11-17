@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile } from "./helpers/read-fixture.mjs";
 import { JSDOM } from "jsdom";
 
 // Exercise real app handlers against an isolated workspace, never the user's data.
@@ -60,11 +60,11 @@ globalThis.fetch = async (url, options) =>
           ok: true,
           json: async () => ({ state: structuredClone(source), revision: 0 }),
         };
-await import("../web/app.js");
+await import("../frontend/src/editor/app.ts");
 document.queryCommandState = () => false;
 const $ = (id) => document.getElementById(id);
-const { hierarchyNodes, toMarkdown } = await import("../web/core.js");
-const { renderComparison } = await import("../web/review.js");
+const { hierarchyNodes, toMarkdown } = await import("../frontend/src/editor/core.ts");
+const { renderComparison } = await import("../frontend/src/editor/review.ts");
 
 test("template cloning keeps fresh heading IDs and empty bodies, with no exclusions", () => {
   const original = [...source.documents[0].nodes];

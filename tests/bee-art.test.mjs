@@ -8,7 +8,7 @@ import {
   sourcePoint,
   articulatedMouth,
   MOUTH_TIP,
-} from "../web/bee-art.js";
+} from "../frontend/src/editor/bee-art.ts";
 test("reference bitmap stays unchanged and pinned anatomy follows its original geometry", async () => {
   const raw = await readFile(new URL("../web/" + BEE_SOURCE, import.meta.url));
   assert.equal(

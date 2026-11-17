@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { readFile } from "node:fs/promises";
-import { mountButtonStyles } from "../web/buttons.js";
+import { readFile } from "./helpers/read-fixture.mjs";
+import { mountButtonStyles } from "../frontend/src/editor/buttons.ts";
 test("named styles preserve labels, native window controls and dynamically created state controls", async () => {
   const dom = new JSDOM(
     await readFile(new URL("../web/index.html", import.meta.url), "utf8"),

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { readFile } from "node:fs/promises";
+import { readFile } from "./helpers/read-fixture.mjs";
 const dom = new JSDOM(
   await readFile(new URL("../web/index.html", import.meta.url), "utf8"),
   { url: "http://127.0.0.1/" },
@@ -78,7 +78,7 @@ globalThis.fetch = async (url, options) => ({
 window.pywebview = {
   api: { clipboard: async (text, files) => copied.push({ text, files }) },
 };
-await import("../web/app.js");
+await import("../frontend/src/editor/app.ts");
 const $ = (id) => document.getElementById(id),
   field = (id) => document.querySelector('.content[data-id="' + id + '"]');
 const tick = () => new Promise((r) => setTimeout(r, 10));
@@ -246,7 +246,7 @@ test("clicking collapsed title content opens only this level and preserves child
     child = field("sub").closest(".row");
   if (child.querySelector(".fold").getAttribute("aria-expanded") === "true")
     child.querySelector(".fold").click();
-  h.querySelector(".fold").click();
+  field("h").closest(".row").querySelector(".fold").click();
   assert.equal(field("sub").closest(".row").hidden, true);
   field("h").click();
   assert.equal(field("sub").closest(".row").hidden, false);

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { mountAttachments } from "../web/attachments.js";
+import { mountAttachments } from "../frontend/src/editor/attachments.ts";
 test("gallery cards expose copyable references, drag into a precise text position and follow copied references", async () => {
   const dom = new JSDOM(
     '<div id="paper"><div class="content" contenteditable>hello</div></div>',

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { bindHoldDrag } from "../web/reorder.js";
+import { bindHoldDrag } from "../frontend/src/editor/reorder.ts";
 test("drag handle starts immediately; long press starts sorting; ordinary selection does not", async () => {
   const dom = new JSDOM(
     "<section><button>⠿</button><div contenteditable>文字</div></section>",

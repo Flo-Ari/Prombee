@@ -47,10 +47,10 @@
 
 | 你的系统                                        | 下载文件                           | 打开方式                           |
 | ----------------------------------------------- | ---------------------------------- | ---------------------------------- |
-| Windows 10 22H2 / Windows 11，64 位 Intel / AMD | `Prombee-0.9.16.exe`               | 只下载这一个文件，双击运行         |
-| Fedora 44                                       | `prombee-0.9.16-1.fc44.noarch.rpm` | 使用下方 dnf 指令安装              |
-| Ubuntu 24.04 / 带 WebKitGTK 6 的 Debian         | `prombee_0.9.16_all.deb`           | 使用下方 apt 指令安装              |
-| Linux x86_64 单文件版                           | `Prombee-0.9.16`（没有扩展名）     | 允许执行后运行，仍需系统图形运行库 |
+| Windows 10 22H2 / Windows 11，64 位 Intel / AMD | `Prombee-0.9.17.exe`               | 只下载这一个文件，双击运行         |
+| Fedora 44                                       | `prombee-0.9.17-1.fc44.noarch.rpm` | 使用下方 dnf 指令安装              |
+| Ubuntu 24.04 / 带 WebKitGTK 6 的 Debian         | `prombee_0.9.17_all.deb`           | 使用下方 apt 指令安装              |
+| Linux x86_64 单文件版                           | `Prombee-0.9.17`（没有扩展名）     | 允许执行后运行，仍需系统图形运行库 |
 
 Windows 版已包含 Python、程序资源和微软官方 WebView2 离线安装组件。首次运行缺少 WebView2 时会显示准备窗口并自动补齐，无需另下文件或联网；已有组件则直接打开。首次准备可能需要几分钟，之后正常打开。
 
@@ -63,7 +63,7 @@ Windows 版已包含 Python、程序资源和微软官方 WebView2 离线安装�
 下载 `.deb` 文件后安装：
 
 ```bash
-sudo apt install ./prombee_0.9.16_all.deb
+sudo apt install ./prombee_0.9.17_all.deb
 ```
 
 安装后，从应用菜单打开“提示蜂”。
@@ -73,14 +73,14 @@ sudo apt install ./prombee_0.9.16_all.deb
 下载 `.rpm` 文件，在其所在文件夹打开终端，安装一次：
 
 ```bash
-sudo dnf install ./prombee-0.9.16-1.fc44.noarch.rpm
+sudo dnf install ./prombee-0.9.17-1.fc44.noarch.rpm
 ```
 
 之后按 Super 键搜索 **提示蜂** 打开，也可在终端输入 `prombee`。安装包会通过 Fedora 仓库安装所需的 GTK、WebKitGTK 和 XWayland 依赖。
 
-如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.9.16`，再运行 `./Prombee-0.9.16`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
+如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.9.17`，再运行 `./Prombee-0.9.17`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
 
-打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.9.16`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
+打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.9.17`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
 
 ### 提示词保存位置
 
