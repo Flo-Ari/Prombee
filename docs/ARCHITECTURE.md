@@ -67,3 +67,5 @@ npm run build
 `web/`、`dist/`、`work/` 均为本地产物，不提交到 Git。`frontend/public` 保存可分发资源，`frontend/src/editor/vendor` 保存实际使用的解析器；不重复分发已打包的解析器源码。兼容快照和原生行为测试是长期回归基准。
 
 Windows 工作流构建便携 EXE 和 Inno Setup 安装程序，测试真实鼠标拖动、启动时悬浮球隐藏、安装与卸载、软件文件夹数据保存。卸载保留用户数据。`stage-release.yml` 是参数化的长期发布流程，只接受同一提交且成功完成的三平台构建；所有包与校验文件齐全后才发布草稿。
+
+在有桌面显示的 GTK 开发环境中运行 `.venv/bin/python tests/native_webkit.py` 可执行长期的原生 UI 回归。其数据与截图只写入 `work/native-ui`；使用状态条件等待异步结果，不依赖固定的复制完成时间。
