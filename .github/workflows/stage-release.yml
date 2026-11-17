@@ -1,0 +1,96 @@
+name: Stage tested preview release
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Exact commit already tested on every platform
+        required: true
+      version:
+        description: Preview version (0.x.y)
+        required: true
+      windows_run:
+        description: Successful Windows run ID
+        required: true
+      fedora_run:
+        description: Successful Fedora run ID
+        required: true
+      debian_run:
+        description: Successful Debian run ID
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET: ${{ inputs.target }}
+      VERSION: ${{ inputs.version }}
+      WINDOWS_RUN: ${{ inputs.windows_run }}
+      FEDORA_RUN: ${{ inputs.fedora_run }}
+      DEBIAN_RUN: ${{ inputs.debian_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target }}
+      - name: Validate exact successful runs and a private draft
+        run: |
+          python3 - <<'PY'
+          import json,os,re,subprocess
+          from pathlib import Path
+          def gh(*args):return json.loads(subprocess.check_output(['gh',*args]))
+          version=os.environ['VERSION'];target=os.environ['TARGET']
+          assert re.fullmatch(r'0\.\d+\.\d+',version) and re.fullmatch(r'[0-9a-f]{40}',target)
+          assert json.loads(Path('package.json').read_text())['version']==version
+          repo=os.environ['GITHUB_REPOSITORY']
+          for key,path in [('WINDOWS_RUN','.github/workflows/windows.yml'),('FEDORA_RUN','.github/workflows/fedora.yml'),('DEBIAN_RUN','.github/workflows/debian.yml')]:
+              run=os.environ[key];assert run.isdigit()
+              value=gh('api',f'repos/{repo}/actions/runs/{run}')
+              assert value['head_sha']==target and value['conclusion']=='success' and value['path']==path
+          draft=gh('release','view','v'+version,'--json','isDraft,targetCommitish')
+          assert draft['isDraft'] and draft['targetCommitish']==target
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: Prombee-Windows-x64
+          path: staged/windows
+          run-id: ${{ inputs.windows_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: Prombee-Fedora
+          path: staged/fedora
+          run-id: ${{ inputs.fedora_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: Prombee-Debian
+          path: staged/debian
+          run-id: ${{ inputs.debian_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify executables and generate the complete manifest
+        run: |
+          python -m pip install PyInstaller==6.22.3
+          mkdir -p release
+          gh release download "v$VERSION" --pattern "Prombee-$VERSION" --dir release
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,os,shutil,subprocess,sys
+          version=os.environ['VERSION'];out=Path('release')
+          names=[f'Prombee-{version}',f'Prombee-{version}.exe',f'prombee-{version}-1.fc44.noarch.rpm',f'prombee_{version}_all.deb']
+          sources=[Path('staged/windows/Prombee.exe'),Path('staged/fedora')/names[2],Path('staged/debian')/names[3]]
+          for source,name in zip(sources,names[1:]):
+              assert source.is_file() and source.stat().st_size>1000000
+              shutil.copy2(source,out/name)
+          for name in names[:2]:subprocess.run([sys.executable,'scripts/check_bundle_version.py',str(out/name),version],check=True)
+          (out/f'Prombee-{version}-SHA256.txt').write_text(''.join(hashlib.sha256((out/n).read_bytes()).hexdigest()+'  '+n+'\n' for n in names))
+          PY
+      - name: Publish only after all tested packages are available
+        run: |
+          gh release upload "v$VERSION" "release/Prombee-$VERSION.exe" "release/prombee-$VERSION-1.fc44.noarch.rpm" "release/prombee_${VERSION}_all.deb" "release/Prombee-$VERSION-SHA256.txt" --clobber
+          gh release edit "v$VERSION" --draft=false --prerelease
