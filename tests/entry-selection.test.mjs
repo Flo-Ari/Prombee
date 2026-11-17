@@ -1,3 +1,4 @@
+import { waitFor } from "./helpers/wait-for.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
@@ -93,7 +94,7 @@ test("selection statistics count selected content lines and Unicode characters, 
   range.setEnd(fields[1].firstChild, 1);
   window.getSelection().addRange(range);
   document.dispatchEvent(new window.Event("selectionchange"));
-  await new Promise((r) => setTimeout(r, 30));
+  await waitFor(() => stats.textContent === "3 行 · 5 字");
   assert.equal(stats.textContent, "3 行 · 5 字");
   window.getSelection().collapseToEnd();
   ui.paint();
