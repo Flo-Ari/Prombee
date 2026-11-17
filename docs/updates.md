@@ -8,6 +8,6 @@
 
 ## 发布约定
 
-四个已通过测试的包与校验清单必须属于同一提交。将 Linux 单文件、Windows、RPM、DEB 放入 dist 后，执行 `scripts/publish_release.py --commit COMMIT --notes-file NOTES`。脚本先创建草稿、上传全部包和清单，再发布为预览版。不要在发布后单独覆盖安装包；更改任何包时应发布新版本，避免校验清单失配。常规构建工作流只上传 Actions 产物，不会覆盖 Releases。
+四个已通过测试的包与校验清单必须属于同一提交。将 Linux 单文件、Windows、RPM、DEB 放入 dist 后，执行 `build_tools/publish_release.py --commit COMMIT --notes-file NOTES`。脚本先创建草稿、上传全部包和清单，再发布为预览版。不要在发布后单独覆盖安装包；更改任何包时应发布新版本，避免校验清单失配。常规构建工作流只上传 Actions 产物，不会覆盖 Releases。
 
 资料：[GitHub Releases API](https://docs.github.com/en/rest/releases/releases)、[polkit 图形授权](https://polkit.pages.freedesktop.org/polkit/pkexec.1.html)。

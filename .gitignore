@@ -8,7 +8,7 @@ __pycache__/
 .venv-windows/
 node_modules/
 
-/web/
+/frontend/dist/
 .idea/
 
 # Personal prompt data and explicit storage-location preferences.

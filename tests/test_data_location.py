@@ -4,7 +4,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from prombee.adapters.data_location import resolve_data_folder
 
 class DataLocationTests(unittest.TestCase):

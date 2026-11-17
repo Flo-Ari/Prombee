@@ -21,13 +21,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Editor hierarchy, copy and preview tests
         run: |
-          npm ci
+          npm --prefix frontend ci
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run build
+          npm --prefix frontend run build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm test
+          npm --prefix frontend test
       - name: Install build dependencies
         run: python -m pip install -r requirements-windows.txt -r requirements-dev.txt
       - name: Shared state persistence tests
@@ -43,7 +44,7 @@ jobs:
           if ((Get-Item $installer).Length -lt 50000000) { throw 'Expected the complete offline x64 runtime installer.' }
           (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content ([System.IO.Path]::ChangeExtension($installer, '.sha256')) -Encoding ascii
       - name: Build standalone executable
-        run: python -m PyInstaller Prombee-windows.spec --noconfirm --workpath work/pyinstaller-windows --distpath dist/windows
+        run: python -m PyInstaller build_tools/Prombee-windows.spec --noconfirm --workpath work/pyinstaller-windows --distpath dist/windows
       - name: Packaged native window, Unicode clipboard and close-save smoke test
         shell: pwsh
         run: |
@@ -60,13 +61,13 @@ jobs:
         run: |
           $compiler = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $compiler)) { choco install innosetup --no-progress -y }
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $version = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
           & $compiler "/DAppVersion=$version" packaging/windows/prombee.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install, verify application-folder data and preserve it during uninstall
         shell: pwsh
         run: |
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $version = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
           $install = Join-Path $env:RUNNER_TEMP 'Prombee installed 测试'
           $setup = Start-Process "dist/windows/Prombee-$version-Setup-x64.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$install`"" -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw 'Installation failed.' }

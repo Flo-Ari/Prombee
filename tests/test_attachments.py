@@ -1,6 +1,6 @@
 import unittest,tempfile,sys,io,json
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from prombee.services.attachments import Attachments,MAX_SIZE
 from prombee.services.display import DisplayPreferences
 from prombee.services.floating import FloatingPreferences

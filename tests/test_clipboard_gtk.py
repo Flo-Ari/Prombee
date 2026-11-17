@@ -4,7 +4,7 @@ import sys
 import tempfile
 import threading
 import unittest
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 try:
     from gi.repository import Gio, GLib
 except ImportError:

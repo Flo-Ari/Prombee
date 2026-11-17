@@ -1,0 +1,28 @@
+{
+  "name": "prombee",
+  "private": true,
+  "version": "0.9.18",
+  "type": "module",
+  "scripts": {
+    "test": "node tools/test.mjs",
+    "dev": "node tools/dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "dev:ui": "vite"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "jsdom": "26.1.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vite": "8.3.8"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

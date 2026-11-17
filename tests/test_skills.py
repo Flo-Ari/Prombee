@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import sys,tempfile,unittest
 from unittest.mock import patch
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from prombee.services.skills import SkillCatalog
 class SkillTests(unittest.TestCase):
     def test_agent_catalogs_are_local_separate_and_project_skills_override_personal(self):

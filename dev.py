@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 import argparse
 ROOT=Path(__file__).resolve().parent
-sys.path.insert(0,str(ROOT/'src'))
+sys.path.insert(0,str(ROOT/'backend'))
 from prombee.server import create_server
 
 parser=argparse.ArgumentParser(description='Prombee 浏览器开发预览')

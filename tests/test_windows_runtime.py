@@ -4,7 +4,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import Mock
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from prombee.adapters.windows_runtime import ensure_runtime, INSTALLER
 
 class RuntimeTests(unittest.TestCase):

@@ -43,7 +43,7 @@ jobs:
           def gh(*args):return json.loads(subprocess.check_output(['gh',*args]))
           version=os.environ['VERSION'];target=os.environ['TARGET']
           assert re.fullmatch(r'0\.\d+\.\d+',version) and re.fullmatch(r'[0-9a-f]{40}',target)
-          assert json.loads(Path('package.json').read_text())['version']==version
+          assert json.loads(Path('frontend/package.json').read_text())['version']==version
           repo=os.environ['GITHUB_REPOSITORY']
           for key,path in [('WINDOWS_RUN','.github/workflows/windows.yml'),('FEDORA_RUN','.github/workflows/fedora.yml'),('DEBIAN_RUN','.github/workflows/debian.yml')]:
               run=os.environ[key];assert run.isdigit()
@@ -87,7 +87,7 @@ jobs:
           for source,name in zip(sources,names[1:]):
               assert source.is_file() and source.stat().st_size>1000000
               shutil.copy2(source,out/name)
-          for name in names[:2]:subprocess.run([sys.executable,'scripts/check_bundle_version.py',str(out/name),version],check=True)
+          for name in names[:2]:subprocess.run([sys.executable,'build_tools/check_bundle_version.py',str(out/name),version],check=True)
           (out/f'Prombee-{version}-SHA256.txt').write_text(''.join(hashlib.sha256((out/n).read_bytes()).hexdigest()+'  '+n+'\n' for n in names))
           PY
       - name: Publish only after all tested packages are available

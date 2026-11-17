@@ -1,6 +1,6 @@
 import sys,json,tempfile,unittest
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from prombee.services.shortcuts import Shortcuts,IDS
 
 class ShortcutsTests(unittest.TestCase):

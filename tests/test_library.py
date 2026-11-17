@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'src'))
+sys.path.insert(0,str(ROOT/'backend'))
 from prombee.services.library import Library, encode_workspace, decode_workspace, ConflictError
 from prombee.server import valid
 

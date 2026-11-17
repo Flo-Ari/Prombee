@@ -11,7 +11,7 @@ import time
 
 LOG_FOLDER = None
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / 'src'))
+sys.path.insert(0, str(ROOT / 'backend'))
 from prombee.server import start_server
 from prombee.adapters.branding import app_name, ui_language
 

@@ -5,7 +5,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from prombee.api.app import create_app

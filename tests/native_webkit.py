@@ -4,7 +4,7 @@ All prompt fixtures and screenshots are confined to work/native-ui.
 """
 from pathlib import Path
 import sys,json,os,copy,subprocess
-root=Path(__file__).resolve().parents[1];sys.path[:0]=[str(root),str(root/'src')]
+root=Path(__file__).resolve().parents[1];sys.path[:0]=[str(root),str(root/'backend')]
 from prombee.services.library import Library
 from prombee.server import valid
 folder=root/('work/native-ui/ui-data-'+str(os.getpid()))

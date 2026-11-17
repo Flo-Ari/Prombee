@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request,urlopen
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'src'))
+sys.path.insert(0,str(ROOT/'backend'))
 from prombee.server import start_server,valid
 
 
@@ -104,7 +104,7 @@ class WorkspaceTests(unittest.TestCase):
         import mimetypes
         from unittest.mock import patch
         with patch.object(mimetypes, 'guess_type', return_value=('text/plain',None)):
-            for path in ['/assets/' + f.name for f in (ROOT/'web/assets').glob('*.js')]:
+            for path in ['/assets/' + f.name for f in (ROOT/'frontend/dist/assets').glob('*.js')]:
                 with urlopen(self.url+path) as response:
                     self.assertEqual(response.headers.get_content_type(),'text/javascript')
 

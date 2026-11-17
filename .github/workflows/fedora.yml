@@ -19,13 +19,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Build React UI and run editor regression tests
         run: |
-          npm ci
-          npm run build
-          npm test
+          npm --prefix frontend ci
+          npm --prefix frontend run build
+          npm --prefix frontend test
       - name: Build Fedora-native RPM
-        run: python3 scripts/build_rpm.py
+        run: python3 build_tools/build_rpm.py
       - name: Install and test the packaged application
         shell: bash
         run: |

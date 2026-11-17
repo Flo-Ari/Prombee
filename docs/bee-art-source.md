@@ -1,8 +1,8 @@
 # 机械蜂原图与透明蒙版
 
-`web/bee-source.png` 是用户提供的“悬浮霓虹机械蜂虎机.png”的原始字节副本。原文件保持不变。
+`frontend/public/bee-source.png` 是用户提供的“悬浮霓虹机械蜂虎机.png”的原始字节副本。原文件保持不变。
 
-`web/bee-alpha.png` 由内置 image_gen 工具提取背景，用作透明蒙版。程序仅读取其 alpha 通道，完全不显示生成图的 RGB；主体颜色与表面纹理由原图提供。`web/bee-art.js` 在运行时组装原图部件，旧版矢量替代造型已移除。
+`frontend/public/bee-alpha.png` 由内置 image_gen 工具提取背景，用作透明蒙版。程序仅读取其 alpha 通道，完全不显示生成图的 RGB；主体颜色与表面纹理由原图提供。`frontend/src/editor/bee-art.ts` 在运行时组装原图部件，旧版矢量替代造型已移除。
 
 默认以原图左向为基准，向右飞行只做水平镜像，保留已保存的方向设置。
 
