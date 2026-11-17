@@ -100,3 +100,35 @@ test("selection statistics count selected content lines and Unicode characters, 
   assert.equal(stats.textContent, "2 个条目 · 6 字");
   dom.window.close();
 });
+
+test("selection keeps the final selected newline and counts wrapped lines without double counting formatting spans", async () => {
+  const { mountSelectionStats } = await import("../web/entry-selection.js");
+  const dom = new JSDOM(
+    '<article><section class="row"><div class="content">第一行<br>第二行<br></div></section></article><span id="stats"></span>',
+  );
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  const paper = document.querySelector("article"),
+    field = paper.querySelector(".content"),
+    stats = document.getElementById("stats"),
+    r = document.createRange();
+  r.selectNodeContents(field);
+  window.getSelection().addRange(r);
+  assert.equal(selectedEntryText(paper), "第一行\n第二行\n");
+  const ui = mountSelectionStats(paper, stats);
+  ui.paint();
+  assert.equal(stats.textContent, "3 行 · 6 字");
+  field.textContent = "自动折行文字";
+  r.selectNodeContents(field);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(r);
+  window.Range.prototype.getClientRects = () => [
+    { top: 0, bottom: 20, height: 20 },
+    { top: 3, bottom: 20, height: 17 },
+    { top: 24, bottom: 44, height: 20 },
+    { top: 48, bottom: 68, height: 20 },
+  ];
+  ui.paint();
+  assert.equal(stats.textContent, "3 行 · 6 字");
+  dom.window.close();
+});

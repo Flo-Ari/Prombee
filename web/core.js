@@ -57,11 +57,13 @@ export function cleanHTML(html) {
   for (const child of t.content.childNodes) appendClean(box, child);
   return box.innerHTML;
 }
-export function plain(html) {
+export function plain(html, { preserveTrailingBreak = false } = {}) {
   const t = document.createElement("div");
   t.innerHTML = cleanHTML(html);
   for (const b of t.querySelectorAll("br")) b.replaceWith("\n");
-  return t.textContent.replace(/\n$/, "");
+  return preserveTrailingBreak
+    ? t.textContent
+    : t.textContent.replace(/\n$/, "");
 }
 export function inlineMarkdown(html, { literal = false } = {}) {
   const t = document.createElement("div");

@@ -178,7 +178,8 @@ test("attachment gallery selection persists metadata and copies file IDs, refere
   await tick();
   assert.deepEqual(copied.at(-1).files, ["asset"]);
   assert.match(copied.at(-1).text, /甲，乙。丙/);
-  assert.match(copied.at(-1).text, /附件.txt/);
+  assert.match(copied.at(-1).text, /附件/);
+  assert.ok(!copied.at(-1).text.includes("附件.txt"));
   assert.ok(!copied.at(-1).text.includes("file:///"));
   assert.match($("documents").selectedOptions[0].textContent, /✓/);
 });

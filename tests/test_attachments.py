@@ -36,7 +36,8 @@ class AssetPreferencesTests(unittest.TestCase):
    store=Attachments(folder);self.addCleanup(store.close)
    with concurrent.futures.ThreadPoolExecutor() as pool:
     assets=list(pool.map(lambda i:store.add('图.png',io.BytesIO(bytes([i])),1),range(4)))
-   self.assertEqual({a['name'] for a in assets},{'图.png','图(1).png','图(2).png','图(3).png'})
+   self.assertEqual({a['name'] for a in assets},{'图.png'})
+   self.assertEqual(len({a['path'] for a in assets}),4)
    self.assertEqual({Path(a['path']).read_bytes() for a in assets},{bytes([i]) for i in range(4)})
    self.assertTrue(all(Path(a['path']).name==a['name'] for a in assets))
 
@@ -48,3 +49,20 @@ class AssetPreferencesTests(unittest.TestCase):
    destination=Path(folder)/'kept.txt';store.save_as(asset['id'],destination)
    temporary=Path(asset['path']);store.close()
    self.assertFalse(temporary.exists());self.assertEqual(destination.read_bytes(),b'complete original text')
+
+ def test_name_collisions_only_consider_current_gallery_and_reference_stems(self):
+  with tempfile.TemporaryDirectory() as folder:
+   store=Attachments(folder);self.addCleanup(store.close)
+   old=store.add('图.jpg',io.BytesIO(b'old'),3)
+   fresh=store.add('图.jpg',io.BytesIO(b'new'),3,scope=[])
+   self.assertEqual(fresh['name'],'图.jpg')
+   duplicate=store.add('图.png',io.BytesIO(b'two'),3,scope=[fresh['id']])
+   self.assertEqual(duplicate['name'],'图(1).png')
+   third=store.add('图.jpg',io.BytesIO(b'3'),1,scope=[fresh['id'],duplicate['id']])
+   self.assertEqual(third['name'],'图(2).jpg')
+   reused=store.add('图.png',io.BytesIO(b'new'),3,scope=[fresh['id']])
+   self.assertEqual(reused['name'],'图(1).png') # removed current item / history is ignored
+   restored=store.import_file(third['path'],scope=[])
+   self.assertEqual(restored['name'],'图.jpg')
+   self.assertEqual(store.import_file(fresh['path'],scope=[fresh['id']])['id'],fresh['id'])
+   self.assertEqual(store.references('图',scope=[fresh['id']]),[fresh])

@@ -17,9 +17,10 @@ class Attachments:
         try:persistent=json.loads(self.index.read_text(encoding='utf-8'))
         except FileNotFoundError:persistent={}
         with self.guard:return {**persistent,**self.temporary_entries}
-    def add(self,name,stream,size,temporary=False):
+    def add(self,name,stream,size,temporary=False,scope=()):
         if not isinstance(size,int) or not 0<=size<=MAX_SIZE:raise ValueError('附件不可超过 512 MB')
         name=Path(str(name).replace('\\','/')).name.replace('\0','').strip() or '附件'
+        original_name=name
         identifier=uuid.uuid4().hex;folder=(self.temporary_root if temporary else self.root)/identifier;folder.mkdir()
         path=folder/'payload.part'
         try:
@@ -30,12 +31,12 @@ class Attachments:
                     if not chunk:raise ValueError('附件传输未完成')
                     out.write(chunk);remaining-=len(chunk)
             with self.guard,exclusive_file_lock(self.root/'.lock'):
-                entries=self.entries();used={e['name'].casefold() for e in entries.values()}
+                entries=self.entries();used={Path(entries[i]['name']).stem.casefold() for i in scope if i in entries}
                 original=Path(name);stem,suffix=original.stem,original.suffix;number=1
-                while name.casefold() in used:
+                while Path(name).stem.casefold() in used:
                     name=f'{stem}({number}){suffix}';number+=1
                 target=folder/name;path.replace(target)
-                entry={'id':identifier,'name':name,'path':str(target.resolve()),'size':size,'type':mimetypes.guess_type(name)[0] or 'application/octet-stream'}
+                entry={'id':identifier,'name':name,'originalName':original_name,'path':str(target.resolve()),'size':size,'type':mimetypes.guess_type(name)[0] or 'application/octet-stream'}
                 if temporary:
                     entry['temporary']=True;self.temporary_entries[identifier]=entry
                 else:
@@ -43,13 +44,18 @@ class Attachments:
                     entries[identifier]=entry;atomic_write(self.index,json.dumps(entries,ensure_ascii=False))
             return entry
         except Exception:shutil.rmtree(folder,ignore_errors=True);raise
-    def import_file(self,path):
+    def import_file(self,path,scope=()):
         path=Path(path)
         if not path.is_file():raise ValueError('请选择文件')
         resolved=path.resolve()
         for entry in self.entries().values():
-            if Path(entry['path']).resolve()==resolved:return self.get(entry['id'])
-        with path.open('rb') as source:return self.add(path.name,source,path.stat().st_size)
+            if Path(entry['path']).resolve()==resolved:
+                if entry['id'] in scope:return self.get(entry['id'])
+                original=entry.get('originalName',entry['name'])
+                used={Path(e['name']).stem.casefold() for i,e in self.entries().items() if i in scope}
+                if entry['name']==original and Path(original).stem.casefold() not in used:return self.get(entry['id'])
+                with path.open('rb') as source:return self.add(original,source,path.stat().st_size,temporary=entry.get('temporary',False),scope=scope)
+        with path.open('rb') as source:return self.add(path.name,source,path.stat().st_size,scope=scope)
     def get(self,identifier):
         entry=self.entries().get(identifier)
         if not entry:raise ValueError('附件不存在')
@@ -58,7 +64,7 @@ class Attachments:
         return entry
     def paths(self,identifiers):return [self.get(i)['path'] for i in dict.fromkeys(identifiers)]
 
-    def references(self,text):
+    def references(self,text,scope=None):
         import re
         from urllib.parse import unquote,urlsplit
         import os
@@ -72,8 +78,10 @@ class Attachments:
             key=str(Path(path).resolve());entry=by_path.get(key.casefold() if os.name=='nt' else key)
             if entry and Path(entry['path']).is_file():found[entry['id']]=entry
             if len(found)>=100:break
-        for entry in self.entries().values():
-            if re.search(r'(?<![\w])'+re.escape(entry['name'])+r'(?![\w])',text) and Path(entry['path']).is_file():found[entry['id']]=entry
+        for identifier,entry in self.entries().items():
+            if scope is not None and identifier not in scope:continue
+            label=Path(entry['name']).stem
+            if re.search(r'(?<![\w])'+re.escape(label)+r'(?![\w])',text) and Path(entry['path']).is_file():found[entry['id']]=entry
             if len(found)>=100:break
         return list(found.values())
 
@@ -105,3 +113,14 @@ class Attachments:
 
     def close(self):
         self.temporary.cleanup()
+
+    def import_paths(self,paths,scope=()):
+        result=[];current=list(scope)
+        for path in paths:
+            entry=self.import_file(path,current);result.append(entry);current.append(entry['id'])
+        return result
+
+    @staticmethod
+    def validate_scope(scope):
+        if not isinstance(scope,list) or len(scope)>2000 or any(not isinstance(i,str) for i in scope):raise ValueError('附件范围无效')
+        return scope

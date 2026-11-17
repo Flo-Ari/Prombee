@@ -22,7 +22,7 @@ export function selectedEntryText(paper, selection = window.getSelection()) {
       part.setEnd(range.endContainer, range.endOffset);
     const box = document.createElement("div");
     box.append(part.cloneContents());
-    parts.push(plain(box.innerHTML));
+    parts.push(plain(box.innerHTML, { preserveTrailingBreak: true }));
   }
   return parts.length ? parts.join("\n") : null;
 }
@@ -186,6 +186,37 @@ export function mountEntrySelection(paper) {
   });
 }
 
+// Count rendered wrapped lines without counting each formatting span as a line.
+function selectedVisualLines(paper, selection = window.getSelection()) {
+  if (!selection?.rangeCount || selection.isCollapsed) return 0;
+  const source = selection.getRangeAt(0),
+    rects = [];
+  for (const field of paper.querySelectorAll(".row:not([hidden]) .content")) {
+    if (!source.intersectsNode(field)) continue;
+    const part = document.createRange();
+    part.selectNodeContents(field);
+    if (source.compareBoundaryPoints(window.Range.START_TO_START, part) > 0)
+      part.setStart(source.startContainer, source.startOffset);
+    if (source.compareBoundaryPoints(window.Range.END_TO_END, part) < 0)
+      part.setEnd(source.endContainer, source.endOffset);
+    for (const r of part.getClientRects?.() || [])
+      if (r.height > 0) rects.push({ top: r.top, bottom: r.bottom });
+  }
+  rects.sort((a, b) => a.top - b.top);
+  const lines = [];
+  for (const rect of rects) {
+    const line = lines.find(
+      (line) =>
+        Math.min(line.bottom, rect.bottom) - Math.max(line.top, rect.top) >
+        Math.min(line.bottom - line.top, rect.bottom - rect.top) * 0.4,
+    );
+    if (line) {
+      line.top = Math.min(line.top, rect.top);
+      line.bottom = Math.max(line.bottom, rect.bottom);
+    } else lines.push({ ...rect });
+  }
+  return lines.length;
+}
 export function mountSelectionStats(paper, stats) {
   let total = "",
     timer;
@@ -196,7 +227,7 @@ export function mountSelectionStats(paper, stats) {
       return;
     }
     const normalized = text.replace(/\r\n?/g, "\n");
-    stats.textContent = `${normalized.split("\n").length} 行 · ${Array.from(normalized.replace(/\n/g, "")).length} 字`;
+    stats.textContent = `${Math.max(normalized.split("\n").length, selectedVisualLines(paper))} 行 · ${Array.from(normalized.replace(/\n/g, "")).length} 字`;
   };
   document.addEventListener("selectionchange", () => {
     clearTimeout(timer);

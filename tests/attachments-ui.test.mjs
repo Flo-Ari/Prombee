@@ -30,7 +30,7 @@ test("gallery cards expose copyable references, drag into a precise text positio
       let p = JSON.parse(options.body);
       return p.action === "pick"
         ? { attachment: one }
-        : p.action === "lookup"
+        : ["lookup", "attach"].includes(p.action)
           ? { attachments: [one] }
           : { attachments: [two] };
     },
@@ -51,7 +51,7 @@ test("gallery cards expose copyable references, drag into a precise text positio
   let card = document.querySelector(".attachment-card");
   assert.equal(card.draggable, true);
   await card.querySelector(".attachment-reference").onclick();
-  assert.equal(copies[0], "图.png");
+  assert.equal(copies[0], "图");
   let data = {};
   const transfer = {
     types: ["application/x-prombee-attachment"],
@@ -75,7 +75,7 @@ test("gallery cards expose copyable references, drag into a precise text positio
     content,
     {},
   );
-  assert.equal(content.textContent, "he图.pngllo");
+  assert.equal(content.textContent, "he图llo");
   assert.equal(doc.attachments.length, 1);
   content.textContent = "[二.txt](file:///tmp/%E4%BA%8C.txt)";
   let r = document.createRange();
@@ -143,7 +143,7 @@ test("files dropped on editor blank space appear in the gallery and insert one r
     document.querySelector(".attachment-card").dataset.attachmentId,
     "png",
   );
-  assert.equal(content.textContent, "textimage.png");
+  assert.equal(content.textContent, "textimage");
   assert.equal(document.querySelector("img").decoding, "async");
   dom.window.close();
 });
@@ -203,7 +203,7 @@ test("native screenshot path is inserted after the asynchronous clipboard respon
     node,
   );
   assert.equal(doc.attachments.length, 1);
-  assert.equal(content.textContent, "beforescreenshot.png");
+  assert.equal(content.textContent, "beforescreenshot");
   dom.window.close();
 });
 
@@ -260,7 +260,7 @@ test("21 pasted lines become temporary TXT; 20 lines remain text; collapse and S
   );
   assert.equal(gallery.hasPaste(paste(long)), true);
   assert.equal(await gallery.paste(paste(long), content, node), true);
-  assert.equal(content.textContent, "before粘贴内容(1).txt");
+  assert.equal(content.textContent, "before粘贴内容(1)");
   assert.equal(doc.attachments[0].temporary, true);
   assert.ok(!gallery.bundle(content.textContent).text.includes("/tmp/"));
   assert.deepEqual(gallery.bundle("").files, ["tmp"]);
@@ -275,21 +275,82 @@ test("21 pasted lines become temporary TXT; 20 lines remain text; collapse and S
   assert.equal(document.querySelector("#attachmentItems").hidden, true);
   document.querySelector(".attachment-toggle").click();
   assert.equal(document.querySelector("#attachmentItems").hidden, false);
-  document
-    .querySelector(".attachment-card")
-    .dispatchEvent(
-      new window.MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: 50,
-        clientY: 50,
-      }),
-    );
+  document.querySelector(".attachment-card").dispatchEvent(
+    new window.MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 50,
+      clientY: 50,
+    }),
+  );
   const save = document.querySelector(".attachment-menu button");
   assert.equal(save.textContent, "另存为");
   await save.onclick();
   assert.equal(JSON.parse(requests.at(-1)[1].body).action, "saveAs");
   assert.equal(doc.attachments.length, 1);
   assert.deepEqual(messages, []);
+  dom.window.close();
+});
+
+test("ingestion uses only the current gallery, serializes concurrent additions and references stems", async () => {
+  const dom = new JSDOM(
+    '<div id="paper"><section class="row"><div class="content"></div></section></div>',
+    { url: "http://localhost/" },
+  );
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  const content = document.querySelector(".content"),
+    collection = { nodes: [] },
+    node = { html: "" },
+    scopes = [];
+  globalThis.fetch = async (url) => {
+    const scope = new URL(url, "http://localhost").searchParams.get("scope");
+    scopes.push(scope);
+    await new Promise((r) => setTimeout(r, 3));
+    const id = "a" + scopes.length,
+      name = scope ? "照片(1).png" : "照片.png";
+    return {
+      ok: true,
+      json: async () => ({
+        id,
+        name,
+        path: "/tmp/" + id + "/" + name,
+        type: "image/png",
+      }),
+    };
+  };
+  const gallery = mountAttachments({
+    getDoc: () => collection,
+    editable: () => true,
+    remember() {},
+    changed() {},
+    notify: (e) => assert.fail(e),
+  });
+  const r = document.createRange();
+  r.selectNodeContents(content);
+  window.getSelection().addRange(r);
+  const event = () => ({
+    clipboardData: {
+      files: [new window.File(["img"], "照片.png")],
+      getData: () => "",
+    },
+    preventDefault() {},
+  });
+  await Promise.all([
+    gallery.paste(event(), content, node),
+    gallery.paste(event(), content, node),
+  ]);
+  assert.deepEqual(scopes, ["", "a1"]);
+  assert.deepEqual(
+    collection.attachments.map((a) => a.name),
+    ["照片.png", "照片(1).png"],
+  );
+  assert.ok(content.textContent.includes("照片(1)"));
+  assert.ok(!content.textContent.includes(".png"));
+  for (let i = 0; i < 2; i++)
+    document.querySelector(".attachment-remove").click();
+  await gallery.paste(event(), content, node);
+  assert.equal(scopes.at(-1), "");
+  assert.equal(collection.attachments[0].name, "照片.png");
   dom.window.close();
 });

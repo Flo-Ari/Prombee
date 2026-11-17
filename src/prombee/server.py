@@ -136,7 +136,8 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                     from urllib.parse import parse_qs
                     name=parse_qs(urlsplit(self.path).query).get('name',['附件'])[0]
                     temporary=parse_qs(urlsplit(self.path).query).get('temporary',['0'])[0]=='1'
-                    entry=attachments.add(name,self.rfile,int(self.headers.get('Content-Length',-1)),temporary=temporary)
+                    scope=attachments.validate_scope(parse_qs(urlsplit(self.path).query).get('scope',[''])[0].split(',') if parse_qs(urlsplit(self.path).query).get('scope') else [])
+                    entry=attachments.add(name,self.rfile,int(self.headers.get('Content-Length',-1)),temporary=temporary,scope=scope)
                     self.json(200,entry)
                 except (ValueError,OSError) as error:self.json(400,{'error':str(error)})
                 return
@@ -152,24 +153,25 @@ def create_server(root, data_dir, port=0, dev=False, native_bridge=False):
                 payload=json.loads(self.rfile.read(length))
                 if self.path == '/api/display':result=display.save(payload)
                 elif self.path == '/api/attachments':
-                    if payload.get('action')=='references':result={'attachments':attachments.references(payload.get('text',''))}
+                    scope=attachments.validate_scope(payload.get('scope',[]))
+                    if payload.get('action')=='references':result={'attachments':attachments.references(payload.get('text',''),scope=scope)}
                     elif payload.get('action')=='saveAs':
                         entry=attachments.get(payload.get('id'))
                         from .picker import choose_path
                         destination=getattr(self.server,'pick_path',choose_path)('saveAttachment',entry['name'])
                         result={'path':attachments.save_as(entry['id'],destination) if destination else None}
-                    elif payload.get('action')=='lookup':
+                    elif payload.get('action') in ('lookup','attach'):
                         ids=payload.get('ids',[])
                         if not isinstance(ids,list) or len(ids)>100 or any(not isinstance(i,str) for i in ids):raise ValueError('附件标识无效')
-                        result={'attachments':[attachments.get(i) for i in ids]}
+                        result={'attachments':attachments.import_paths(attachments.paths(ids),scope) if payload.get('action')=='attach' else [attachments.get(i) for i in ids]}
                     elif payload.get('action')=='paths':
                         paths=payload.get('paths',[])
                         if not isinstance(paths,list) or len(paths)>100 or any(not isinstance(p,str) for p in paths):raise ValueError('附件列表无效')
-                        result={'attachments':[attachments.import_file(p) for p in paths]}
+                        result={'attachments':attachments.import_paths(paths,scope)}
                     elif payload.get('action')=='pick':
                         from .picker import choose_path
                         path=getattr(self.server,'pick_path',choose_path)('attachment','')
-                        result={'attachment':attachments.import_file(path) if path else None}
+                        result={'attachment':attachments.import_file(path,scope) if path else None}
                     else:raise ValueError('附件操作无效')
                 elif self.path == '/api/reset':
                     if payload.get('confirm') is not True:raise ValueError('请先确认清除')

@@ -1,4 +1,7 @@
-const reference = (a) => a.name;
+const reference = (a) => {
+  const dot = a.name.lastIndexOf(".");
+  return dot > 0 && dot < a.name.length - 1 ? a.name.slice(0, dot) : a.name;
+};
 const longText = (text) => text.replace(/\r\n?/g, "\n").split("\n").length > 20;
 export function mountAttachments({
   getDoc,
@@ -15,21 +18,40 @@ export function mountAttachments({
   document.body.append(gallery);
   let busy = false,
     collapsed = false;
-  async function upload(file, temporary = false) {
-    const r = await fetch(
-      "/api/attachments/upload?name=" +
-        encodeURIComponent(file.name) +
-        (temporary ? "&temporary=1" : ""),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: file,
-        signal: AbortSignal.timeout(60000),
-      },
-    );
-    const value = await r.json();
-    if (!r.ok) throw Error(value.error || "附件添加失败");
-    return value;
+  let ingesting = Promise.resolve();
+  const scopeFor = (collection) =>
+    (collection.attachments || []).map((a) => a.id);
+  function ingest(collection, request) {
+    const next = ingesting
+      .catch(() => {})
+      .then(async () => {
+        const assets = await request(scopeFor(collection));
+        register(collection, assets);
+        return assets;
+      });
+    ingesting = next;
+    return next;
+  }
+  async function upload(file, temporary = false, collection) {
+    const result = await ingest(collection, async (scope) => {
+      const r = await fetch(
+        "/api/attachments/upload?name=" +
+          encodeURIComponent(file.name) +
+          (temporary ? "&temporary=1" : "") +
+          "&scope=" +
+          encodeURIComponent(scope.join(",")),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: file,
+          signal: AbortSignal.timeout(60000),
+        },
+      );
+      const value = await r.json();
+      if (!r.ok) throw Error(value.error || "附件添加失败");
+      return [value];
+    });
+    return result[0];
   }
   function register(collection, assets) {
     assets = assets.filter(
@@ -67,14 +89,16 @@ export function mountAttachments({
       busy = true;
       paint();
       try {
-        const r = await fetch("/api/attachments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "pick" }),
+        await ingest(collection, async (scope) => {
+          const r = await fetch("/api/attachments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "pick", scope }),
+          });
+          const result = await r.json();
+          if (!r.ok) throw Error(result.error);
+          return result.attachment ? [result.attachment] : [];
         });
-        const result = await r.json();
-        if (!r.ok) throw Error(result.error);
-        if (result.attachment) register(collection, [result.attachment]);
       } catch (e) {
         notify(e.message);
       } finally {
@@ -131,7 +155,7 @@ export function mountAttachments({
       copy.title = "复制此附件的文件名";
       copy.onclick = async () => {
         try {
-          await copyReference(asset.name);
+          await copyReference(reference(asset));
         } catch (error) {
           notify(error.message);
         }
@@ -239,7 +263,11 @@ export function mountAttachments({
     const response = await fetch("/api/attachments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "references", text }),
+      body: JSON.stringify({
+        action: "references",
+        text,
+        scope: scopeFor(collection),
+      }),
     });
     if (response.ok) {
       const result = await response.json();
@@ -318,15 +346,16 @@ export function mountAttachments({
       return;
     }
     try {
-      const response = await fetch("/api/attachments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "lookup", ids: [id] }),
+      const [asset] = await ingest(collection, async (scope) => {
+        const response = await fetch("/api/attachments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "attach", ids: [id], scope }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error);
+        return result.attachments;
       });
-      const result = await response.json();
-      if (!response.ok) throw Error(result.error);
-      const asset = result.attachments[0];
-      register(collection, [asset]);
       remember();
       if (getDoc() === collection && content.isConnected) {
         const value = document.createTextNode(reference(asset));
@@ -381,21 +410,26 @@ export function mountAttachments({
         : null;
     try {
       const assets = [];
-      for (const file of files) assets.push(await upload(file, temporary));
+      for (const file of files)
+        assets.push(await upload(file, temporary, collection));
       if (!files.length) {
         const paths = suppliedPaths || (await clipboardPaths());
         if (!paths.length) {
           await syncReferences(clipboardText, collection);
           return false;
         }
-        const response = await fetch("/api/attachments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "paths", paths }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw Error(result.error);
-        assets.push(...result.attachments);
+        assets.push(
+          ...(await ingest(collection, async (scope) => {
+            const response = await fetch("/api/attachments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "paths", paths, scope }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw Error(result.error);
+            return result.attachments;
+          })),
+        );
       }
       register(collection, assets);
       const text = assets.map(reference).join("\n");
