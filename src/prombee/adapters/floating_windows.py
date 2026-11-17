@@ -13,7 +13,8 @@ class WindowsFloating:
     def __init__(self,webview,window,url,data,close):
         self.window,self.close=window,close
         self.preferences=FloatingPreferences(data)
-        self.background=False;self.hidden_by_user=False;self.focus_seen=False;self.was_foreground=False;self.focus_suspended=False
+        self.background=False;self.hidden_by_user=False;self.focus_seen=False;self.was_foreground=False;self.focus_suspended=True
+        self.foreground_lost_at=None
         self.completed_switches=0;self.mode='editor';self.ready=False;self.orb_rect=self.preferences.position
         self.lock=threading.RLock();self.stop=threading.Event();self.allow_close=False
         owner=self
@@ -21,12 +22,21 @@ class WindowsFloating:
             def mascot(self,msg):owner.command(msg)
         self.orb=webview.create_window(app_name(),url+'mascot.html?host=windows&lang='+ui_language(),js_api=Api(),
             width=ORB_WIDTH,height=ORB_HEIGHT,min_size=(100,100),hidden=True,
-            frameless=True,easy_drag=False,transparent=True,on_top=True,shadow=False,text_select=False)
+            frameless=True,easy_drag=False,transparent=True,on_top=True,shadow=False,text_select=False,focus=False)
+        self.orb.events.before_show+=self.prepare_orb
         self.orb.events.loaded+=self.loaded
         self.orb.events.closing+=self.on_closing
         if hasattr(window.events,'maximized'):window.events.maximized+=lambda:self.window_state(True)
         if hasattr(window.events,'restored'):window.events.restored+=lambda:self.window_state(False)
         self.thread=threading.Thread(target=self.track,daemon=True);self.thread.start()
+
+    def prepare_orb(self):
+        # pywebview 6.2.1 unconditionally Show()/Activate()s transparent windows
+        # on navigation, including hidden ones. Detach that handler for this orb;
+        # the host alone decides when it is visible. Initialization still uses
+        # pywebview's normal hidden Show/Hide cycle to prepare transparency.
+        browser=self.orb.native.browser
+        browser.webview.NavigationStarting-=browser.on_navigation_start
 
     def on_closing(self):
         if self.allow_close:return True
@@ -38,6 +48,7 @@ class WindowsFloating:
         self.orb.run_js('window.prombeeMascot?.receive('+json.dumps(command)+','+json.dumps(data or {})+')')
     def loaded(self):
         self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction});self.emit('pause')
+        if self.mode=='editor':self.orb.hide()
 
     def track(self):
         while not self.stop.wait(.033):
@@ -63,13 +74,16 @@ class WindowsFloating:
         foreground=user.GetForegroundWindow()
         main=int(self.window.native.Handle.ToInt64())
         if foreground==main:
+            self.foreground_lost_at=None
             self.focus_seen=True;self.hidden_by_user=False
             if self.mode=='orb' and self.background:self.dismiss_background()
-        elif self.was_foreground and self.focus_seen and foreground:
+        elif self.focus_seen and foreground:
             pid=W.DWORD();user.GetWindowThreadProcessId(foreground,C.byref(pid))
             if (pid.value!=os.getpid() and self.preferences.orb_enabled
                 and not self.hidden_by_user and self.mode=='editor'):
-                self.collapse(background=True)
+                import time
+                if self.foreground_lost_at is None:self.foreground_lost_at=time.monotonic()
+                elif time.monotonic()-self.foreground_lost_at>=.3:self.collapse(background=True)
         self.was_foreground=foreground==main
 
     def dismiss_background(self):
@@ -83,6 +97,10 @@ class WindowsFloating:
             self.ready=True
             self.emit('settings',{'enabled':self.preferences.enabled,'direction':self.preferences.direction})
             if self.mode=='editor':self.emit('pause')
+        elif action=='editorReady':
+            if self.mode=='editor':self.orb.hide();self.emit('pause')
+            self.focus_suspended=False;self.was_foreground=False;self.foreground_lost_at=None
+            self.activate_editor()
         elif action=='collapse':self.collapse()
         elif action=='windowDrag':
             user=C.windll.user32

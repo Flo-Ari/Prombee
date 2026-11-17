@@ -36,7 +36,7 @@ jobs:
           for i in {1..30}; do test -S /tmp/.X11-unix/X99 && break; sleep .2; done
           # Root in this isolated CI container cannot use WebKit's user-namespace sandbox.
           # This override is never part of the installed launcher.
-          timeout 90s env DISPLAY=:99 GTK_A11Y=none GSK_RENDERER=cairo WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_DATA_HOME="$RUNNER_TEMP/prombee-smoke" dbus-run-session -- prombee --floating-smoke-test
+          timeout 90s env DISPLAY=:99 GTK_A11Y=none GSK_RENDERER=cairo WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_DATA_HOME="$RUNNER_TEMP/prombee-smoke" dbus-run-session -- prombee --floating-smoke-test --data-dir "$RUNNER_TEMP/prombee-smoke/prombee"
           test -d "$RUNNER_TEMP/prombee-smoke/prombee"
       - uses: actions/upload-artifact@v4
         with:

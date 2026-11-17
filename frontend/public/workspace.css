@@ -333,3 +333,7 @@ body.with-attachments.attachments-collapsed .workspace > main {
 .attachment-menu button {
   width: 100%;
 }
+
+/* Attachment background only: content stays fully opaque in both themes. */
+#attachmentGallery { background: rgb(255 255 255 / 50%); }
+body.dark #attachmentGallery { background: rgb(17 17 17 / 50%); }

@@ -24,6 +24,8 @@ def main():
     rpms=list((ROOT/'dist').glob(f'prombee-{version}-*.noarch.rpm'))
     if len(rpms)!=1:parser.error('Exactly one tested RPM is required')
     inputs[rpms[0].name]=rpms[0]
+    installer=ROOT/'dist/windows'/f'Prombee-{version}-Setup-x64.exe'
+    inputs[installer.name]=installer
     # Validate every executable before staging any release files. In particular,
     # a still-running Windows download must not silently reuse yesterday's EXE.
     bundle_python=ROOT/'work/build-venv/bin/python'

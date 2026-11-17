@@ -47,23 +47,24 @@
 
 | 你的系统                                        | 下载文件                           | 打开方式                           |
 | ----------------------------------------------- | ---------------------------------- | ---------------------------------- |
-| Windows 10 22H2 / Windows 11，64 位 Intel / AMD | `Prombee-0.9.17.exe`               | 只下载这一个文件，双击运行         |
-| Fedora 44                                       | `prombee-0.9.17-1.fc44.noarch.rpm` | 使用下方 dnf 指令安装              |
-| Ubuntu 24.04 / 带 WebKitGTK 6 的 Debian         | `prombee_0.9.17_all.deb`           | 使用下方 apt 指令安装              |
-| Linux x86_64 单文件版                           | `Prombee-0.9.17`（没有扩展名）     | 允许执行后运行，仍需系统图形运行库 |
+| Windows 10 22H2 / Windows 11，64 位 Intel / AMD | `Prombee-0.9.18-Setup-x64.exe` | 安装版：选择安装位置并创建快捷方式 |
+| Windows 便携版，同上系统 | `Prombee-0.9.18.exe` | 直接运行，数据放在程序旁 `Prombee-data` |
+| Fedora 44                                       | `prombee-0.9.18-1.fc44.noarch.rpm` | 使用下方 dnf 指令安装              |
+| Ubuntu 24.04 / 带 WebKitGTK 6 的 Debian         | `prombee_0.9.18_all.deb`           | 使用下方 apt 指令安装              |
+| Linux x86_64 单文件版                           | `Prombee-0.9.18`（没有扩展名）     | 允许执行后运行，仍需系统图形运行库 |
 
 Windows 版已包含 Python、程序资源和微软官方 WebView2 离线安装组件。首次运行缺少 WebView2 时会显示准备窗口并自动补齐，无需另下文件或联网；已有组件则直接打开。首次准备可能需要几分钟，之后正常打开。
 
 不支持 Windows 7 / 8、32 位 Windows；尚未提供 Windows ARM64 原生版。`SHA256.txt` 是可选校验文件，`Source code.zip` / `.tar.gz` 是源代码，均不是应用。Windows 不要下载 `.deb`、`.rpm` 或没有扩展名的 Linux 程序。
 
-如果 Windows 仍无法打开，可查看 `%LOCALAPPDATA%\Prombee\startup.log` 中的具体原因。
+安装版和便携版都将数据保存在软件文件夹的 `Prombee-data` 中。安装时可自行选择软件文件夹；文件夹不可写时会要求选择数据位置。启动日志位于实际数据文件夹中的 `startup.log`。安装版卸载会保留词集和用户数据。
 
 ### Ubuntu 24.04
 
 下载 `.deb` 文件后安装：
 
 ```bash
-sudo apt install ./prombee_0.9.17_all.deb
+sudo apt install ./prombee_0.9.18_all.deb
 ```
 
 安装后，从应用菜单打开“提示蜂”。
@@ -73,14 +74,14 @@ sudo apt install ./prombee_0.9.17_all.deb
 下载 `.rpm` 文件，在其所在文件夹打开终端，安装一次：
 
 ```bash
-sudo dnf install ./prombee-0.9.17-1.fc44.noarch.rpm
+sudo dnf install ./prombee-0.9.18-1.fc44.noarch.rpm
 ```
 
 之后按 Super 键搜索 **提示蜂** 打开，也可在终端输入 `prombee`。安装包会通过 Fedora 仓库安装所需的 GTK、WebKitGTK 和 XWayland 依赖。
 
-如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.9.17`，再运行 `./Prombee-0.9.17`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
+如果使用 Linux 单文件版，请先在“属性 → 权限”中允许执行，或在文件所在目录运行 `chmod u+x ./Prombee-0.9.18`，再运行 `./Prombee-0.9.18`。`.exe` 适用于 Windows，`.deb` 适用于 Debian / Ubuntu。
 
-打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.9.17`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
+打不开时请在终端运行 `prombee`（安装版）或 `./Prombee-0.9.18`（单文件版）查看报错。Linux 单文件版仍依赖系统图形运行库；不同发行版应选择对应安装包。
 
 ### 提示词保存位置
 
@@ -88,7 +89,7 @@ sudo dnf install ./prombee-0.9.17-1.fc44.noarch.rpm
 
 文件包含轮次和条目的文本标记，用于保留层级、显示格式与复制范围。直接改动 TXT 前建议保留副本；复制按钮输出的是整理后的提示词，不包含这些保存标记。
 
-旧版内容首次打开时迁移为 `当前词集.txt`，原 `workspace.json` 保留为备份。默认迁移目录：Windows 为 `%LOCALAPPDATA%\Prombee`，Ubuntu 为 `~/.local/share/prombee`，Linux 单文件版为程序旁的 `Prombee-data`。
+词集、附件、设置等保存在用户选择的数据文件夹或软件旁的 `Prombee-data` 内，不再自动选择 AppData 或主目录作为数据位置。新建词集和另存为仍需选择保存位置。Linux 安装目录不可写时，启动会打开系统文件夹选择器。旧版本数据保留在原处，可选择原数据文件夹继续使用，或通过“文件 → 打开文件”打开原 TXT 词集。
 
 词集管理中的“删除”只移除列表记录，原 TXT 文件仍可通过“打开文件”重新打开。旧版已移除的词集文件保留在原数据目录的 `Trash` 文件夹，旧索引保存在 `library-v1-backup.json`。关闭标题左边的三角只折叠显示，眼睛按钮才控制是否参与复制。
 

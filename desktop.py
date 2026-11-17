@@ -21,13 +21,7 @@ def main():
     parser.add_argument('--floating-smoke-test',action='store_true',help=argparse.SUPPRESS)
     args=parser.parse_args()
     if args.floating_smoke_test:args.smoke_test=True
-    if getattr(sys,'frozen',False):
-        exe=Path(sys.executable).resolve()
-        project=exe.parent.parent
-        default_data=project/'data' if (project/'web/index.html').exists() else exe.parent/'Prombee-data'
-    else:
-        default_data=ROOT/'data'
-    data=args.data_dir or Path(os.environ.get('PROMBEE_DATA_DIR',str(default_data)))
+    application_dir=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else ROOT
     if getattr(sys,'frozen',False):
         os.environ['WEBKIT_EXEC_PATH']=str(ROOT/'webkit-processes')
     if os.environ.get('DISPLAY'):
@@ -41,6 +35,9 @@ def main():
     GLib.set_prgname('app.prombee.Prombee')
     GLib.set_application_name(app_name())
     Gtk.Window.set_default_icon_name('prombee')
+    from prombee.adapters.data_location import resolve_data_folder, choose_gtk_folder
+    data=resolve_data_folder(application_dir,args.data_dir or os.environ.get('PROMBEE_DATA_DIR'),lambda:choose_gtk_folder(Gtk,Gio,GLib))
+    if data is None:return 0
     server=start_server(ROOT,data)
     url=f'http://127.0.0.1:{server.server_port}/'
     result=[0]

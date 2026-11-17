@@ -42,6 +42,7 @@ class FloatingTests(unittest.TestCase):
         controller=WindowsFloating.__new__(WindowsFloating)
         controller.ready=False;controller.mode='editor';controller.preferences=SimpleNamespace(enabled=True,direction='left')
         calls=[];controller.emit=lambda command,value=None:calls.append((command,value))
+        controller.orb=SimpleNamespace(hide=lambda:None)
         controller.loaded();self.assertFalse(controller.ready)
         controller.command({'action':'ready'});self.assertTrue(controller.ready)
         self.assertEqual(calls[-1],('pause',None))
@@ -205,3 +206,33 @@ class FloatingTests(unittest.TestCase):
         control.window=SimpleNamespace(maximize=lambda:control.window_state(True),restore=lambda:control.window_state(False),run_js=states.append)
         control.toggle_maximize();self.assertTrue(control.maximized);self.assertIn('true',states[-1])
         control.toggle_maximize();self.assertFalse(control.maximized);self.assertIn('false',states[-1])
+
+
+class WindowsStartupTests(unittest.TestCase):
+    def test_ready_keeps_orb_hidden_until_editor_initialization_finishes(self):
+        from types import SimpleNamespace
+        from prombee.adapters.floating_windows import WindowsFloating
+        c=WindowsFloating.__new__(WindowsFloating);calls=[]
+        c.mode='editor';c.ready=False;c.focus_suspended=True
+        c.preferences=SimpleNamespace(enabled=True,direction='left')
+        c.orb=SimpleNamespace(hide=lambda:calls.append('hide'))
+        c.emit=lambda *args:calls.append(args)
+        c.activate_editor=lambda:calls.append('activate')
+        c.command({'action':'ready'})
+        self.assertTrue(c.focus_suspended)
+        c.command({'action':'editorReady'})
+        self.assertFalse(c.focus_suspended)
+        self.assertIn('hide',calls);self.assertIn('activate',calls)
+        self.assertFalse(c.was_foreground)
+
+    def test_orb_does_not_auto_show_on_webview2_navigation(self):
+        from types import SimpleNamespace
+        from prombee.adapters.floating_windows import WindowsFloating
+        removed=[]
+        class Event:
+            def __isub__(self,callback):removed.append(callback);return self
+        callback=lambda:None
+        c=WindowsFloating.__new__(WindowsFloating)
+        c.orb=SimpleNamespace(native=SimpleNamespace(browser=SimpleNamespace(
+            webview=SimpleNamespace(NavigationStarting=Event()),on_navigation_start=callback)))
+        c.prepare_orb();self.assertEqual(removed,[callback])

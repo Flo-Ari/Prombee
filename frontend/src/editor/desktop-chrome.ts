@@ -55,6 +55,7 @@ windowState(false);
 if (native) post("windowState");
 window.addEventListener("pywebviewready", () => {
   if (native) post("windowState");
+  if (platform === "windows" && window.prombeeReady) post("editorReady");
 });
 const dragRegion = chrome.querySelector(".window-header");
 const interactive = (target) =>
@@ -66,8 +67,14 @@ for (const control of dragRegion.querySelectorAll(
   control.addEventListener("mousedown", (event) => event.stopPropagation());
 }
 chrome.addEventListener("mousedown", (event) => {
-  if ((event as MouseEvent).button !== 0 || interactive(event.target)) return;
-  if (native) post("windowDrag");
+  if ((event as MouseEvent).button !== 0) return;
+  if (interactive(event.target)) {
+    event.stopPropagation();
+    return;
+  }
+  // WebView2's host drag selector tracks the whole gesture, including mouse-up.
+  // GTK uses the native device/time captured before this asynchronous bridge.
+  if (platform === "gtk") post("windowDrag");
 });
 chrome.addEventListener("dblclick", (event) => {
   if ((event as MouseEvent).button === 0 && !interactive(event.target))

@@ -5,7 +5,7 @@ import { JSDOM } from 'jsdom';
 import { readFile as reactFixture } from './helpers/read-fixture.mjs';
 
 test('React shell preserves every existing control ID, type, label, option and native integration selector', async () => {
-  const before = new JSDOM(await readFile(new URL('./fixtures/editor-0.9.16.html', import.meta.url), 'utf8')).window.document;
+  const before = new JSDOM(await readFile(new URL('./fixtures/editor-compatibility.html', import.meta.url), 'utf8')).window.document;
   const after = new JSDOM(await reactFixture(new URL('../web/index.html', import.meta.url), 'utf8')).window.document;
   const original = [...before.querySelectorAll('[id]')];
   assert.equal(after.querySelectorAll('[id]:not(#root)').length, original.length);

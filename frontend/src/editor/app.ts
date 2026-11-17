@@ -2191,6 +2191,7 @@ try {
   await libraryUI.refresh();
   await shortcutsUI.ready;
   window.prombeeReady = true;
+  window.pywebview?.api?.mascot?.({ action: "editorReady" });
 } catch (err) {
   $("status").textContent = err.message;
 }

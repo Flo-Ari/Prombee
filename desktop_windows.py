@@ -1,4 +1,4 @@
-"""Windows desktop host: shared editor, native WebView2, per-user data."""
+"""Windows desktop host: shared editor, native WebView2, explicitly located data."""
 import argparse
 import ctypes
 from ctypes import wintypes
@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 
+LOG_FOLDER = None
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'src'))
 from prombee.server import start_server
@@ -102,8 +103,27 @@ def main():
     args = parser.parse_args()
     if os.name != 'nt':
         parser.error('This entry point requires Windows; use desktop.py on Linux.')
-    data = args.data_dir or Path(os.environ.get('PROMBEE_DATA_DIR') or str(Path(os.environ['LOCALAPPDATA']) / 'Prombee'))
-    data.mkdir(parents=True, exist_ok=True)
+    from prombee.adapters.data_location import resolve_data_folder, choose_windows_folder
+    application = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else ROOT
+    explicit = args.data_dir or os.environ.get('PROMBEE_DATA_DIR')
+    # Existing data is never silently moved or discarded. The user can explicitly
+    # choose its folder; otherwise new data lives beside the executable.
+    if not explicit and not (application/'Prombee-data').exists() and not (application/'data-location.json').exists():
+        legacy = Path(os.environ.get('LOCALAPPDATA', ''))/'Prombee'
+        if (legacy/'library.json').exists():
+            answer = ctypes.windll.user32.MessageBoxW(None,
+                '检测到旧版本数据：\n'+str(legacy)+'\n\n是否自行选择要继续使用的数据文件夹？\n选择“否”将在软件文件夹内创建新数据，旧数据会保留。', app_name(), 0x23)
+            if answer == 2: return 0
+            if answer == 6:
+                explicit = choose_windows_folder()
+                if not explicit: return 0
+                from prombee.adapters.storage import atomic_write
+                atomic_write(application/'data-location.json', json.dumps({'path':str(Path(explicit).resolve())},ensure_ascii=False))
+    data = resolve_data_folder(application, explicit, choose_windows_folder)
+    if data is None: return 0
+    global LOG_FOLDER
+    LOG_FOLDER = data
+    startup_log('Starting Prombee')
     from prombee.adapters.windows_runtime import ensure_runtime, runtime_version
     # Exercise the packaged installer and native preparation window in CI even
     # when the runner image already contains WebView2.
@@ -116,8 +136,10 @@ def main():
     prepared = ensure_runtime(ROOT, startup_log, probe=probe)
     import webview
     webview.settings['ALLOW_FILE_URLS'] = False
+    webview.settings['DRAG_REGION_SELECTOR'] = '.window-chrome'
+    webview.settings['DRAG_REGION_DIRECT_TARGET_ONLY'] = False
     server = start_server(ROOT, data, native_bridge=True)
-    result = {'ok': False, 'runtimePrepared': prepared}
+    result = {'ok': False, 'runtimePrepared': prepared, 'dataDir': str(data.resolve())}
     closing = threading.Event()
     allow_close = threading.Event()
 
@@ -163,7 +185,7 @@ def main():
     server.pick_path = pick_path
 
     def on_loaded():
-        window.run_js(BRIDGE)
+        window.run_js(BRIDGE+";if(window.prombeeReady)window.pywebview.api.mascot({action:'editorReady'});")
 
     def on_closing():
         if allow_close.is_set():
@@ -186,6 +208,24 @@ def main():
                 result['diagnostics'] = json.loads(window.run_js("JSON.stringify({status:document.getElementById('status')?.textContent,errors:window.prombeeErrors,userAgent:navigator.userAgent,resources:performance.getEntriesByType('resource').map(e=>({name:e.name,type:e.initiatorType,size:e.transferSize}))})"))
                 raise AssertionError(state)
             assert state['title'] == app_name(), state
+            # Exercise a real held mouse gesture over the header, not a synthetic JS move.
+            region=json.loads(window.run_js("JSON.stringify(document.querySelector('.drag-space').getBoundingClientRect().toJSON())"))
+            user=ctypes.windll.user32
+            hwnd=int(window.native.Handle.ToInt64())
+            user.GetWindowRect.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.RECT)]
+            before=wintypes.RECT();user.GetWindowRect(hwnd,ctypes.byref(before))
+            scale=float(window.native._scale)
+            px=before.left+round((region['x']+region['width']/2)*scale)
+            py=before.top+round((region['y']+region['height']/2)*scale)
+            user.SetCursorPos(px,py);time.sleep(.1)
+            user.mouse_event(2,0,0,0,0);time.sleep(.15)
+            for step in range(1,9):user.SetCursorPos(px+step*6,py+step*3);time.sleep(.06)
+            user.mouse_event(4,0,0,0,0);time.sleep(.3)
+            after=wintypes.RECT();user.GetWindowRect(hwnd,ctypes.byref(after))
+            assert (after.left,after.top)!=(before.left,before.top),'Header mouse drag did not move the window'
+            result['headerDrag']=True
+            assert not floating.orb.native.Visible and floating.mode=='editor','Startup displayed the orb alongside the editor'
+            result['startupEditorOnly']=True
             destinations=server.other.snapshot()
             assert isinstance(destinations['windows'],list) and isinstance(destinations['applications'],list)
             result['destinations']={key:len(destinations[key]) for key in ('windows','applications')}
@@ -240,7 +280,7 @@ def main():
         startup_log('WebView2 startup error: '+str(error))
         if not args.smoke_test:
             ctypes.windll.user32.MessageBoxW(None,
-                f'无法启动 {app_name()}。\n\n' + str(error) + '\n\n启动日志：%LOCALAPPDATA%\\Prombee\\startup.log',
+                f'无法启动 {app_name()}。\n\n' + str(error) + '\n\n启动日志：'+str(data/'startup.log'),
                 app_name(), 0x10)
     finally:
         server.speech.stop();server.shutdown()
@@ -252,7 +292,8 @@ def main():
 
 
 def startup_log(message):
-    folder=Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'Prombee'
+    if LOG_FOLDER is None: return
+    folder=LOG_FOLDER
     folder.mkdir(parents=True,exist_ok=True)
     with (folder/'startup.log').open('a',encoding='utf-8') as log:
         log.write(time.strftime('%Y-%m-%d %H:%M:%S ') + str(message) + '\n')
@@ -260,7 +301,6 @@ def startup_log(message):
 
 def launch():
     try:
-        startup_log('Starting Prombee')
         return main()
     except Exception:
         import traceback
@@ -270,7 +310,7 @@ def launch():
         if os.name=='nt':
             ctypes.windll.user32.MessageBoxW(None,
                 '无法启动提示蜂。\n\n'+details.splitlines()[-1]+
-                '\n\n启动日志：%LOCALAPPDATA%\\Prombee\\startup.log', app_name(), 0x10)
+                ('\n\n启动日志：'+str(LOG_FOLDER/'startup.log') if LOG_FOLDER else ''), app_name(), 0x10)
         return 1
 
 

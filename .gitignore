@@ -7,3 +7,6 @@ __pycache__/
 .venv/
 .venv-windows/
 node_modules/
+
+/web/
+.idea/

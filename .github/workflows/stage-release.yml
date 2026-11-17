@@ -82,8 +82,8 @@ jobs:
           from pathlib import Path
           import hashlib,os,shutil,subprocess,sys
           version=os.environ['VERSION'];out=Path('release')
-          names=[f'Prombee-{version}',f'Prombee-{version}.exe',f'prombee-{version}-1.fc44.noarch.rpm',f'prombee_{version}_all.deb']
-          sources=[Path('staged/windows/Prombee.exe'),Path('staged/fedora')/names[2],Path('staged/debian')/names[3]]
+          names=[f'Prombee-{version}',f'Prombee-{version}.exe',f'prombee-{version}-1.fc44.noarch.rpm',f'prombee_{version}_all.deb',f'Prombee-{version}-Setup-x64.exe']
+          sources=[Path('staged/windows/Prombee.exe'),Path('staged/fedora')/names[2],Path('staged/debian')/names[3],Path('staged/windows')/names[4]]
           for source,name in zip(sources,names[1:]):
               assert source.is_file() and source.stat().st_size>1000000
               shutil.copy2(source,out/name)
@@ -92,5 +92,5 @@ jobs:
           PY
       - name: Publish only after all tested packages are available
         run: |
-          gh release upload "v$VERSION" "release/Prombee-$VERSION.exe" "release/prombee-$VERSION-1.fc44.noarch.rpm" "release/prombee_${VERSION}_all.deb" "release/Prombee-$VERSION-SHA256.txt" --clobber
+          gh release upload "v$VERSION" "release/Prombee-$VERSION.exe" "release/prombee-$VERSION-1.fc44.noarch.rpm" "release/prombee_${VERSION}_all.deb" "release/Prombee-$VERSION-SHA256.txt" "release/Prombee-$VERSION-Setup-x64.exe" --clobber
           gh release edit "v$VERSION" --draft=false --prerelease
