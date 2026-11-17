@@ -10,3 +10,8 @@ node_modules/
 
 /web/
 .idea/
+
+# Personal prompt data and explicit storage-location preferences.
+/Prombee-data/
+/Prombee.txt
+/data-location.json
