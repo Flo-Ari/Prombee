@@ -20,4 +20,4 @@ FastAPI and Pydantic use the MIT License; Starlette and Uvicorn use the BSD 3-Cl
 Vite and TypeScript are build-time dependencies and are not required on the end user's device.
 
 Windows installer uses Inno Setup (Jordan Russell and Martijn Laan).
-The installer translation and license are retained in packaging/windows/.
+The installer translation and license are retained in build_tools/packaging/windows/.

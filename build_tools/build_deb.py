@@ -59,11 +59,11 @@ def main():
         for source in sorted((ROOT / directory).rglob('*')):
             if source.is_file() and '__pycache__' not in source.parts and source.suffix != '.pyc':
                 add(source, 'usr/share/prombee/' + source.relative_to(ROOT).as_posix())
-    add(ROOT / 'packaging/debian/prombee', 'usr/bin/prombee', 0o755)
-    add(ROOT / 'packaging/debian/prombee.desktop', 'usr/share/applications/prombee.desktop')
+    add(ROOT / 'build_tools/packaging/debian/prombee', 'usr/bin/prombee', 0o755)
+    add(ROOT / 'build_tools/packaging/debian/prombee.desktop', 'usr/share/applications/prombee.desktop')
     add(ROOT / 'frontend/dist/logo.svg', 'usr/share/icons/hicolor/scalable/apps/prombee.svg')
     size = (sum(len(data) for data, _ in files.values()) + 1023) // 1024
-    control = (ROOT / 'packaging/debian/control.in').read_text().replace('@VERSION@', args.version).replace('@SIZE@', str(size))
+    control = (ROOT / 'build_tools/packaging/debian/control.in').read_text().replace('@VERSION@', args.version).replace('@SIZE@', str(size))
     md5sums = ''.join(f'{hashlib.md5(content).hexdigest()}  {name}\n' for name, (content, _) in sorted(files.items()))
     control_archive = tar_bytes({'control': (control.encode(), 0o644), 'md5sums': (md5sums.encode(), 0o644)}, timestamp)
     args.output.mkdir(parents=True, exist_ok=True)

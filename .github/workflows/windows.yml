@@ -62,7 +62,7 @@ jobs:
           $compiler = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $compiler)) { choco install innosetup --no-progress -y }
           $version = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
-          & $compiler "/DAppVersion=$version" packaging/windows/prombee.iss
+          & $compiler "/DAppVersion=$version" build_tools/packaging/windows/prombee.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install, verify application-folder data and preserve it during uninstall
         shell: pwsh

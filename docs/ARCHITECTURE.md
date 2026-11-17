@@ -76,3 +76,9 @@ Windows 工作流构建便携 EXE 和 Inno Setup 安装程序，测试真实鼠�
 ## 运行方式
 
 开发模式由 Vite 实时编译前端、FastAPI 提供 API；正式桌面版使用 FastAPI 本地服务同时提供 `frontend/dist` 的静态界面和 API。静态界面是 HTML、CSS、JavaScript、图像等文件集合，并非单个网页文件。React 在桌面内嵌浏览器中运行，API 与业务仍然实时处理。构建只提前处理前端源码，避免在用户电脑上安装 Node.js、开发依赖和现场编译；该方式与常见前后端产品的生产部署一致。
+
+## 系统适配与安装配置的边界
+
+`build_tools/packaging/` 保存 Windows 安装程序定义与图标、Fedora RPM 规格、Debian 元数据和启动器；这些是构建输入，不参与运行时业务。
+
+`backend/prombee/adapters/` 承接运行时系统差异：`clipboard_windows.py` / `clipboard_gtk.py` 处理剪贴板，`floating_windows.py` / `floating_gtk.py` 处理原生窗口和悬浮球，`windows_runtime.py` 处理 WebView2 准备，`data_location.py` 处理原生目录选择，`filelock.py` 处理不同系统的锁。共用 API 与业务用例依赖这些适配接口；入口 `desktop.py` / `desktop_windows.py` 负责启动与界面宿主装配。

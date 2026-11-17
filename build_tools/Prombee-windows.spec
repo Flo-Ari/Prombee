@@ -18,4 +18,4 @@ a = Analysis([str(root / 'desktop_windows.py')], pathex=[str(root / 'backend')],
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name='Prombee',
           debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
-          console=False, icon=str(root / 'packaging' / 'windows' / 'prombee.ico') if (root / 'packaging' / 'windows' / 'prombee.ico').exists() else None)
+          console=False, icon=str(root / 'build_tools' / 'packaging' / 'windows' / 'prombee.ico') if (root / 'build_tools' / 'packaging' / 'windows' / 'prombee.ico').exists() else None)

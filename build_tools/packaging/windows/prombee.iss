@@ -16,14 +16,14 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0.19045
-OutputDir=..\..\dist\windows
+OutputDir=..\..\..\dist\windows
 OutputBaseFilename=Prombee-{#AppVersion}-Setup-x64
 Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\Prombee.exe
 CloseApplications=yes
-LicenseFile=..\..\LICENSE
+LicenseFile=..\..\..\LICENSE
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
@@ -32,9 +32,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Dirs]
 Name: "{app}\Prombee-data"; Flags: uninsneveruninstall
 [Files]
-Source: "..\..\dist\windows\Prombee.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\dist\windows\Prombee.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "InnoSetup-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{group}\Prombee"; Filename: "{app}\Prombee.exe"; WorkingDir: "{app}"

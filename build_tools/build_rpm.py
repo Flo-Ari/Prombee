@@ -20,13 +20,13 @@ def main():
     if not shutil.which('rpmbuild'):parser.error('rpmbuild is required; install Fedora package rpm-build')
     top=ROOT/'work'/('rpmbuild-'+args.version)
     for name in ('SOURCES','SPECS','BUILD','RPMS','SRPMS','BUILDROOT'):(top/name).mkdir(parents=True,exist_ok=True)
-    files=[ROOT/p for p in ('desktop.py','seed.json','LICENSE','NOTICE','packaging/debian/prombee','packaging/debian/prombee.desktop')]
+    files=[ROOT/p for p in ('desktop.py','seed.json','LICENSE','NOTICE','build_tools/packaging/debian/prombee','build_tools/packaging/debian/prombee.desktop')]
     for directory in ('backend','frontend/dist'):
         files.extend(p for p in (ROOT/directory).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc')
     with tarfile.open(top/'SOURCES'/f'prombee-{args.version}.tar.gz','w:gz') as archive:
         for source in sorted(files):archive.add(source,arcname=f'prombee-{args.version}/'+source.relative_to(ROOT).as_posix())
     spec=top/'SPECS/prombee.spec'
-    spec.write_text((ROOT/'packaging/fedora/prombee.spec.in').read_text().replace('@VERSION@',args.version))
+    spec.write_text((ROOT/'build_tools/packaging/fedora/prombee.spec.in').read_text().replace('@VERSION@',args.version))
     subprocess.run(['rpmbuild','-bb','--define','_topdir '+str(top),'--define','_build_id_links none',str(spec)],check=True)
     args.output.mkdir(parents=True,exist_ok=True)
     for package in (top/'RPMS').rglob('prombee-*.rpm'):

@@ -31,8 +31,8 @@ Uses Fedora's native GTK 4 and WebKitGTK 6 libraries.
 %install
 mkdir -p %{buildroot}%{_datadir}/prombee
 cp -a desktop.py seed.json backend frontend %{buildroot}%{_datadir}/prombee/
-install -Dpm 755 packaging/debian/prombee %{buildroot}%{_bindir}/prombee
-install -Dpm 644 packaging/debian/prombee.desktop %{buildroot}%{_datadir}/applications/prombee.desktop
+install -Dpm 755 build_tools/packaging/debian/prombee %{buildroot}%{_bindir}/prombee
+install -Dpm 644 build_tools/packaging/debian/prombee.desktop %{buildroot}%{_datadir}/applications/prombee.desktop
 install -Dpm 644 frontend/dist/logo.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/prombee.svg
 
 %files
