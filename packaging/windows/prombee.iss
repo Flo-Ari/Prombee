@@ -35,6 +35,7 @@ Name: "{app}\Prombee-data"; Flags: uninsneveruninstall
 Source: "..\..\dist\windows\Prombee.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "InnoSetup-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{group}\Prombee"; Filename: "{app}\Prombee.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\Prombee"; Filename: "{app}\Prombee.exe"; WorkingDir: "{app}"; Tasks: desktopicon
