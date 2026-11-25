@@ -16,6 +16,7 @@ export function SettingsToolbar() {
       </button>
       <button id="updatesTab" role="tab" aria-controls="updatesPanel">
         {"\n        更新\n      "}
+        <span className="update-dot" aria-hidden="true"></span>
       </button>
       <button id="otherTab" role="tab" aria-controls="otherPanel">
         {"其他"}

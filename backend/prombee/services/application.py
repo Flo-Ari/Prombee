@@ -43,6 +43,7 @@ class ApplicationServices:
         if self.closed:
             return
         self.closed = True
+        self.updater.close()
         self.speech.stop()
         self.attachments.close()
 
@@ -73,11 +74,16 @@ class ApplicationServices:
 
     def write(self, resource: str, payload: dict):
         if not isinstance(payload, dict): raise ValueError('Invalid request')
+        if resource == 'recovery': return self.library.recovery(payload)
         if resource == 'state':
             result = self.library.save(payload)
             self.attachments.remember_session(payload['state'], payload.get('setId') or self.library.snapshot().get('active'))
             return result
-        if resource == 'library': return self.library.action(payload)
+        if resource == 'library':
+            result = self.library.action(payload)
+            if payload.get('action') == 'recoverSet':
+                self.attachments.remember_session(payload['state'], result['active'])
+            return result
         if resource == 'display': return self.display.save(payload)
         if resource == 'shortcuts': return self.shortcuts.save(payload)
         if resource == 'update': return self.updater.action(payload.get('action'))

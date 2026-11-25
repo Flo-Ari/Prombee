@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+from release_retention import prune_releases
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -26,13 +27,16 @@ def main():
     inputs[rpms[0].name]=rpms[0]
     installer=ROOT/'dist/windows'/f'Prombee-{version}-Windows-x64-Setup.exe'
     inputs[installer.name]=installer
+    uninstallers = {f'Prombee-{version}-Linux-Uninstall.sh': ROOT/'build_tools/packaging/linux/uninstall.sh',
+                    f'Prombee-{version}-Windows-Uninstall.cmd': ROOT/'build_tools/packaging/windows/uninstall.cmd'}
     # Validate every executable before staging any release files. In particular,
     # a still-running Windows download must not silently reuse yesterday's EXE.
-    bundle_python=ROOT/'work/build-venv/bin/python'
+    bundle_python=ROOT/'.cache/prombee/build-venv/bin/python'
     for name,source in inputs.items():
         if not source.is_file() or source.stat().st_size<1000000:parser.error('Missing tested artifact: '+str(source))
         if source in (ROOT/'dist/Prombee',ROOT/'dist/windows/Prombee.exe'):
             subprocess.run([str(bundle_python),str(ROOT/'build_tools/check_bundle_version.py'),str(source),version],check=True)
+    inputs.update(uninstallers)
     for name,source in inputs.items():
         shutil.copy2(source,folder/name)
         if hashlib.sha256(source.read_bytes()).digest()!=hashlib.sha256((folder/name).read_bytes()).digest():
@@ -43,5 +47,6 @@ def main():
     subprocess.run(['gh','release','create',tag,'--repo','Flo-Ari/Prombee','--target',args.commit,'--draft','--prerelease','--title','Prombee '+version+' 预览版','--notes-file',str(args.notes_file)],check=True)
     subprocess.run(['gh','release','upload',tag,'--repo','Flo-Ari/Prombee',*[str(folder/name) for name in inputs],str(manifest)],check=True)
     subprocess.run(['gh','release','edit',tag,'--repo','Flo-Ari/Prombee','--draft=false','--prerelease'],check=True)
+    prune_releases(apply=True, backup=folder/'previous-releases.json')
 
 if __name__=='__main__':main()

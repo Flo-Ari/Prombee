@@ -118,6 +118,15 @@ test("list scope works on a heading subtree and all entries without an active ro
   caret("sub");
   $("listType").value = "none";
   $("listType").dispatchEvent(new window.Event("change"));
+  assert.equal($("listType").value, "all-ordered");
+  const trigger = document.querySelector('[data-select-id="listType"] .dropdown-trigger');
+  assert.equal(trigger.textContent, "全部有序");
+  trigger.click();
+  assert.equal(document.querySelector('.dropdown-option[aria-selected="true"]').dataset.value, "all-ordered");
+  for (const button of document.querySelectorAll('.dropdown-option'))
+    if (!button.dataset.value.startsWith("all-")) assert.equal(button.getAttribute("aria-selected"), "false");
+  trigger.click();
+
   assert.equal(
     field("b").closest(".row").querySelector(".marker").textContent,
     "",

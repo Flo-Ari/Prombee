@@ -93,6 +93,7 @@ interface Elements {
   chooseLocation: HTMLButtonElement;
   openFile: HTMLButtonElement;
   libraryCreate: HTMLButtonElement;
+  createTemporarySet: HTMLButtonElement;
   chosenLocation: HTMLElement;
   setsList: HTMLElement;
   editorPanel: HTMLElement;

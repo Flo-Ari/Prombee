@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-windows.txt
+          cache-dependency-path: backend/requirements/windows.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,21 +30,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm --prefix frontend test
       - name: Install build dependencies
-        run: python -m pip install -r requirements-windows.txt -r requirements-dev.txt
+        run: python -m pip install -r backend/requirements/windows.txt -r backend/requirements/development.txt
       - name: Shared state persistence tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Bundle Microsoft offline WebView2 installer
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force work/windows-runtime | Out-Null
-          $installer = Join-Path $env:GITHUB_WORKSPACE 'work/windows-runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
+          New-Item -ItemType Directory -Force .cache/prombee/windows-runtime | Out-Null
+          $installer = Join-Path $env:GITHUB_WORKSPACE '.cache/prombee/windows-runtime/MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
           Invoke-WebRequest 'https://go.microsoft.com/fwlink/?linkid=2124701' -OutFile $installer -TimeoutSec 180
           $signature = Get-AuthenticodeSignature $installer
           if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'WebView2 installer signature is not a valid Microsoft signature.' }
           if ((Get-Item $installer).Length -lt 50000000) { throw 'Expected the complete offline x64 runtime installer.' }
           (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content ([System.IO.Path]::ChangeExtension($installer, '.sha256')) -Encoding ascii
       - name: Build standalone executable
-        run: python -m PyInstaller build_tools/Prombee-windows.spec --noconfirm --workpath work/pyinstaller-windows --distpath dist/windows
+        run: python -m PyInstaller build_tools/windows/app.spec --noconfirm --workpath .cache/prombee/pyinstaller-windows --distpath dist/windows
       - name: Packaged native window, Unicode clipboard and close-save smoke test
         shell: pwsh
         run: |
@@ -77,10 +77,10 @@ jobs:
           if ($process.ExitCode -ne 0) { if (Test-Path $report) { Get-Content $report }; throw 'Installed application failed.' }
           $result = Get-Content $report -Raw | ConvertFrom-Json
           if (-not ($result.headerDrag -and $result.startupEditorOnly -and $result.closeSave)) { throw 'Native drag/startup/save checks failed.' }
-          if ($result.dataDir -ne (Join-Path $install 'Prombee-data')) { throw 'Data was saved outside the application folder.' }
+          if ($result.dataDir -ne (Join-Path $install 'data')) { throw 'Data was saved outside the application folder.' }
           Get-Content $report
           $uninstall = Start-Process (Join-Path $install 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
-          if ($uninstall.ExitCode -ne 0 -or -not (Test-Path (Join-Path $install 'Prombee-data/library.json'))) { throw 'Uninstall removed user data.' }
+          if ($uninstall.ExitCode -ne 0 -or -not (Test-Path (Join-Path $install 'data/library.json'))) { throw 'Uninstall removed user data.' }
       - uses: actions/upload-artifact@v4
         with:
           name: Prombee-Windows-x64

@@ -95,7 +95,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(self.read()['state'],state)
 
     def test_private_files_not_served(self):
-        for path in ['/seed.json','/data/workspace.json','/../desktop.py','/%2e%2e/seed.json']:
+        for path in ['/seed.json','/data/workspace.json','/../backend/prombee/__main__.py','/%2e%2e/seed.json']:
             with self.assertRaises(HTTPError) as failure:urlopen(self.url+path)
             self.assertEqual(failure.exception.code,404)
             failure.exception.close()

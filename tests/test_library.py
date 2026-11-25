@@ -18,6 +18,64 @@ class LibraryTests(unittest.TestCase):
         self.library=Library(ROOT,self.data,valid)
     def tearDown(self):self.temp.cleanup()
 
+    def test_first_start_creates_one_temporary_set_and_reopens_active_round(self):
+        package = self.library.load()
+        self.assertEqual(package['set']['name'], '临时词集1')
+        self.assertTrue(package['set']['temporary'])
+        state = copy.deepcopy(package['state'])
+        second = copy.deepcopy(state['documents'][0])
+        second.update(id='round-two', name='第2轮')
+        state['documents'].append(second)
+        state['current'] = 'round-two'
+        state['editorSession'] = {'page':'editor', 'views':{'editor:round-two':{'top':240,'active':second['nodes'][0]['id'], 'selected':[]}}}
+        self.library.save({'state':state, 'setId':package['set']['id'], 'baseRevision':package['revision'], 'baseFingerprint':package['fingerprint']})
+        other = self.library.action({'action':'createSet', 'name':'另一个词集', 'folder':str(self.folder)})
+        self.library.action({'action':'activateSet', 'id':package['set']['id']})
+        reopened = Library(ROOT,self.data,valid)
+        self.assertEqual(reopened.load()['state'], state)
+        self.assertEqual(reopened.snapshot()['active'], package['set']['id'])
+        self.assertEqual(len(reopened.snapshot()['sets']), 2)
+        self.assertTrue(self.library.find(reopened.snapshot(), other['active']))
+        self.assertEqual(len(list(self.data.glob('临时词集*.txt'))), 1)
+
+    def test_temporary_sets_are_unique_persistent_and_need_no_picker(self):
+        temporary = Path(self.temp.name) / 'portable' / 'data'
+        lib = Library(ROOT, self.data, valid, temporary_dir=temporary)
+        first = lib.action({'action': 'createTemporarySet'})
+        first_id = first['active']
+        first_path = Path(lib.find(first, first_id)['path'])
+        original = first_path.read_bytes()
+        second = lib.action({'action': 'createTemporarySet'})
+        self.assertEqual(first_path, temporary / '临时词集1.txt')
+        self.assertEqual(Path(lib.find(second)['path']), temporary / '临时词集2.txt')
+        self.assertTrue(lib.find(second)['temporary'])
+        self.assertEqual(first_path.read_bytes(), original)
+        reopened = Library(ROOT, self.data, valid, temporary_dir=temporary)
+        self.assertEqual(reopened.load()['set']['id'], second['active'])
+        self.assertEqual(reopened.snapshot()['temporaryDirectory'], str(temporary))
+
+    def test_recovery_uses_editor_snapshot_without_overwriting_external_file(self):
+        old = self.library.load()
+        source = Path(old['set']['path'])
+        source.write_text('externally edited', encoding='utf-8')
+        state = copy.deepcopy(old['state'])
+        state['documents'][0]['nodes'][0]['html'] = '编辑器中的未保存内容' * 10000
+        target = self.folder / '恢复副本.txt'
+        result = self.library.action({'action': 'recoverSet', 'id': old['set']['id'], 'path': str(target), 'state': state})
+        self.assertEqual(self.library.load()['state'], state)
+        self.assertEqual(source.read_text(encoding='utf-8'), 'externally edited')
+        before = target.read_bytes()
+        with self.assertRaises(FileExistsError):
+            self.library.action({'action': 'recoverSet', 'path': str(target), 'state': state})
+        self.assertEqual(target.read_bytes(), before)
+        self.assertEqual(self.library.snapshot()['active'], result['active'])
+
+    def test_invalid_recovery_never_creates_a_file(self):
+        target = self.folder / 'invalid.txt'
+        with self.assertRaises(ValueError):
+            self.library.action({'action': 'recoverSet', 'path': str(target), 'state': {}})
+        self.assertFalse(target.exists())
+
     def test_txt_is_self_contained_and_preserves_all_state(self):
         state=copy.deepcopy(self.library.seed)
         state['documents'][0]['nodes'][0].update(html='<b>中文 🐝</b><br>第二行',collapsed=True,excluded=True)
@@ -158,3 +216,18 @@ class LibraryTests(unittest.TestCase):
         reopened=Library(ROOT,self.data,valid).load();self.assertTrue(reopened['state']['documents'][0]['copied']);self.assertEqual(reopened['state']['documents'][0]['copiedAt'],1234)
 
 if __name__=='__main__':unittest.main()
+
+
+class ListPreferencePersistenceTests(unittest.TestCase):
+    def test_default_list_type_survives_txt_roundtrip_and_rejects_commands_as_state(self):
+        from prombee.services.library import encode_workspace, decode_workspace
+        from prombee.services.validation import valid
+        state = {'documents': [{'id': 'round', 'name': '第1轮', 'defaultListType': 'ordered',
+                 'nodes': [{'id': 'body', 'kind': 'item', 'level': 1, 'html': 'text', 'listType': 'none'}]}],
+                 'current': 'round', 'dark': False, 'font': 'Arial', 'size': 14}
+        self.assertTrue(valid(state))
+        restored = decode_workspace(encode_workspace(state, 2), state)['state']
+        self.assertEqual(restored['documents'][0]['defaultListType'], 'ordered')
+        self.assertEqual(restored['documents'][0]['nodes'][0]['listType'], 'none')
+        restored['documents'][0]['defaultListType'] = 'all-ordered'
+        self.assertFalse(valid(restored))

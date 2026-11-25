@@ -30,14 +30,18 @@ Uses the host distribution's GTK 4 and WebKitGTK 6 libraries.
 
 %install
 mkdir -p %{buildroot}%{_datadir}/prombee
-cp -a desktop.py seed.json backend frontend %{buildroot}%{_datadir}/prombee/
+cp -a backend frontend %{buildroot}%{_datadir}/prombee/
 install -Dpm 755 build_tools/packaging/linux/prombee %{buildroot}%{_bindir}/prombee
+install -Dpm 755 build_tools/packaging/linux/uninstall.sh %{buildroot}%{_bindir}/prombee-uninstall
 install -Dpm 644 build_tools/packaging/linux/prombee.desktop %{buildroot}%{_datadir}/applications/prombee.desktop
+install -Dpm 644 build_tools/packaging/linux/prombee-uninstall.desktop %{buildroot}%{_datadir}/applications/prombee-uninstall.desktop
 install -Dpm 644 frontend/dist/logo.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/prombee.svg
 
 %files
 %license LICENSE NOTICE
 %{_bindir}/prombee
+%{_bindir}/prombee-uninstall
 %{_datadir}/prombee
 %{_datadir}/applications/prombee.desktop
+%{_datadir}/applications/prombee-uninstall.desktop
 %{_datadir}/icons/hicolor/scalable/apps/prombee.svg

@@ -17,11 +17,13 @@
           "level": 1,
           "html": ""
         }
-      ]
+      ],
+      "defaultListType": "unordered"
     }
   ],
   "current": "first-round",
   "dark": false,
   "font": "Noto Sans CJK SC",
-  "size": 14
+  "size": 14,
+  "removeEmptyOnCopy": true
 }

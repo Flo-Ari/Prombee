@@ -66,6 +66,13 @@ const $ = (id) => document.getElementById(id);
 const { hierarchyNodes, toMarkdown } = await import("../src/editor/core.ts");
 const { renderComparison } = await import("../src/editor/review.ts");
 
+test("initial editor uses all-unordered, excludes empty entries, and has the new default shortcuts", () => {
+  assert.equal($("listType").value, "all-unordered");
+  assert.equal(document.querySelector('[data-select-id="listType"] .dropdown-label').textContent, "全部无序");
+  assert.equal($("deleteEmpty").getAttribute("aria-pressed"), "true");
+  assert.match(document.querySelector('.add-heading').title, /Ctrl\+Q/);
+});
+
 test("template cloning keeps fresh heading IDs and empty bodies, with no exclusions", () => {
   const original = [...source.documents[0].nodes];
   original[0] = { ...original[0], excluded: true };
@@ -86,7 +93,7 @@ test("template cloning keeps fresh heading IDs and empty bodies, with no exclusi
 
 test("tabs, historical template import, new round, raw preview and undo work together", async () => {
   assert.equal(document.querySelectorAll("dialog").length, 0);
-  $("deleteEmpty").click();
+  if ($("deleteEmpty").getAttribute("aria-pressed") !== "true") $("deleteEmpty").click();
   $("template").click();
   assert.equal($("hierarchyControls").hidden, false);
   $("hierarchyRound").value = "r1";
@@ -249,6 +256,7 @@ test("folding changes visibility only; contextual add has item first and keeps a
 
 test("new prompt set requires a selected directory and recent selector follows the loaded set", async () => {
   await new Promise((resolve) => setTimeout(resolve, 350));
+  const previousFetch = globalThis.fetch;
   let registry = {
     active: "old",
     sets: [
@@ -310,6 +318,7 @@ test("new prompt set requires a selected directory and recent selector follows t
   assert.equal($("recentSets").value, "new");
   assert.equal($("editorTab").getAttribute("aria-selected"), "true");
   assert.equal(document.body.inert, false);
+  globalThis.fetch = previousFetch;
 });
 
 test("round deletion is reversible, numbering follows remaining rounds, and empty sets restart at round one", () => {
@@ -403,15 +412,15 @@ const key = (key, options = {}, target = document.activeElement) => {
   target.dispatchEvent(event);
   return event;
 };
-test("Ctrl+N digits immediately create a heading; arrows select; Enter adds body; Escape cancels", () => {
+test("Ctrl+Q digits immediately create a heading; arrows select; Enter adds body; Escape cancels", () => {
   if(document.body.dataset.page!=="editor")$("editorTab").click();
   $("newDoc").click();
   let fields = [...document.querySelectorAll(".content")];
   fields[0].focus();
   const before = fields.length;
-  key("n", { ctrlKey: true, isComposing: true });
+  key("q", { ctrlKey: true, isComposing: true });
   assert.equal($("headingMenu").hidden, true);
-  key("n", { ctrlKey: true });
+  key("q", { ctrlKey: true });
   assert.equal($("headingMenu").hidden, false);
   key("3", { ctrlKey: true });
   assert.equal($("headingMenu").hidden, true);
@@ -421,14 +430,14 @@ test("Ctrl+N digits immediately create a heading; arrows select; Enter adds body
   );
   const count = document.querySelectorAll(".content").length;
   assert.ok(count >= before);
-  key("n", { ctrlKey: true });
+  key("q", { ctrlKey: true });
   key("Enter");
   assert.equal(
     document.activeElement.closest(".row").classList.contains("item"),
     true,
   );
   assert.equal(document.querySelectorAll(".content").length, count);
-  key("n", { ctrlKey: true });
+  key("q", { ctrlKey: true });
   key("ArrowDown");
   key("Escape");
   assert.equal(document.querySelectorAll(".content").length, count);
@@ -438,14 +447,14 @@ test("up and down switch visible entries, preserve text and skip folded children
   if(document.body.dataset.page!=="editor")$("editorTab").click();
   const fields = [...document.querySelectorAll(".content")];
   fields.at(-1).focus();
-  key("n", { ctrlKey: true });
+  key("q", { ctrlKey: true });
   key("1");
   const firstId = document.activeElement.dataset.id;
   document.activeElement.textContent = "First";
   document.activeElement.dispatchEvent(new window.Event("input"));
-  key("n", { ctrlKey: true });
+  key("q", { ctrlKey: true });
   key("Enter");
-  key("n", { ctrlKey: true });
+  key("q", { ctrlKey: true });
   key("1");
   const secondId = document.activeElement.dataset.id;
   document.querySelector(`.row[data-id="${firstId}"] .fold`).click();
@@ -484,7 +493,7 @@ test("shortcut tab records, validates, saves and activates edited bindings witho
   key("k", { ctrlKey: true });
   assert.equal($("headingMenu").hidden, false);
   key("Escape");
-  assert.equal(key("n", { ctrlKey: true }).defaultPrevented, false);
+  assert.equal(key("q", { ctrlKey: true }).defaultPrevented, false);
   $("shortcutsTab").click();
   const bold = document.querySelector('[data-action="bold"]');
   bold.focus();
@@ -597,7 +606,7 @@ test("keyboard sorting moves a heading and children as one block and supports ca
   for (const text of ["排序 A", "排序 B"]) {
     const fields = [...document.querySelectorAll(".content")];
     fields.at(-1).focus();
-    key("n", { ctrlKey: true });
+    key("q", { ctrlKey: true });
     key("1");
     const heading = document.activeElement;
     heading.textContent = text;

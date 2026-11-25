@@ -15,7 +15,7 @@ from ..services.attachments import MAX_SIZE
 from ..services.library import ConflictError
 
 READ_RESOURCES = {'state', 'library', 'display', 'floating', 'other', 'shortcuts', 'speech', 'update', 'skills', 'dev'}
-WRITE_RESOURCES = {'state', 'library', 'display', 'floating', 'other', 'shortcuts', 'speech', 'update', 'picker', 'attachments', 'reset'}
+WRITE_RESOURCES = {'state', 'library', 'display', 'floating', 'other', 'shortcuts', 'speech', 'update', 'picker', 'attachments', 'reset', 'recovery'}
 MAX_JSON = 20 * 1024 * 1024
 
 
@@ -29,6 +29,7 @@ def create_app(root: Path, data_dir: Path, *, dev=False, native_bridge=False,
 
     @asynccontextmanager
     async def lifespan(app):
+        services.updater.start_once()
         try:
             yield
         finally:

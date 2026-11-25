@@ -61,3 +61,19 @@ class ShortcutsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             store=Shortcuts(folder);value={name:'' for name in IDS};value['bold']='Ctrl+Shift+D';store.path.write_text(json.dumps(value),encoding='utf-8')
             self.assertEqual(store.load()['bindings']['deleteRound'],'')
+
+    def test_new_defaults_migrate_once_without_changing_custom_or_conflicting_keys(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder);value={name:'' for name in IDS}
+            value.update(insert='Ctrl+N',fold='Ctrl+Shift+L')
+            store.path.write_text(json.dumps(value),encoding='utf-8');store.schema.write_text('1')
+            loaded=store.load()['bindings']
+            self.assertEqual(loaded['insert'],'Ctrl+Q');self.assertEqual(loaded['fold'],'Ctrl+E')
+            loaded.update(insert='Ctrl+N',fold='Ctrl+Shift+L');store.save({'bindings':loaded})
+            self.assertEqual(store.load()['bindings'],loaded)
+        with tempfile.TemporaryDirectory() as folder:
+            store=Shortcuts(folder);value={name:'' for name in IDS}
+            value.update(insert='Ctrl+K',fold='Ctrl+Shift+L',bold='Ctrl+E')
+            store.path.write_text(json.dumps(value),encoding='utf-8')
+            loaded=store.load()['bindings']
+            self.assertEqual(loaded['insert'],'Ctrl+K');self.assertEqual(loaded['fold'],'Ctrl+Shift+L');self.assertEqual(loaded['bold'],'Ctrl+E')

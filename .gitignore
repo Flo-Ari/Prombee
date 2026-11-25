@@ -1,4 +1,4 @@
-work/
+/.cache/
 build/
 dist/
 data/
@@ -15,3 +15,19 @@ node_modules/
 /Prombee-data/
 /Prombee.txt
 /data-location.json
+
+# Runtime files when the user deliberately selects the repository as a data folder.
+/*.lock
+/library.json
+/library-v1-backup.json
+/workspace.json
+/floating.json
+/other.json
+/display.json
+/shortcuts.json
+/shortcuts-version.json
+/.rename-pending.json
+/attachments/
+/recovery/
+/updates/
+/startup.log

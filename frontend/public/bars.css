@@ -196,3 +196,27 @@ header.window-chrome.app-bar {
   flex-direction: column;
   grid-template-columns: none;
 }
+
+/* Update notifications: shared by the window settings control and update tab. */
+:is(#settingsTab, #updatesTab) {
+  position: relative;
+}
+.update-dot {
+  display: none;
+  pointer-events: none;
+}
+.has-update > .update-dot {
+  display: block;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e43d48;
+  box-shadow: 0 0 0 1.5px #fff;
+  z-index: 2;
+}
+body.dark .has-update > .update-dot {
+  box-shadow: 0 0 0 1.5px #111;
+}

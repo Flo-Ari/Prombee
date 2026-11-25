@@ -15,7 +15,7 @@ import tarfile
 import time
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def tar_bytes(files, timestamp):
@@ -54,14 +54,14 @@ def main():
 
     add(ROOT / 'LICENSE', 'usr/share/doc/prombee/copyright')
     add(ROOT / 'NOTICE', 'usr/share/doc/prombee/NOTICE')
-    add(ROOT / 'desktop.py', 'usr/share/prombee/desktop.py')
-    add(ROOT / 'seed.json', 'usr/share/prombee/seed.json')
     for directory in ('backend', 'frontend/dist'):
         for source in sorted((ROOT / directory).rglob('*')):
             if source.is_file() and '__pycache__' not in source.parts and source.suffix != '.pyc':
                 add(source, 'usr/share/prombee/' + source.relative_to(ROOT).as_posix())
     add(ROOT / 'build_tools/packaging/linux/prombee', 'usr/bin/prombee', 0o755)
+    add(ROOT / 'build_tools/packaging/linux/uninstall.sh', 'usr/bin/prombee-uninstall', 0o755)
     add(ROOT / 'build_tools/packaging/linux/prombee.desktop', 'usr/share/applications/prombee.desktop')
+    add(ROOT / 'build_tools/packaging/linux/prombee-uninstall.desktop', 'usr/share/applications/prombee-uninstall.desktop')
     add(ROOT / 'frontend/dist/logo.svg', 'usr/share/icons/hicolor/scalable/apps/prombee.svg')
     size = (sum(len(data) for data, _ in files.values()) + 1023) // 1024
     control = (ROOT / 'build_tools/packaging/debian/control.in').read_text().replace('@VERSION@', args.version).replace('@SIZE@', str(size))

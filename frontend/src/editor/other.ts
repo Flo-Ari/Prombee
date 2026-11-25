@@ -5,7 +5,7 @@ export function mountOtherSettings({
   onAgentChange = (_agent?: string) => {},
 } = {}) {
   let preferences = {
-      enabled: false,
+      enabled: true,
       target: null,
       recognizeMarkdown: true,
       pairDelimiters: true,
@@ -33,7 +33,7 @@ export function mountOtherSettings({
   }
   function values(value) {
     return {
-      enabled: value.enabled === true,
+      enabled: value.enabled !== false,
       target: value.target || null,
       recognizeMarkdown: value.recognizeMarkdown !== false,
       pairDelimiters: value.pairDelimiters !== false,
@@ -119,10 +119,10 @@ export function mountOtherSettings({
       }
     }
     const requested = $("copyJumpEnabled").checked;
-    // A newly enabled destination becomes active once a complete destination is selected.
+    // Keep the switch independent of target selection; copying works before one is chosen.
     const payload = {
       action: "save",
-      enabled: requested && !!target,
+      enabled: requested,
       target,
       recognizeMarkdown,
     };
@@ -244,7 +244,8 @@ export function mountOtherSettings({
       await ready;
       if (urlTimer) await save();
       await tail;
-      if (preferences.enabled) await api({ action: "jump" });
+      if (preferences.enabled && preferences.target)
+        await api({ action: "jump" });
     },
   };
 }

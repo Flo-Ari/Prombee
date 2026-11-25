@@ -41,8 +41,8 @@ export const SHORTCUT_GROUPS = [
     actions: [
       ["previous", "上一条目", "ArrowUp"],
       ["next", "下一条目", "ArrowDown"],
-      ["fold", "折叠／展开", "Ctrl+Shift+L"],
-      ["insert", "添加", "Ctrl+N"],
+      ["fold", "折叠／展开", "Ctrl+E"],
+      ["insert", "添加", "Ctrl+Q"],
       ["drag", "拖动排序", "Ctrl+Shift+G"],
       ["exclude", "排除本条目", "Ctrl+Shift+E"],
       ["delete", "删除本条目", "Ctrl+Shift+Backspace"],

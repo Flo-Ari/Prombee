@@ -6,8 +6,8 @@ const root = resolve(import.meta.dirname, "../..");
 const frontend = resolve(root, "frontend");
 const candidates =
   process.platform === "win32"
-    ? [".venv/Scripts/python.exe", "work/build-venv/Scripts/python.exe"]
-    : [".venv/bin/python", "work/build-venv/bin/python"];
+    ? [".venv/Scripts/python.exe", ".cache/prombee/build-venv/Scripts/python.exe"]
+    : [".venv/bin/python", ".cache/prombee/build-venv/bin/python"];
 const python =
   process.env.PROMBEE_PYTHON ||
   candidates.map((path) => resolve(root, path)).find(existsSync) ||
@@ -21,7 +21,7 @@ function stop(code = 0) {
   process.exitCode = code;
 }
 for (const [command, args] of [
-  [python, [resolve(root, "dev.py")]],
+  [python, [resolve(root, "backend/prombee/preview.py")]],
   [process.execPath, [resolve(frontend, "node_modules/vite/bin/vite.js")]],
 ]) {
   const child = spawn(command, args, { stdio: "inherit", cwd: frontend });

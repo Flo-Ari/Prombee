@@ -31,7 +31,9 @@ class OtherTests(unittest.TestCase):
         self.store.save({'enabled':True,'target':{'kind':'url','url':'https://example.com/a'}})
         self.assertEqual(self.store.load()['target']['url'],'https://example.com/a')
     def test_missing_target_and_activation_failure_do_not_discard_preferences(self):
-        with self.assertRaises(ValueError):self.store.save({'enabled':True,'target':None})
+        self.assertTrue(self.store.load()['enabled'])
+        self.store.save({'enabled':True,'target':None})
+        self.assertEqual(self.store.jump(),{'jumped':False})
         self.store.save({'enabled':True,'target':{'kind':'application','id':'app:known'}})
         original=self.store.path.read_bytes()
         with patch.object(self.targets,'activate',side_effect=OSError('closed')):

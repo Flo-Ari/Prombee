@@ -10,7 +10,7 @@ URI_LIMIT = 4 * 1024 * 1024
 
 def read_clipboard(clipboard, attachments, callback, timeout_ms=15000):
     from gi.repository import Gio, GLib
-    from ..services.attachments import MAX_SIZE
+    from ...services.attachments import MAX_SIZE
     formats = clipboard.get_formats()
     types = [mime for mime in ('text/uri-list', *IMAGE_TYPES)
              if formats.contain_mime_type(mime)]

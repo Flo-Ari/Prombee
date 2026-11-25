@@ -3,9 +3,9 @@ import ctypes as C
 import ctypes.util
 import json
 import math
-from ..adapters.hit_regions import bounded_regions
-from ..adapters.branding import app_name, ui_language
-from ..services.floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
+from ..hit_regions import bounded_regions
+from ..branding import app_name, ui_language
+from ...services.floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
 
 
 class ClientData(C.Union):
@@ -128,7 +128,7 @@ class GtkFloating:
         from gi.repository import Gtk,Gdk,GLib,WebKit
         self.GLib,self.WebKit,self.Gtk,self.Gdk=GLib,WebKit,Gtk,Gdk
         self.hidden_by_user=False
-        self.background=False;self.focus_timer=None;self.focus_seen=window.is_active()
+        self.background=False
         self.menu_open=False;self.drag_press=None;self.drag_started=False;self.last_cursor=None
         self.app,self.editor,self.window=app,editor,window
         self.preferences=FloatingPreferences(data)
@@ -177,22 +177,10 @@ class GtkFloating:
         return False
 
     def active_changed(self, window, _):
-        if self.focus_timer:
-            self.GLib.source_remove(self.focus_timer);self.focus_timer=None
+        # Losing focus (including Alt+Tab) must leave the editor unchanged.
         if window.is_active():
-            self.focus_seen=True;self.hidden_by_user=False
+            self.hidden_by_user=False
             if self.mode=='orb' and self.background:self.dismiss_background()
-        elif self.focus_seen:
-            self.focus_timer=self.GLib.timeout_add(150,self.background_if_external)
-
-    def background_if_external(self):
-        self.focus_timer=None
-        if (not self.preferences.orb_enabled or self.hidden_by_user or self.mode!='editor'
-            or not self.ready or self.window.is_active() or not self.window.get_visible()
-            or getattr(self.app,'closing',False) or getattr(self.app,'file_picker_cancel',None)
-            or any(w.is_active() for w in self.app.get_windows())):return False
-        self.collapse(background=True)
-        return False
 
     def dismiss_background(self):
         self.orb_rect=self.x.position(self.orb)

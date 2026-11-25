@@ -87,10 +87,14 @@ jobs:
           for source,name in zip(sources,names[1:]):
               assert source.is_file() and source.stat().st_size>1000000
               shutil.copy2(source,out/name)
+          for suffix,source in [('Linux-Uninstall.sh','build_tools/packaging/linux/uninstall.sh'),('Windows-Uninstall.cmd','build_tools/packaging/windows/uninstall.cmd')]:
+              name=f'Prombee-{version}-{suffix}';shutil.copy2(source,out/name);names.append(name)
           for name in names[:2]:subprocess.run([sys.executable,'build_tools/check_bundle_version.py',str(out/name),version],check=True)
           (out/f'Prombee-{version}-SHA256.txt').write_text(''.join(hashlib.sha256((out/n).read_bytes()).hexdigest()+'  '+n+'\n' for n in names))
           PY
       - name: Publish only after all tested packages are available
         run: |
           gh release upload "v$VERSION" "release/Prombee-$VERSION-Windows-x64-Portable.exe" "release/Prombee-$VERSION-Linux-RedHat-noarch.rpm" "release/Prombee-$VERSION-Linux-Debian-all.deb" "release/Prombee-$VERSION-SHA256.txt" "release/Prombee-$VERSION-Windows-x64-Setup.exe" --clobber
+          gh release upload "v$VERSION" "release/Prombee-$VERSION-Linux-Uninstall.sh" "release/Prombee-$VERSION-Windows-Uninstall.cmd" --clobber
           gh release edit "v$VERSION" --draft=false --prerelease
+          python3 build_tools/release_retention.py --apply --backup release/previous-releases.json

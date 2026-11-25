@@ -2,11 +2,10 @@
 import ctypes as C
 from ctypes import wintypes as W
 import json
-import os
 import threading
-from ..adapters.hit_regions import bounded_regions
-from ..adapters.branding import app_name, ui_language
-from ..services.floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
+from ..hit_regions import bounded_regions
+from ..branding import app_name, ui_language
+from ...services.floating import FloatingPreferences, ORB_WIDTH, ORB_HEIGHT
 
 
 class WindowsFloating:
@@ -70,20 +69,17 @@ class WindowsFloating:
         if self.allow_close or self.focus_suspended or not self.ready:return
         user=C.windll.user32
         user.GetForegroundWindow.restype=W.HWND
-        user.GetWindowThreadProcessId.argtypes=[W.HWND,C.POINTER(W.DWORD)]
+        user.IsIconic.argtypes=[W.HWND]
         foreground=user.GetForegroundWindow()
         main=int(self.window.native.Handle.ToInt64())
         if foreground==main:
             self.foreground_lost_at=None
             self.focus_seen=True;self.hidden_by_user=False
             if self.mode=='orb' and self.background:self.dismiss_background()
-        elif self.focus_seen and foreground:
-            pid=W.DWORD();user.GetWindowThreadProcessId(foreground,C.byref(pid))
-            if (pid.value!=os.getpid() and self.preferences.orb_enabled
-                and not self.hidden_by_user and self.mode=='editor'):
-                import time
-                if self.foreground_lost_at is None:self.foreground_lost_at=time.monotonic()
-                elif time.monotonic()-self.foreground_lost_at>=.3:self.collapse(background=True)
+        elif (user.IsIconic(main) and self.preferences.orb_enabled
+              and not self.hidden_by_user and self.mode=='editor'):
+            # Taskbar / system minimization is distinct from changing focus.
+            self.collapse()
         self.was_foreground=foreground==main
 
     def dismiss_background(self):

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Uninstall Prombee
+Name[zh]=卸载提示蜂
+Comment=Remove the application and keep prompt files and user data
+Comment[zh]=卸载软件，保留词集和用户数据
+Exec=prombee-uninstall
+Icon=prombee
+Terminal=true
+Categories=Utility;

@@ -39,10 +39,15 @@ class Shortcuts:
             if isinstance(value,dict) and 'cutEntry' not in value:
                 value['cutEntry']='' if 'Ctrl+X' in value.values() else 'Ctrl+X'
             value=validate(value)
-            if not self.schema.exists():
+            try: schema = int(self.schema.read_text())
+            except (OSError, ValueError): schema = 0
+            if schema < 1:
                 if not value.get('deleteRound') and 'Ctrl+Shift+D' not in value.values():value['deleteRound']='Ctrl+Shift+D'
+            if schema < 2:
+                for action, old, new in [('insert', 'Ctrl+N', 'Ctrl+Q'), ('fold', 'Ctrl+Shift+L', 'Ctrl+E')]:
+                    if value.get(action) == old and new not in value.values(): value[action] = new
                 atomic_write(self.path,json.dumps(value,ensure_ascii=False))
-                atomic_write(self.schema,'1')
+                atomic_write(self.schema,'2')
         except (OSError,ValueError,TypeError):value={}
         return {'bindings':value}
     def save(self,payload):
@@ -50,5 +55,5 @@ class Shortcuts:
         self.path.parent.mkdir(parents=True,exist_ok=True)
         with exclusive_file_lock(self.path.with_suffix('.lock')):
             atomic_write(self.path,json.dumps(value,ensure_ascii=False))
-            atomic_write(self.schema,'1')
+            atomic_write(self.schema,'2')
         return {'bindings':value}

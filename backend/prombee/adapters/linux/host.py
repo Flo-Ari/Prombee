@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Desktop entry point; the same Vite-built UI is used by dev.py."""
+"""Desktop entry point; the same Vite-built UI is used by backend/prombee/preview.py."""
 import argparse
 import sys
 import os
 import json
 from pathlib import Path
 
-ROOT=Path(__file__).resolve().parent
-sys.path.insert(0,str(ROOT/'backend'))
+from prombee.paths import resource_root
+ROOT = resource_root()
 from prombee.server import start_server
 from prombee.services.floating import SWITCH_DURATION_MS
 from prombee.adapters.branding import app_name, ui_language
@@ -35,7 +35,8 @@ def main():
     GLib.set_prgname('app.prombee.Prombee')
     GLib.set_application_name(app_name())
     Gtk.Window.set_default_icon_name('prombee')
-    from prombee.adapters.data_location import resolve_data_folder, choose_gtk_folder
+    from prombee.adapters.data_location import resolve_data_folder
+    from prombee.adapters.linux.picker import choose_gtk_folder
     data=resolve_data_folder(application_dir,args.data_dir or os.environ.get('PROMBEE_DATA_DIR'),lambda:choose_gtk_folder(Gtk,Gio,GLib))
     if data is None:return 0
     server=start_server(ROOT,data)
@@ -92,7 +93,7 @@ def main():
             manager.connect('script-message-received::mascot',lambda m,value:self.floating.command(json.loads(value.to_string())))
             self.web.load_uri(url+'?desktop=gtk&lang='+ui_language())
             self.window.present()
-            from prombee.adapters.floating_gtk import GtkFloating
+            from prombee.adapters.linux.floating import GtkFloating
             self.floating=GtkFloating(self,self.window,self.web,url,data)
             # Capture the native pointer device/time before the asynchronous JS bridge.
             gesture=Gtk.GestureClick();gesture.set_button(1)
@@ -170,7 +171,7 @@ def main():
 
         def clipboard_files(self,manager,value):
             request=json.loads(value.to_string());clipboard=Gdk.Display.get_default().get_clipboard()
-            from prombee.adapters.clipboard_gtk import read_clipboard
+            from prombee.adapters.linux.clipboard import read_clipboard
             def answer(paths,error=None):
                 response=json.dumps({'id':request['id'],'paths':paths,'error':error})
                 self.web.evaluate_javascript("window.dispatchEvent(new CustomEvent('prombee-clipboard-files',{detail:"+response+"}))",-1,None,None,None,None,None)
@@ -199,16 +200,22 @@ def main():
                 return False
             if not self.closing:
                 self.closing=True
+                GLib.timeout_add(8000,self.close_timeout)
                 self.web.evaluate_javascript("window.dispatchEvent(new Event('prombee-close'))",-1,None,None,None,None,None)
             return True
 
-        def close_finished(self,manager,value):
-            self.closing=False
-            if value.to_string()=='saved':
+        def close_timeout(self):
+            if self.closing:
                 self.saved_close=True
                 self.quit()
-            else:
-                self.web.evaluate_javascript("document.getElementById('status').textContent='暂时无法保存，请先复制文字保留内容'",-1,None,None,None,None,None)
+            return False
+
+        def close_finished(self,manager,value):
+            # The editor tried saving and preserving a recovery copy; failure must
+            # never trap the user in a window they cannot close.
+            self.closing=False
+            self.saved_close=True
+            self.quit()
 
         def navigation(self,view,decision,kind):
             if kind==WebKit.PolicyDecisionType.NAVIGATION_ACTION:

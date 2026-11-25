@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import tarfile
 
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -18,9 +18,10 @@ def main():
     args=parser.parse_args()
     if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',args.version):parser.error('invalid version')
     if not shutil.which('rpmbuild'):parser.error('rpmbuild is required; install package rpm-build')
-    top=ROOT/'work'/('rpmbuild-'+args.version)
+    top=ROOT/'.cache/prombee'/('rpmbuild-'+args.version)
     for name in ('SOURCES','SPECS','BUILD','RPMS','SRPMS','BUILDROOT'):(top/name).mkdir(parents=True,exist_ok=True)
-    files=[ROOT/p for p in ('desktop.py','seed.json','LICENSE','NOTICE','build_tools/packaging/linux/prombee','build_tools/packaging/linux/prombee.desktop')]
+    files=[ROOT/p for p in ('LICENSE','NOTICE','build_tools/packaging/linux/prombee','build_tools/packaging/linux/prombee.desktop',
+                           'build_tools/packaging/linux/uninstall.sh','build_tools/packaging/linux/prombee-uninstall.desktop')]
     for directory in ('backend','frontend/dist'):
         files.extend(p for p in (ROOT/directory).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc')
     with tarfile.open(top/'SOURCES'/f'prombee-{args.version}.tar.gz','w:gz') as archive:

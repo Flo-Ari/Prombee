@@ -14,8 +14,8 @@ class FloatingTests(unittest.TestCase):
 
     def test_native_idle_scenes_never_expand_to_monitor_bounds(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.linux.floating import GtkFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         for cls in (GtkFloating,WindowsFloating):
             controller=cls.__new__(cls)
             regions=[]
@@ -38,7 +38,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_windows_waits_for_source_artwork_before_marking_companion_ready(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         controller=WindowsFloating.__new__(WindowsFloating)
         controller.ready=False;controller.mode='editor';controller.preferences=SimpleNamespace(enabled=True,direction='left')
         calls=[];controller.emit=lambda command,value=None:calls.append((command,value))
@@ -49,7 +49,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_fedora_drag_is_one_native_grab_with_no_resize_loop_or_click(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
+        from prombee.adapters.linux.floating import GtkFloating
         control=GtkFloating.__new__(GtkFloating)
         grabs=[];opened=[];messages=[];states=[]
         device=object()
@@ -76,7 +76,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_cancelled_native_drag_never_opens_the_editor(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
+        from prombee.adapters.linux.floating import GtkFloating
         control=GtkFloating.__new__(GtkFloating)
         control.drag_press=('pointer',123,0,0);control.drag_started=True
         control.open=lambda:self.fail('Cancelled drag became a click')
@@ -85,7 +85,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_minimize_converts_editor_to_orb_without_reopening_explicit_hide(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
+        from prombee.adapters.linux.floating import GtkFloating
         control=GtkFloating.__new__(GtkFloating)
         calls=[]
         control.Gdk=SimpleNamespace(ToplevelState=SimpleNamespace(MINIMIZED=1,ABOVE=16))
@@ -103,7 +103,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_orb_recovers_minimize_and_lost_above_without_focus_stealing(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
+        from prombee.adapters.linux.floating import GtkFloating
         control=GtkFloating.__new__(GtkFloating);calls=[]
         control.Gdk=SimpleNamespace(ToplevelState=SimpleNamespace(MINIMIZED=1,ABOVE=16))
         control.mode='orb';control.orb=SimpleNamespace(unminimize=lambda:calls.append('restore'))
@@ -117,8 +117,8 @@ class FloatingTests(unittest.TestCase):
     def test_both_hosts_switch_synchronously_without_snapshots_or_timers(self):
         from types import SimpleNamespace
         import threading
-        from prombee.adapters.floating_gtk import GtkFloating
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.linux.floating import GtkFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         for cls in (GtkFloating, WindowsFloating):
             calls=[]
             def window(name):
@@ -152,30 +152,45 @@ class FloatingTests(unittest.TestCase):
 
     def test_disabled_orb_uses_normal_minimize_on_both_hosts(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.linux.floating import GtkFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         for cls in (GtkFloating,WindowsFloating):
             calls=[];control=cls.__new__(cls)
             control.preferences=SimpleNamespace(orb_enabled=False)
             control.window=SimpleNamespace(minimize=lambda:calls.append('minimize'))
             control.collapse();self.assertEqual(calls,['minimize'])
 
-    def test_focus_loss_ignores_dialogs_closing_and_disabled_switch(self):
+    def test_linux_focus_loss_never_schedules_or_shows_orb(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_gtk import GtkFloating
-        control=GtkFloating.__new__(GtkFloating);calls=[]
+        from prombee.adapters.linux.floating import GtkFloating
+        control=GtkFloating.__new__(GtkFloating)
+        control.mode='editor';control.hidden_by_user=False
+        control.GLib=SimpleNamespace(timeout_add=lambda *args:self.fail('Focus loss scheduled an orb'))
+        control.collapse=lambda **kw:self.fail('Focus loss showed an orb')
+        for active in (False, True, False):
+            control.active_changed(SimpleNamespace(is_active=lambda:active),None)
+        self.assertEqual(control.mode,'editor')
+
+    def test_windows_only_real_minimization_shows_orb(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from prombee.adapters.windows import floating
+        control=floating.WindowsFloating.__new__(floating.WindowsFloating)
+        control.allow_close=False;control.focus_suspended=False;control.ready=True
+        control.mode='editor';control.hidden_by_user=False;control.background=False
         control.preferences=SimpleNamespace(orb_enabled=True)
-        control.hidden_by_user=False;control.mode='editor';control.ready=True
-        control.window=SimpleNamespace(is_active=lambda:False,get_visible=lambda:True)
-        control.app=SimpleNamespace(closing=False,file_picker_cancel=None,get_windows=lambda:[])
-        control.collapse=lambda **kw:calls.append(kw)
-        control.background_if_external();self.assertEqual(calls,[{'background':True}]);calls.clear()
-        control.app.file_picker_cancel=object();control.background_if_external()
-        control.app.file_picker_cancel=None;control.app.closing=True;control.background_if_external()
-        control.app.closing=False;control.preferences.orb_enabled=False;control.background_if_external()
-        control.preferences.orb_enabled=True
-        control.app.get_windows=lambda:[SimpleNamespace(is_active=lambda:True)]
-        control.background_if_external();self.assertEqual(calls,[])
+        control.window=SimpleNamespace(native=SimpleNamespace(Handle=SimpleNamespace(ToInt64=lambda:10)))
+        control.collapse=Mock()
+        user=SimpleNamespace(GetForegroundWindow=Mock(return_value=20),IsIconic=Mock(return_value=False))
+        with patch.object(floating.C,'windll',SimpleNamespace(user32=user),create=True):
+            for _ in range(20):control.check_foreground()
+            control.collapse.assert_not_called()
+            user.IsIconic.return_value=True
+            control.check_foreground();control.collapse.assert_called_once_with()
+            control.collapse.reset_mock();control.hidden_by_user=True
+            control.check_foreground();control.collapse.assert_not_called()
+            control.hidden_by_user=False;control.preferences.orb_enabled=False
+            control.check_foreground();control.collapse.assert_not_called()
 
     def test_api_persists_switch_notifies_host_and_rejects_invalid_values(self):
         import json
@@ -200,7 +215,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_windows_maximize_event_cannot_flip_the_requested_icon_state_back(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         control=WindowsFloating.__new__(WindowsFloating);states=[]
         control.maximized=False
         control.window=SimpleNamespace(maximize=lambda:control.window_state(True),restore=lambda:control.window_state(False),run_js=states.append)
@@ -211,7 +226,7 @@ class FloatingTests(unittest.TestCase):
 class WindowsStartupTests(unittest.TestCase):
     def test_ready_keeps_orb_hidden_until_editor_initialization_finishes(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         c=WindowsFloating.__new__(WindowsFloating);calls=[]
         c.mode='editor';c.ready=False;c.focus_suspended=True
         c.preferences=SimpleNamespace(enabled=True,direction='left')
@@ -227,7 +242,7 @@ class WindowsStartupTests(unittest.TestCase):
 
     def test_orb_does_not_auto_show_on_webview2_navigation(self):
         from types import SimpleNamespace
-        from prombee.adapters.floating_windows import WindowsFloating
+        from prombee.adapters.windows.floating import WindowsFloating
         removed=[]
         class Event:
             def __isub__(self,callback):removed.append(callback);return self

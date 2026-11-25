@@ -22,7 +22,7 @@ export function ShortcutsSurface() {
       </p>
       <p id="insertShortcutHint" className="shortcut-hint">
         {
-          "\n          添加：Ctrl+N → 1–6 立即创建；↑↓ 选择，Enter 添加正文，Esc 取消。\n        "
+          "\n          添加：Ctrl+Q → 1–6 立即创建；↑↓ 选择，Enter 添加正文，Esc 取消。\n        "
         }
       </p>
       <div id="shortcutStatus" role="status"></div>

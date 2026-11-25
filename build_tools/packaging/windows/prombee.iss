@@ -22,6 +22,7 @@ Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\Prombee.exe
+Uninstallable=yes
 CloseApplications=yes
 LicenseFile=..\..\..\LICENSE
 [Languages]
@@ -30,14 +31,16 @@ Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 [Dirs]
-Name: "{app}\Prombee-data"; Flags: uninsneveruninstall
+Name: "{app}\data"; Flags: uninsneveruninstall
 [Files]
 Source: "..\..\..\dist\windows\Prombee.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "InnoSetup-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "uninstall.cmd"; DestDir: "{app}"; DestName: "Uninstall-Prombee.cmd"; Flags: ignoreversion
 [Icons]
 Name: "{group}\Prombee"; Filename: "{app}\Prombee.exe"; WorkingDir: "{app}"
+Name: "{group}\Uninstall Prombee"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Prombee"; Filename: "{app}\Prombee.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 [Run]
 Filename: "{app}\Prombee.exe"; Description: "{cm:LaunchProgram,Prombee}"; Flags: nowait postinstall skipifsilent

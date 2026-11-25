@@ -26,7 +26,7 @@ jobs:
           npm --prefix frontend run build
           npm --prefix frontend test
       - name: Build distribution-neutral Red Hat family RPM
-        run: python3 build_tools/build_rpm.py
+        run: python3 build_tools/linux/build_rpm.py
       - name: Install and test the packaged application
         shell: bash
         run: |

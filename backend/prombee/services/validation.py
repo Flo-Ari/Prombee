@@ -11,6 +11,8 @@ def valid(state):
     for doc in state['documents'] + collections:
         if not isinstance(doc, dict) or not isinstance(doc.get('id'), str) or not isinstance(doc.get('name'), str) or not isinstance(doc.get('nodes'), list):
             return False
+        if doc.get('defaultListType', 'unordered') not in ('ordered', 'unordered', 'none'):
+            return False
         for n in doc['nodes']:
             if not isinstance(n, dict) or n.get('kind') not in ('heading','item') or not isinstance(n.get('id'),str) or not isinstance(n.get('html'),str) or not isinstance(n.get('level'),int) or not 1 <= n['level'] <= 6 or any(key in n and not isinstance(n[key], bool) for key in ('excluded', 'collapsed', 'raw')) or n.get('listType', 'unordered') not in ('ordered', 'unordered', 'none'):
                 return False

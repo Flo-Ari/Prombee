@@ -165,7 +165,7 @@ class DeviceTargets:
             if user.IsIconic(hwnd):user.ShowWindowAsync(hwnd,9)
             if not user.SetForegroundWindow(hwnd):raise ValueError('系统未允许切换到该窗口')
         else:
-            from ..adapters.floating_gtk import XDesktop
+            from ..adapters.linux.floating import XDesktop
             desktop=XDesktop()
             try:
                 atom=desktop.x.XInternAtom(desktop.display,b'_NET_ACTIVE_WINDOW',0)
@@ -216,7 +216,7 @@ class OtherSettings:
     def __init__(self,folder,targets=None):
         self.path=Path(folder)/'other.json';self.targets=targets or DeviceTargets()
     def load(self):
-        defaults={'enabled':False,'target':None,'recognizeMarkdown':True,'pairDelimiters':True,
+        defaults={'enabled':True,'target':None,'recognizeMarkdown':True,'pairDelimiters':True,
                   'autoSort':True,'targetAgent':'codex','agentSkillFolders':{}}
         try:
             value=json.loads(self.path.read_text(encoding='utf-8'))
@@ -245,7 +245,6 @@ class OtherSettings:
                     if not enabled and isinstance(previous,dict) and previous.get('id')==target.get('id'):found=previous
                     else:raise ValueError('目标已不可用，请刷新后重新选择')
                 target=found
-        if enabled and target is None:raise ValueError('请先选择跳转目标')
         self.path.parent.mkdir(parents=True,exist_ok=True)
         with exclusive_file_lock(self.path.with_suffix('.lock')):
             recognize=payload.get('recognizeMarkdown',self.load()['recognizeMarkdown'])
@@ -274,7 +273,7 @@ class OtherSettings:
     def jump(self):
         value=self.load()
         if not value['enabled']:return {'jumped':False}
-        if not value['target']:raise ValueError('请先设置复制后的跳转目标')
+        if not value['target']:return {'jumped':False}
         try:self.targets.activate(value['target'])
         except Exception as error:raise ValueError('跳转失败：'+str(error)) from error
         return {'jumped':True}

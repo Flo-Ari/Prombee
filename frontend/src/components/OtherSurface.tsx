@@ -55,7 +55,7 @@ export function OtherSurface() {
           className="setting-switch"
           title="复制提示词成功后，切换到选择的已打开窗口、应用或网页；剪切条目不触发"
         >
-          <input id="copyJumpEnabled" type="checkbox" />
+          <input id="copyJumpEnabled" type="checkbox" defaultChecked={true} />
           {"应用跳转"}
         </label>
         <div className="copy-jump-target">

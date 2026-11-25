@@ -33,6 +33,12 @@ export function LibrarySurface() {
             <button id="libraryCreate" className="primary" disabled={true}>
               {"\n                创建词集\n              "}
             </button>
+            <button
+              id="createTemporarySet"
+              title="新建临时词集，保存到软件目录下的 ./data，无需选择位置"
+            >
+              {"临时词集"}
+            </button>
           </div>
           <span id="chosenLocation">{"尚未选择保存位置"}</span>
         </div>

@@ -20,7 +20,12 @@ export function createLibraryUI({
   showEditor,
   onLocation = (_entry?: any) => {},
 }) {
-  let registry: { sets: any[]; groups: any[]; active?: string } = {
+  let registry: {
+      sets: any[];
+      groups: any[];
+      active?: string;
+      temporaryDirectory?: string;
+    } = {
       sets: [],
       groups: [],
     },
@@ -132,6 +137,9 @@ export function createLibraryUI({
       document.querySelector(".library-popover")?.remove();
   });
   function paint() {
+    if (registry.temporaryDirectory)
+      $("createTemporarySet").title =
+        "新建临时词集，无需选择位置。保存到：" + registry.temporaryDirectory;
     const selected = getSetId(),
       recent = [...registry.sets].sort((a, b) => b.lastOpened - a.lastOpened);
     if (!registry.groups?.some((g) => g.id === groupFilter))
@@ -143,8 +151,21 @@ export function createLibraryUI({
       o.title = s.path;
       $("recentSets").append(o);
     }
+    if (!selected) {
+      const placeholder = el("option", "选择词集");
+      placeholder.value = "";
+      placeholder.disabled = true;
+      $("recentSets").prepend(placeholder);
+    }
+    const actions = el("optgroup");
+    actions.label = "新建";
+    const temporary = el("option", "＋ 临时词集");
+    temporary.value = "__temporary__";
+    temporary.dataset.action = "createTemporarySet";
+    actions.append(temporary);
+    $("recentSets").append(actions);
     $("recentSets").value = selected || "";
-    $("recentSets").disabled = !recent.length;
+    $("recentSets").disabled = false;
     onLocation(recent.find((s) => s.id === selected));
     $("groupsList").replaceChildren();
     const groups = [...(registry.groups || [])].sort(
@@ -318,9 +339,17 @@ export function createLibraryUI({
     $("libraryCreate").disabled = true;
     $("chosenLocation").textContent = "尚未选择保存位置";
   });
-  $("recentSets").onchange = run(() =>
-    act({ action: "activateSet", id: $("recentSets").value }, true),
-  );
+  const createTemporary = () =>
+    act({ action: "createTemporarySet", groupId: groupFilter }, true);
+  $("createTemporarySet").onclick = run(createTemporary);
+  $("recentSets").onchange = run(() => {
+    const id = $("recentSets").value;
+    return id === "__temporary__"
+      ? createTemporary()
+      : id
+        ? act({ action: "activateSet", id }, true)
+        : undefined;
+  });
   return {
     refresh: run(async () => {
       const value = await request("/api/library");

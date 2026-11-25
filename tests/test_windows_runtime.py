@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
-from prombee.adapters.windows_runtime import ensure_runtime, INSTALLER
+from prombee.adapters.windows.runtime import ensure_runtime, INSTALLER
 
 class RuntimeTests(unittest.TestCase):
     def test_installed_runtime_skips_setup_and_dialog(self):

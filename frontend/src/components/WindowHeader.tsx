@@ -84,6 +84,7 @@ export function WindowHeader() {
             <path d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3Z"></path>
             <circle cx="12" cy="12" r="3.5"></circle>
           </svg>
+          <span className="update-dot" aria-hidden="true"></span>
         </button>
         <button
           id="theme"

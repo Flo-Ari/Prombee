@@ -171,3 +171,18 @@
   font-size: 12px;
   color: var(--muted);
 }
+
+/* Jump target uses its actual dimensions, keeping dash lengths independent of width. */
+.select-shell[data-select-id="copyJumpTarget"]
+  .dropdown-trigger:not(:focus-visible):not([aria-expanded="true"]) {
+  background-image: var(--jump-outline-light, none);
+}
+body.dark
+  .select-shell[data-select-id="copyJumpTarget"]
+  .dropdown-trigger:not(:focus-visible):not([aria-expanded="true"]) {
+  background-image: var(--jump-outline-dark, none);
+}
+.dropdown-trigger.list-state {
+  color: var(--blue);
+  background-color: var(--hover);
+}

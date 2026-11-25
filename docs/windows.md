@@ -13,7 +13,7 @@
 安装 Python 3.12 x64 后，在项目目录运行一次：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build_tools/build-windows.ps1
+powershell -ExecutionPolicy Bypass -File build_tools/windows/build.ps1
 ```
 
 结果为 `dist/windows/Prombee.exe`。

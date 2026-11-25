@@ -1,3 +1,5 @@
+import { editorSession, restoreSession } from "./session";
+import { finishClose } from "./close-workspace";
 import { byId as $ } from "./dom";
 import { renderEntries } from "../components/EditorEntries";
 import type { Entry, Workspace } from "../types/workspace";
@@ -13,6 +15,8 @@ import { mountEntrySelection, mountSelectionStats } from "./entry-selection";
 import { bindPairs } from "./pairs";
 import { moveAcrossEntries } from "./entry-navigation";
 import { mountDropdowns } from "./dropdowns";
+import { defaultListType, applyListType } from "./lists";
+import { saveWorkspace, SaveError } from "./persistence";
 import {
   prepareFormatting,
   restoreFormattingCaret,
@@ -76,6 +80,7 @@ let setId = null,
   fingerprint = null,
   noSet = false,
   libraryUI;
+let lastSaveError = "";
 let multi = false,
   selected = new Set<string>();
 let page = "editor",
@@ -316,9 +321,11 @@ function render() {
   for (const field of $("paper").querySelectorAll<HTMLElement>(".content"))
     syncEntryMetrics(field);
   updateBatch();
+  defaultListType(doc());
   renumber();
   buttons();
   refreshShortcutHints();
+  $("listType").value = "all-" + defaultListType(doc());
   $("listType").disabled = false;
   for (const option of $("listType").options)
     if (!option.value.startsWith("all-"))
@@ -525,14 +532,7 @@ function syncToolbar(el) {
   if (node) {
     $("headingLevel").value =
       node.kind === "heading" ? String(node.level) : "0";
-    const index = doc().nodes.indexOf(node),
-      listNode =
-        node.kind === "heading"
-          ? doc()
-              .nodes.slice(index + 1, scopeEnd(doc().nodes, index))
-              .find((n) => n.kind === "item")
-          : node;
-    $("listType").value = listNode?.listType || "unordered";
+    $("listType").value = "all-" + defaultListType(doc());
     $("listType").disabled = false;
     for (const option of $("listType").options)
       if (!option.value.startsWith("all-")) option.disabled = false;
@@ -663,6 +663,12 @@ function changed() {
   saveTimer = setTimeout(save, 250);
 }
 async function save() {
+  if (!noSet) {
+    const before = JSON.stringify(state.editorSession);
+    captureEditorView();
+    state.editorSession = editorSession(state.editorSession, page, editorViews);
+    if (JSON.stringify(state.editorSession) !== before) dirty = true;
+  }
   if (!dirty || saveRunning || conflict || noSet) return;
   saveRunning = true;
   dirty = false;
@@ -673,34 +679,25 @@ async function save() {
     baseFingerprint: fingerprint,
   });
   try {
-    const r = await fetch("/api/state", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-      keepalive: true,
-    });
-    if (r.status === 409) {
-      conflict = true;
-      dirty = true;
-      $("status").textContent = "另一窗口已修改 · 请先复制本页内容再刷新";
-      toast("检测到其他窗口的修改，已暂停保存以保护内容");
-      return;
-    }
-    if (!r.ok) throw Error();
-    const result = await r.json();
+    const result = await saveWorkspace(payload);
+    lastSaveError = "";
     revision = result.revision;
     fingerprint = result.fingerprint || fingerprint;
     if ($("status").textContent.startsWith("保存失败"))
       $("status").textContent = "";
-    if (!dirty) localStorage.removeItem("prombee-draft");
-    else
-      localStorage.setItem(
-        "prombee-draft",
-        JSON.stringify({ state, revision, setId, fingerprint }),
-      );
-  } catch {
+    try {
+      if (!dirty) localStorage.removeItem("prombee-draft");
+      else
+        localStorage.setItem(
+          "prombee-draft",
+          JSON.stringify({ state, revision, setId, fingerprint }),
+        );
+    } catch {}
+  } catch (error) {
     dirty = true;
-    $("status").textContent = "保存失败 · 请复制文字保留内容";
+    lastSaveError = error.message || "未知错误";
+    conflict = error instanceof SaveError && error.status === 409;
+    $("status").textContent = "保存失败 · " + lastSaveError;
   } finally {
     saveRunning = false;
     if (dirty && !conflict) {
@@ -708,6 +705,9 @@ async function save() {
       saveTimer = setTimeout(save, 1200);
     }
   }
+}
+function newBody() {
+  return { ...makeNode(), listType: defaultListType(doc()) };
 }
 function insertEntry(level = 0) {
   remember();
@@ -719,13 +719,14 @@ function insertEntry(level = 0) {
     entry = existing;
     entry.kind = level ? "heading" : "item";
     entry.level = level || 1;
+    if (!level) entry.listType = defaultListType(doc());
     delete entry.raw;
     delete entry.collapsed;
   } else {
-    entry = makeNode(level ? "heading" : "item", level || 1);
+    entry = level ? makeNode("heading", level) : newBody();
     nodes.splice(index < 0 ? nodes.length : index + 1, 0, entry);
     if (level && nodes[index + 2]?.kind !== "item")
-      nodes.splice(index + 2, 0, makeNode());
+      nodes.splice(index + 2, 0, newBody());
   }
   closeMenu();
   render();
@@ -946,12 +947,12 @@ function deleteNode(id, subtree = true) {
 }
 function copyOptions() {
   return {
-    removeEmpty: state.removeEmptyOnCopy === true,
+    removeEmpty: state.removeEmptyOnCopy !== false,
     recognizeMarkdown: otherUI.recognizeMarkdown(),
   };
 }
 function deleteEmpty() {
-  state.removeEmptyOnCopy = !state.removeEmptyOnCopy;
+  state.removeEmptyOnCopy = state.removeEmptyOnCopy === false;
   $("deleteEmpty").setAttribute(
     "aria-pressed",
     String(state.removeEmptyOnCopy),
@@ -1216,7 +1217,7 @@ function fillRounds(select, fallback) {
 function updatePages() {
   $("deleteEmpty").setAttribute(
     "aria-pressed",
-    String(state.removeEmptyOnCopy === true),
+    String(state.removeEmptyOnCopy !== false),
   );
   for (const [id, target] of [
     ["template", "template"],
@@ -1334,12 +1335,15 @@ $("newDoc").onclick = () => {
   const d = {
     id: uid(),
     name: nextRoundName(state.documents),
+    defaultListType: defaultListType(state.template),
     nodes: nextRoundNodes(
       state.template.nodes,
       latestRound()?.nodes || [],
       otherUI.autoSort(),
     ),
   };
+  for (const node of d.nodes)
+    if (node.kind === "item") node.listType = d.defaultListType;
   if (!state.documents.length && doc().id === emptyRound.id) {
     histories.set(emptyRound.id, { history, future });
     history = [];
@@ -1528,22 +1532,15 @@ $("color").oninput = () => {
   spanStyle("color", $("color").value);
 };
 $("listType").onchange = () => {
-  const value = $("listType").value,
-    all = value.startsWith("all-"),
-    type = all ? value.slice(4) : value,
-    nodes = doc().nodes,
-    index = nodes.findIndex((n) => n.id === active);
-  if (!all && index < 0) return;
-  remember();
-  const end = all
-    ? nodes.length
-    : nodes[index].kind === "heading"
-      ? scopeEnd(nodes, index)
-      : index + 1;
-  for (let i = all ? 0 : index; i < end; i++)
-    if (nodes[i].kind === "item") nodes[i].listType = type;
-  renumber();
-  changed();
+  const value = $("listType").value;
+  if (value.startsWith("all-") || doc().nodes.some((n) => n.id === active)) {
+    remember();
+    if (applyListType(doc(), value, active)) {
+      renumber();
+      changed();
+    }
+  }
+  $("listType").value = "all-" + defaultListType(doc());
   dropdowns.sync();
 };
 $("headingLevel").onchange = () => {
@@ -1557,6 +1554,7 @@ $("headingLevel").onchange = () => {
   remember();
   n.kind = level ? "heading" : "item";
   n.level = level || 1;
+  if (!level) n.listType = defaultListType(doc());
   n.collapsed = false;
   render();
   focus(n.id);
@@ -1641,7 +1639,12 @@ function refreshShortcutHints() {
   ]) {
     $(id).dataset.shortcutAction = action;
     $(id).dataset.shortcutName = name;
-    $(id).title = shortcutTitle(name, action, shortcutBindings);
+    $(id).title = [
+      shortcutTitle(name, action, shortcutBindings),
+      $(id).dataset.updateHint,
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
   for (const [selector, action, name] of [
     [".add-heading", "insert", "添加"],
@@ -1666,13 +1669,18 @@ document.addEventListener("mouseover", (event) => {
     "[data-shortcut-action]",
   );
   if (button)
-    (button as HTMLElement).title = shortcutTitle(
-      button.id === "multiSelect"
-        ? button.textContent.trim()
-        : (button as HTMLElement).dataset.shortcutName,
-      (button as HTMLElement).dataset.shortcutAction,
-      shortcutBindings,
-    );
+    (button as HTMLElement).title = [
+      shortcutTitle(
+        button.id === "multiSelect"
+          ? button.textContent.trim()
+          : (button as HTMLElement).dataset.shortcutName,
+        (button as HTMLElement).dataset.shortcutAction,
+        shortcutBindings,
+      ),
+      (button as HTMLElement).dataset.updateHint,
+    ]
+      .filter(Boolean)
+      .join("\n");
 });
 function beginKeyboardInsert() {
   if (!editing() || noSet) return;
@@ -1980,21 +1988,74 @@ async function manualSave() {
     return;
   }
   try {
-    await flushWorkspace();
+    await flushWorkspace(true);
     saveStatus.success("已保存到本机");
   } catch (error) {
     $("status").textContent = error.message;
   }
 }
-async function flushWorkspace() {
+async function recoverWorkspace(reason: string) {
+  if (
+    !window.confirm(
+      `保存失败：${reason}\n\n是否把当前完整词集另存为恢复副本？请选择一个新文件名。原文件不会被覆盖，保存成功后可继续切换。`,
+    )
+  )
+    return false;
+  const wasInert = document.body.inert;
+  document.body.inert = true;
+  try {
+    const picker = await fetch("/api/picker", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "save", initial: "提示词-恢复副本.txt" }),
+    });
+    const picked = await picker.json();
+    if (!picker.ok) throw new Error(picked.error || "无法选择保存位置");
+    if (!picked.path) return false;
+    const response = await fetch("/api/library", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "recoverSet",
+        id: setId,
+        path: picked.path,
+        state,
+      }),
+    });
+    const registry = await response.json();
+    if (!response.ok) throw new Error(registry.error || "恢复副本保存失败");
+    const loaded = await fetch(
+      "/api/state?setId=" + encodeURIComponent(registry.active),
+    );
+    const envelope = await loaded.json();
+    if (!loaded.ok)
+      throw new Error(
+        envelope.error || "副本已写入，但未能打开，请从文件页打开该副本",
+      );
+    clearTimeout(saveTimer);
+    acceptWorkspace(envelope);
+    try {
+      localStorage.removeItem("prombee-draft");
+    } catch {}
+    await libraryUI?.refresh();
+    return true;
+  } finally {
+    document.body.inert = wasInert;
+  }
+}
+async function flushWorkspace(allowRecovery = false) {
   clearTimeout(saveTimer);
   if (!saveRunning) await save();
   let attempts = 0;
   while (saveRunning && attempts++ < 300)
     await new Promise((resolve) => setTimeout(resolve, 30));
   if (dirty && !conflict && !saveRunning) await save();
-  if (dirty || conflict || saveRunning)
-    throw new Error("当前内容尚未保存，请先复制内容并检查保存状态");
+  if (dirty || conflict || saveRunning) {
+    const reason = lastSaveError || "保存仍在进行，请稍后重试";
+    if (allowRecovery && !saveRunning && (await recoverWorkspace(reason)))
+      return;
+    throw new Error("当前内容尚未保存：" + reason);
+  }
 }
 function acceptWorkspace(data) {
   speech.stop();
@@ -2006,12 +2067,15 @@ function acceptWorkspace(data) {
   noSet = false;
   dirty = false;
   conflict = false;
+  lastSaveError = "";
   active = null;
   selection = null;
   history = [];
   future = [];
   histories.clear();
   editorViews.clear();
+  const restoredSession = restoreSession(state.editorSession);
+  for (const [key, view] of restoredSession.views) editorViews.set(key, view);
   selected.clear();
   multi = false;
   if (!state.template) {
@@ -2042,13 +2106,19 @@ function acceptWorkspace(data) {
     }
   }
   syncLatestTemplate();
-  page = "editor";
+  page = restoredSession.page;
   previewSource = null;
   closeMenu();
   keyboardLevel = 0;
   $("compareLeft").value = "";
   $("compareRight").value = "";
+  const view = editorViews.get(viewKey());
+  multi = !!view?.multi;
+  selected = new Set(
+    (view?.selected || []).filter((id) => doc().nodes.some((n) => n.id === id)),
+  );
   render();
+  restoreEditorView(view);
   saveStatus.dismiss();
   $("status").textContent = "";
   $("status").title = data.set?.path || "";
@@ -2074,7 +2144,7 @@ const attachments = mountAttachments({
       ].at(-1);
     if (!content) {
       remember();
-      const node = makeNode();
+      const node = newBody();
       doc().nodes.push(node);
       render();
       changed();
@@ -2166,7 +2236,7 @@ try {
     toast("已恢复上次未完成保存的编辑");
   }
   libraryUI = createLibraryUI({
-    beforeAction: flushWorkspace,
+    beforeAction: () => flushWorkspace(true),
     onOpen: acceptWorkspace,
     getSetId: () => setId,
     onLocation: (entry) => {
@@ -2190,6 +2260,7 @@ try {
   };
   await libraryUI.refresh();
   await shortcutsUI.ready;
+  updaterUI.start();
   window.prombeeReady = true;
   window.pywebview?.api?.mascot?.({ action: "editorReady" });
 } catch (err) {
@@ -2211,17 +2282,39 @@ const devPoll = setInterval(async () => {
   } catch {}
 }, 1000);
 
+let closingWorkspace = false;
 window.addEventListener("prombee-close", async () => {
-  await speech.stop();
+  if (closingWorkspace) return;
+  closingWorkspace = true;
+  document.body.inert = true;
+  updaterUI.stop();
+  void speech.stop().catch(() => {});
   clearTimeout(saveTimer);
-  if (!saveRunning) await save();
-  let ticks = 0;
-  while (saveRunning && ticks++ < 100)
-    await new Promise((resolve) => setTimeout(resolve, 30));
-  if (dirty && !conflict) await save();
-  window.webkit?.messageHandlers?.close?.postMessage(
-    dirty || conflict ? "error" : "saved",
-  );
+  try {
+    localStorage.setItem(
+      "prombee-draft",
+      JSON.stringify({ state, revision, setId, fingerprint }),
+    );
+  } catch {}
+  await finishClose({
+    save: () => flushWorkspace(),
+    preserve: async (reason) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
+      try {
+        await fetch("/api/recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state, setId, reason }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    notify: (result) =>
+      window.webkit?.messageHandlers?.close?.postMessage(result),
+  });
 });
 
 mountEdgeNavigation(document.getElementById("edgeNavigation"), () =>

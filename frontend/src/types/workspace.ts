@@ -23,6 +23,7 @@ export interface Collection {
   id: string;
   name: string;
   nodes: Entry[];
+  defaultListType?: Entry["listType"];
   attachments?: Attachment[];
   copied?: boolean;
   fromText?: boolean;
@@ -35,7 +36,7 @@ export interface Workspace {
   dark: boolean;
   font: string;
   size: number;
-  excludeEmpty?: boolean;
+  removeEmptyOnCopy?: boolean;
   [preference: string]: unknown;
 }
 export interface WorkspaceEnvelope {

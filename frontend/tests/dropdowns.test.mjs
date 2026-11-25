@@ -76,3 +76,22 @@ test("round and set wheels select, clamp, respect disabled state and keep recent
   assert.equal(sets.value, "c");
   dom.window.close();
 });
+
+test("wheel switching never invokes the create-temporary-set option", () => {
+  const dom = new JSDOM(
+    '<select id="recentSets"><option value="one">One</option><optgroup label="New"><option value="__temporary__" data-action="createTemporarySet">Temporary</option></optgroup></select>',
+  );
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  mountDropdowns();
+  document
+    .querySelector(".dropdown-trigger")
+    .dispatchEvent(
+      new window.WheelEvent("wheel", {
+        deltaY: 100,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  assert.equal(document.querySelector("select").value, "one");
+});

@@ -1,4 +1,4 @@
-"""User-initiated, checksum-verified updates from this project's GitHub releases."""
+"""Background update caching; installation and restart require explicit user actions."""
 import hashlib
 import json
 import os
@@ -11,6 +11,7 @@ import sys
 import threading
 import urllib.request
 from .. import __version__
+from ..adapters.storage import atomic_write
 
 REPOSITORY = 'Flo-Ari/Prombee'
 API = 'https://api.github.com/repos/' + REPOSITORY + '/releases?per_page=30'
@@ -63,11 +64,88 @@ class Updater:
                 self.mode = distribution_package_mode(os_release)
         if self.mode in ('linux','windows') and platform.machine().lower() not in ('x86_64','amd64'): self.mode='source'
         self.state = {'current':__version__, 'status':'idle', 'latest':None, 'progress':0, 'message':'', 'mode':self.mode,
-                      'canInstall':self.mode != 'source', 'channel':'preview'}
+                      'canInstall':self.mode != 'source', 'channel':'preview',
+                      'updateAvailable':False, 'cached':False, 'lastError':''}
         self.candidate = None
         self.package = None
         self.digest = None
         self.cache = self.data_dir / 'updates'
+        self.record = self.cache / 'cached-update.json'
+        self.startup_started = False
+        self.worker_active = False
+        self.stopped = threading.Event()
+        self.restore_cache()
+
+    def restore_cache(self):
+        try:
+            value = json.loads(self.record.read_text(encoding='utf-8'))
+            candidate = value['candidate']
+            version, name = candidate['version'], candidate['name']
+            if (version_key(version) is None or version_key(version) <= version_key(__version__)
+                    or value['mode'] != self.mode or choose_asset([name], version, self.mode) != name
+                    or candidate['manifest'] != f'Prombee-{version}-SHA256.txt'
+                    or not re.fullmatch(r'[a-f0-9]{64}', value['digest'])): return
+            package = self.cache / name
+            if not package.is_file() or not 0 < package.stat().st_size <= MAX_DOWNLOAD: return
+            self.candidate, self.package, self.digest = candidate, package, value['digest']
+            # Large files are verified by the worker, never on the UI startup thread.
+            self.change(latest=version, status='available', updateAvailable=True,
+                        message='发现已缓存的新版本，等待校验')
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+
+    def prune_packages(self, keep=None):
+        if not self.cache.exists(): return
+        patterns = (r'Prombee-\d+\.\d+\.\d+(?:-Windows-x64-(?:Portable|Setup)\.exe|-Linux-RedHat-noarch\.rpm|-Linux-Debian-all\.deb|-Linux-x86_64-Portable|-Setup-x64\.exe|\.exe)?',
+                    r'prombee-\d+\.\d+\.\d+-\d+(?:\.fc\d+)?\.noarch\.rpm',
+                    r'prombee_\d+\.\d+\.\d+_all\.deb')
+        for file in self.cache.iterdir():
+            name = file.name.removesuffix('.part')
+            if file.name != keep and file.is_file() and any(re.fullmatch(p, name) for p in patterns):
+                file.unlink()
+
+    def clear_cache(self):
+        self.prune_packages()
+        self.record.unlink(missing_ok=True)
+        self.package = self.digest = None
+        self.change(cached=False)
+
+    def start_once(self):
+        with self.lock:
+            if (self.startup_started or self.worker_active or not self.state['canInstall'] or self.stopped.is_set()
+                    or self.state['status'] in ('checking','downloading','installing','restart','installed')):
+                return self.snapshot()
+            self.startup_started = True
+            self.change(status='checking', message='正在检查更新', lastError='')
+            self.run(self.refresh)
+            return self.snapshot()
+
+    def close(self):
+        self.stopped.set()
+
+    def refresh(self):
+        if self.package:
+            try:
+                self.verify()
+                self.change(cached=True)
+            except (OSError, ValueError):
+                self.clear_cache()
+        else:
+            self.clear_cache()
+        try:
+            self.check()
+        except Exception as error:
+            self.startup_started = False
+            if not self.state['cached']: raise
+            self.change(status='ready', progress=100, lastError=str(error),
+                        message='暂时无法检查更新，已缓存的版本可安装')
+            return
+        if self.candidate and self.state['canInstall']:
+            if self.state['cached']:
+                self.change(status='ready', progress=100, message='新版本已缓存，等待确认更新')
+            else:
+                self.change(status='downloading', progress=0, message='正在后台缓存新版本')
+                self.download()
 
     def snapshot(self):
         with self.lock: return dict(self.state)
@@ -84,18 +162,26 @@ class Updater:
         return data
 
     def run(self, function):
+        with self.lock:
+            if self.worker_active: return
+            self.worker_active = True
         def worker():
             try: function()
             except Exception as error:
-                self.change(status='error', message=str(error) or '更新失败，请重试')
+                self.startup_started = False
+                if not self.stopped.is_set():
+                    self.change(status='error', message=str(error) or '更新失败，请重试', lastError=str(error))
+            finally:
+                with self.lock: self.worker_active = False
         threading.Thread(target=worker, daemon=True).start()
 
     def action(self, action):
         with self.lock:
-            if self.state['status'] in ('checking','downloading','installing','restart'): return self.snapshot()
+            if action == 'startup': return self.start_once()
+            if self.worker_active or self.state['status'] in ('checking','downloading','installing','restart'): return self.snapshot()
             if action == 'check':
                 self.change(status='checking', message='正在检查更新', progress=0)
-                self.run(self.check)
+                self.run(self.refresh)
             elif action == 'download':
                 if not self.candidate or not self.state['canInstall']: raise ValueError('没有可安装的更新')
                 self.change(status='downloading', message='正在下载更新', progress=0)
@@ -126,13 +212,17 @@ class Updater:
             if (name or self.mode=='source') and manifest in assets:
                 candidates.append((key,version,name,manifest))
         if not candidates:
-            self.candidate=None; self.change(status='current',message='暂无已发布的兼容更新');return
+            self.clear_cache(); self.candidate=None
+            self.change(status='current', latest=None, updateAvailable=False, lastError='', message='暂无已发布的兼容更新');return
         key,version,name,manifest=max(candidates)
         self.change(latest=version)
         if key <= version_key(__version__):
-            self.candidate=None;self.change(status='current',message='已是最新版本');return
-        self.candidate={'version':version,'name':name,'manifest':manifest}
-        self.change(status='available', message='发现新版本' if self.mode!='source' else '发现新版本，请在桌面版中更新')
+            self.clear_cache(); self.candidate=None
+            self.change(status='current', updateAvailable=False, lastError='', message='已是最新版本');return
+        candidate={'version':version,'name':name,'manifest':manifest}
+        if self.candidate != candidate: self.clear_cache()
+        self.candidate=candidate
+        self.change(status='available', updateAvailable=True, lastError='', message='发现新版本' if self.mode!='source' else '发现新版本，请在桌面版中更新')
 
     def url(self, name):
         from urllib.parse import quote
@@ -140,6 +230,8 @@ class Updater:
 
     def download(self):
         candidate=dict(self.candidate)
+        self.change(updateAvailable=True, latest=candidate['version'], cached=False)
+        self.prune_packages(keep=candidate['name'])
         manifest=self.fetch(self.url(candidate['manifest'])).decode('utf-8')
         checksums={m.group(2):m.group(1).lower() for line in manifest.splitlines()
                    if (m:=re.fullmatch(r'([a-fA-F0-9]{64})\s+\*?([^/\\]+)',line))}
@@ -155,15 +247,18 @@ class Updater:
                 total=int(response.headers.get('Content-Length',0))
                 if total > MAX_DOWNLOAD: raise ValueError('安装包过大')
                 while chunk:=response.read(256*1024):
+                    if self.stopped.is_set(): raise InterruptedError('下载已停止')
                     received+=len(chunk)
                     if received > MAX_DOWNLOAD: raise ValueError('安装包过大')
                     output.write(chunk);digest.update(chunk)
                     self.change(progress=min(99,round(received/total*100)) if total else 0)
             if digest.hexdigest()!=expected: raise ValueError('安装包校验失败，未执行更新')
+            if self.stopped.is_set(): raise InterruptedError('下载已停止')
             partial.replace(target)
         finally: partial.unlink(missing_ok=True)
         self.package=target;self.digest=expected
-        self.change(status='ready',message='下载校验完成',progress=100)
+        atomic_write(self.record, json.dumps({'mode':self.mode, 'candidate':candidate, 'digest':expected}))
+        self.change(status='ready', message='新版本已缓存，等待确认更新', progress=100, cached=True, lastError='')
 
     def verify(self):
         if not self.package or not self.package.is_file(): raise ValueError('安装包不存在，请重新下载')
@@ -186,7 +281,7 @@ class Updater:
             if result.returncode:
                 detail=(result.stderr or result.stdout).decode(errors='replace')[-700:]
                 raise ValueError('安装失败：'+detail)
-            self.change(status='installed',message='安装完成，正在重启')
+            self.change(status='installed',message='安装完成，正在重启',updateAvailable=False)
         elif self.mode in ('windows','linux'): self.restart(replace=True)
         else: raise ValueError('请在已安装的桌面版中更新')
 
@@ -215,7 +310,7 @@ class Updater:
                 helper=self.cache/'restart.sh';helper.write_text(LINUX_RESTART,encoding='utf-8')
                 subprocess.Popen(['/bin/sh',str(helper),str(os.getpid()),str(target),stage,str(self.data_dir)],env=env,start_new_session=True,stdout=log,stderr=log)
         finally:log.close()
-        self.change(status='restart',message='正在保存并重启')
+        self.change(status='restart',message='正在保存并重启',updateAvailable=False)
 
 
 LINUX_RESTART = '''#!/bin/sh

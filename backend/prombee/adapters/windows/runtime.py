@@ -41,7 +41,7 @@ class PreparationWindow:
         self.user.PeekMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT]
         self.user.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
         self.user.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
-        from ..adapters.branding import app_name, ui_language
+        from ..branding import app_name, ui_language
         text = ('正在准备首次运行所需组件，请稍候…\n完成后自动打开提示蜂，无需联网。'
                 if ui_language() == 'zh' else
                 'Preparing components for the first launch…\nPrombee will open automatically. No internet required.')

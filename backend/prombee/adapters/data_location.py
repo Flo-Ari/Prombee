@@ -1,6 +1,8 @@
-"""Store data only in a user-chosen folder or alongside the application."""
+"""Stable startup data locations for source, portable and system installations."""
 import json
+import os
 from pathlib import Path
+import sys
 import tempfile
 
 from .storage import atomic_write
@@ -13,72 +15,58 @@ def writable_folder(folder):
     return folder.resolve()
 
 
-def resolve_data_folder(application_dir, explicit=None, choose=None):
+def user_application_folder():
+    if sys.platform == 'win32':
+        return Path(os.environ.get('LOCALAPPDATA') or Path.home() / 'AppData/Local') / 'Prombee'
+    return Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share') / 'prombee'
+
+
+def resolve_data_folder(application_dir, explicit=None, choose=None, *, user_directory=None):
     application_dir = Path(application_dir).resolve()
-    if explicit:
-        return writable_folder(Path(explicit).expanduser())
+    user = Path(user_directory) if user_directory is not None else user_application_folder()
     pointer = application_dir / 'data-location.json'
-    if pointer.exists():
+    user_pointer = user / 'data-location.json'
+
+    def remember(folder):
+        text = json.dumps({'path': str(folder), 'application': str(application_dir)}, ensure_ascii=False)
+        try: atomic_write(pointer, text)
+        except OSError:
+            user.mkdir(parents=True, exist_ok=True)
+            atomic_write(user_pointer, text)
+        return folder
+
+    def recalled(record):
         try:
-            value = json.loads(pointer.read_text(encoding='utf-8'))
+            value = json.loads(record.read_text(encoding='utf-8'))
             folder = Path(value['path'])
             if not folder.is_absolute() or not folder.is_dir(): raise ValueError('数据文件夹不可用')
             return writable_folder(folder)
         except (OSError, ValueError, KeyError, TypeError):
             if not choose: raise ValueError('上次的数据文件夹不可用，请重新选择')
             selected = choose()
-            if not selected: return None
-            folder = writable_folder(selected)
-            atomic_write(pointer, json.dumps({'path': str(folder)}, ensure_ascii=False))
-            return folder
+            return remember(writable_folder(selected)) if selected else None
+
+    if explicit:
+        return writable_folder(Path(explicit).expanduser())
+    # A replacement choice must outrank an obsolete, read-only installation record.
+    if user_pointer.exists():
+        try: matches = json.loads(user_pointer.read_text(encoding='utf-8')).get('application') == str(application_dir)
+        except (OSError, ValueError, TypeError, AttributeError): matches = False
+        if matches: return recalled(user_pointer)
+    if pointer.exists(): return recalled(pointer)
+    # Reuse old application-local data before creating an empty registry.
+    old = application_dir / 'Prombee-data'
+    if (old / 'library.json').is_file() and not (application_dir / 'data/library.json').is_file():
+        return writable_folder(old)
     try:
-        return writable_folder(application_dir / 'Prombee-data')
+        return writable_folder(application_dir / 'data')
     except OSError:
-        if not choose: raise ValueError('软件文件夹不可写，请选择数据保存位置或更换安装位置')
-        selected = choose()
-        if not selected: return None
-        folder = writable_folder(selected)
-        # Never fall back to AppData, HOME, Documents or an inferred location.
-        try: atomic_write(pointer, json.dumps({'path': str(folder)}, ensure_ascii=False))
-        except OSError: pass
-        return folder
-
-
-def choose_windows_folder():
-    import ctypes as C
-    from ctypes import wintypes as W
-    class BrowseInfo(C.Structure):
-        _fields_ = [('hwndOwner', W.HWND), ('pidlRoot', C.c_void_p), ('pszDisplayName', W.LPWSTR),
-                    ('lpszTitle', W.LPCWSTR), ('ulFlags', W.UINT), ('lpfn', C.c_void_p),
-                    ('lParam', W.LPARAM), ('iImage', C.c_int)]
-    shell, ole = C.windll.shell32, C.windll.ole32
-    shell.SHBrowseForFolderW.argtypes = [C.POINTER(BrowseInfo)]
-    shell.SHBrowseForFolderW.restype = C.c_void_p
-    shell.SHGetPathFromIDListEx.argtypes = [C.c_void_p, W.LPWSTR, W.DWORD, W.DWORD]
-    ole.CoTaskMemFree.argtypes = [C.c_void_p]
-    initialized = ole.CoInitialize(None) in (0, 1)
-    try:
-        info = BrowseInfo(None, None, C.create_unicode_buffer(260), '选择提示蜂数据保存文件夹', 0x41, None, 0, 0)
-        pidl = shell.SHBrowseForFolderW(C.byref(info))
-        if not pidl: return None
-        try:
-            path = C.create_unicode_buffer(32768)
-            if not shell.SHGetPathFromIDListEx(pidl, path, len(path), 0): raise ValueError('所选位置不是文件夹')
-            return path.value
-        finally: ole.CoTaskMemFree(pidl)
-    finally:
-        if initialized: ole.CoUninitialize()
-
-
-def choose_gtk_folder(Gtk, Gio, GLib):
-    Gtk.init()
-    loop = GLib.MainLoop()
-    result = [None]
-    chooser = Gtk.FileChooserNative.new('选择提示蜂数据保存文件夹', None,
-                                        Gtk.FileChooserAction.SELECT_FOLDER, '选择', '取消')
-    def response(dialog, code):
-        if code == Gtk.ResponseType.ACCEPT and dialog.get_file(): result[0] = dialog.get_file().get_path()
-        dialog.destroy(); loop.quit()
-    chooser.connect('response', response)
-    chooser.show(); loop.run()
-    return result[0]
+        # RPM/DEB and Program Files cannot hold per-user files. Remember their
+        # location outside the installation tree, so upgrades cannot reset it.
+        if user_pointer.exists(): return recalled(user_pointer)
+        existing = user if (user / 'library.json').is_file() else user / 'data'
+        try: return remember(writable_folder(existing))
+        except OSError:
+            if not choose: raise ValueError('数据目录不可写，请选择保存位置')
+            selected = choose()
+            return remember(writable_folder(selected)) if selected else None

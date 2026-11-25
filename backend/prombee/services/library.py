@@ -112,11 +112,12 @@ def safe_name(name):
 
 
 class Library:
-    def __init__(self, root, data_dir, validate):
+    def __init__(self, root, data_dir, validate, *, temporary_dir=None):
         self.root, self.data_dir, self.validate = Path(root), Path(data_dir), validate
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.registry = self.data_dir / 'library.json'
-        self.seed = json.loads((self.root / 'seed.json').read_text(encoding='utf-8'))
+        self.seed = json.loads((self.root / 'backend/prombee/resources/seed.json').read_text(encoding='utf-8'))
+        self.temporary_dir = Path(temporary_dir) if temporary_dir is not None else self.data_dir
         self.lock_dir = Path(tempfile.gettempdir()) / 'prombee-file-locks'
         self.lock_dir.mkdir(exist_ok=True)
         with self.transaction():
@@ -124,9 +125,19 @@ class Library:
                 legacy = self.data_dir / 'workspace.json'
                 package = json.loads(legacy.read_text(encoding='utf-8')) if legacy.exists() else {'revision': 0, 'state': self.seed}
                 if not self.validate(package['state']): raise ValueError('原有工作区格式无效，未迁移')
+                # Existing standalone startup files and legacy state always win.
                 path = self.data_dir / '当前词集.txt'
+                temporary = not legacy.exists() and not path.exists()
+                if temporary:
+                    index = 1
+                    path = self.temporary_dir / f'临时词集{index}.txt'
+                    while path.exists():
+                        index += 1
+                        path = self.temporary_dir / f'临时词集{index}.txt'
+                    self.temporary_dir.mkdir(parents=True, exist_ok=True)
                 if not path.exists(): atomic_write(path, encode_workspace(package['state'], package['revision']))
                 entry = self.entry(path)
+                if temporary: entry['temporary'] = True
                 self.write_registry({'version': 2, 'active': entry['id'], 'sets': [entry], 'groups': [{'id': 'ungrouped', 'name': '未分组', 'pinned': False}]})
             self.migrate_registry()
 
@@ -203,7 +214,7 @@ class Library:
             return self.read_entry(self.find(registry, set_id))
 
     def save(self, payload):
-        if not self.validate(payload.get('state')): raise ValueError('Invalid workspace')
+        if not self.validate(payload.get('state')): raise ValueError('词集内容格式无效，未修改文件')
         with self.transaction():
             registry = self.read_registry()
             entry = self.find(registry, payload.get('setId'))
@@ -215,17 +226,45 @@ class Library:
                 incoming={**payload['state'],'documents':[{**d,**({'copied':True,'copiedAt':d.get('copiedAt') or previous[d['id']].get('copiedAt')} if previous.get(d['id'],{}).get('copied') else {})} for d in payload['state']['documents']]}
                 revision = old['revision'] + 1
                 text = encode_workspace(incoming, revision)
+                if len(text.encode('utf-8')) > 20 * 1024 * 1024: raise ValueError('词集超过 20 MB，请减少内容后重试')
                 atomic_write(entry['path'], text)
                 return {'revision': revision, 'fingerprint': hashlib.sha256(text.encode('utf-8')).hexdigest()}
 
+    def recovery(self, payload):
+        """Keep an independent recovery TXT; never overwrite the active/external file."""
+        state = payload.get('state')
+        if not self.validate(state): raise ValueError('恢复草稿内容格式无效')
+        text = encode_workspace(state, 0)
+        if len(text.encode('utf-8')) > 20 * 1024 * 1024: raise ValueError('恢复草稿超过 20 MB')
+        folder = self.data_dir / 'recovery'
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / (time.strftime('恢复草稿-%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8] + '.txt')
+        atomic_write(path, text)
+        return {'path': str(path)}
+
     def snapshot(self):
-        with self.transaction(): return self.read_registry()
+        with self.transaction(): return {**self.read_registry(), 'temporaryDirectory': str(self.temporary_dir)}
 
     def action(self, request):
         action = request.get('action')
         with self.transaction():
             registry = self.read_registry()
-            if action == 'createSet':
+            if action == 'createTemporarySet':
+                group_id = self.group_id(registry, request.get('groupId'))
+                self.temporary_dir.mkdir(parents=True, exist_ok=True)
+                index = 1
+                while True:
+                    path = self.temporary_dir / f'临时词集{index}.txt'
+                    try:
+                        with path.open('x', encoding='utf-8', newline='\n') as output:
+                            output.write(encode_workspace(self.seed, 0))
+                        break
+                    except FileExistsError:
+                        index += 1
+                entry = self.entry(path, group_id)
+                entry['temporary'] = True
+                registry['sets'].append(entry); registry['active'] = entry['id']
+            elif action == 'createSet':
                 folder = Path(request.get('folder', '')).expanduser().resolve()
                 if not request.get('folder') or not folder.is_dir(): raise ValueError('请先选择保存位置')
                 name = safe_name(request.get('name', ''))
@@ -300,6 +339,28 @@ class Library:
                 if target.suffix.lower()!='.txt':target=target.with_name(target.name+'.txt')
                 with target.open('x',encoding='utf-8',newline='\n') as output:output.write(encode_workspace(package['state'],package['revision']))
                 registry['sets'].append(self.entry(target,source.get('groupId','ungrouped')))
+            elif action == 'recoverSet':
+                # Save the editor snapshot, not the stale/unwritable source file.
+                state = request.get('state')
+                if not self.validate(state): raise ValueError('恢复副本的词集内容格式无效')
+                if not isinstance(request.get('path'), str) or not request['path']: raise ValueError('请选择保存位置')
+                target = Path(request['path']).expanduser().resolve()
+                if target.suffix.lower() != '.txt': target = target.with_name(target.name + '.txt')
+                if not target.parent.is_dir(): raise ValueError('保存文件夹不存在，请重新选择')
+                text = encode_workspace(state, 0)
+                if len(text.encode('utf-8')) > 20 * 1024 * 1024: raise ValueError('词集超过 20 MB，请减少内容后重试')
+                with self.file_lock(target):
+                    created = False
+                    try:
+                        with target.open('x', encoding='utf-8', newline='\n') as output:
+                            created = True
+                            output.write(text); output.flush(); os.fsync(output.fileno())
+                    except OSError:
+                        if created: target.unlink(missing_ok=True)
+                        raise
+                source = next((s for s in registry['sets'] if s['id'] == request.get('id')), {})
+                entry = self.entry(target, source.get('groupId', 'ungrouped'))
+                registry['sets'].append(entry); registry['active'] = entry['id']
             elif action == 'assignGroup':
                 entry = self.find(registry, request.get('id'))
                 entry['groupId'] = self.group_id(registry, request.get('groupId'))

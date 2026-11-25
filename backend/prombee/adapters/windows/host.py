@@ -10,11 +10,11 @@ import threading
 import time
 
 LOG_FOLDER = None
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / 'backend'))
+from prombee.paths import resource_root
+ROOT = resource_root()
 from prombee.server import start_server
 from prombee.adapters.branding import app_name, ui_language
-from prombee.adapters.clipboard_windows import clipboard_text, clipboard_files
+from prombee.adapters.windows.clipboard import clipboard_text, clipboard_files
 
 
 BRIDGE = """
@@ -35,29 +35,17 @@ def main():
     parser.add_argument('--smoke-install-runtime', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if os.name != 'nt':
-        parser.error('This entry point requires Windows; use desktop.py on Linux.')
-    from prombee.adapters.data_location import resolve_data_folder, choose_windows_folder
+        parser.error('This entry point requires Windows; use backend/prombee/__main__.py on Linux.')
+    from prombee.adapters.data_location import resolve_data_folder
+    from prombee.adapters.windows.picker import choose_windows_folder
     application = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else ROOT
     explicit = args.data_dir or os.environ.get('PROMBEE_DATA_DIR')
-    # Existing data is never silently moved or discarded. The user can explicitly
-    # choose its folder; otherwise new data lives beside the executable.
-    if not explicit and not (application/'Prombee-data').exists() and not (application/'data-location.json').exists():
-        legacy = Path(os.environ.get('LOCALAPPDATA', ''))/'Prombee'
-        if (legacy/'library.json').exists():
-            answer = ctypes.windll.user32.MessageBoxW(None,
-                '检测到旧版本数据：\n'+str(legacy)+'\n\n是否自行选择要继续使用的数据文件夹？\n选择“否”将在软件文件夹内创建新数据，旧数据会保留。', app_name(), 0x23)
-            if answer == 2: return 0
-            if answer == 6:
-                explicit = choose_windows_folder()
-                if not explicit: return 0
-                from prombee.adapters.storage import atomic_write
-                atomic_write(application/'data-location.json', json.dumps({'path':str(Path(explicit).resolve())},ensure_ascii=False))
     data = resolve_data_folder(application, explicit, choose_windows_folder)
     if data is None: return 0
     global LOG_FOLDER
     LOG_FOLDER = data
     startup_log('Starting Prombee')
-    from prombee.adapters.windows_runtime import ensure_runtime, runtime_version
+    from prombee.adapters.windows.runtime import ensure_runtime, runtime_version
     # Exercise the packaged installer and native preparation window in CI even
     # when the runner image already contains WebView2.
     first_probe = [args.smoke_test and args.smoke_install_runtime]
@@ -90,22 +78,18 @@ def main():
             floating.command(msg)
 
         def close_finished(self, value):
-            if value == 'saved':
-                allow_close.set()
-                floating.stop.set()
-                floating.allow_close=True
-                floating.orb.destroy()
-                window.destroy()
-            else:
-                closing.clear()
-                floating.focus_suspended=False
-                window.run_js("document.getElementById('status').textContent='暂时无法保存，请先复制文字保留内容'")
+            if allow_close.is_set(): return
+            allow_close.set()
+            floating.stop.set()
+            floating.allow_close=True
+            try: floating.orb.destroy()
+            finally: window.destroy()
 
     window = webview.create_window(app_name(), f'http://127.0.0.1:{server.server_port}/?desktop=windows&lang={ui_language()}',
                                    js_api=Api(), width=1080, height=800, min_size=(640, 450), text_select=True,
                                    frameless=True, easy_drag=False)
 
-    from prombee.adapters.floating_windows import WindowsFloating
+    from prombee.adapters.windows.floating import WindowsFloating
     floating = WindowsFloating(webview,window,f'http://127.0.0.1:{server.server_port}/',data,lambda:window.destroy())
     server.floating_changed=floating.preferences_changed
 
@@ -126,6 +110,9 @@ def main():
         if not closing.is_set():
             floating.focus_suspended=True
             closing.set()
+            fallback = threading.Timer(8, lambda: Api().close_finished('timeout'))
+            fallback.daemon=True
+            fallback.start()
             threading.Thread(target=lambda: window.run_js("window.dispatchEvent(new Event('prombee-close'))"), daemon=True).start()
         return False
 

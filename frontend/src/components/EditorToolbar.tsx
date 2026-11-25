@@ -27,7 +27,7 @@ export function EditorToolbar() {
         </svg>
       </button>
       <button id="multiSelect">{"多选"}</button>
-      <button id="deleteEmpty" aria-pressed="false" title="复制时排除空项">
+      <button id="deleteEmpty" aria-pressed="true" title="复制时排除空项">
         {"\n        排除空项\n      "}
       </button>
       <button id="undo" title="撤销 Ctrl+Z" aria-label="撤销">
@@ -79,7 +79,7 @@ export function EditorToolbar() {
         <option value="5">{"五级标题"}</option>
         <option value="6">{"六级标题"}</option>
       </select>
-      <select id="listType" aria-label="序号类型">
+      <select id="listType" aria-label="序号类型" defaultValue="all-unordered">
         <optgroup label="局部">
           <option value="unordered">{"局部无序"}</option>
           <option value="ordered">{"局部有序"}</option>

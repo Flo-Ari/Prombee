@@ -1,10 +1,29 @@
 import { byId as $ } from "./dom";
 export function mountUpdates({ beforeInstall, request = fetch }) {
   let timer,
-    automatic = false,
+    installRequested = false,
     working = false,
-    closing = false;
+    closing = false,
+    started = false,
+    disposed = false,
+    updateHint = "";
   const busy = ["checking", "downloading", "installing", "restart"];
+  function refreshHints() {
+    for (const [id, label] of [
+      ["settingsTab", "设置"],
+      ["updatesTab", "更新"],
+    ]) {
+      const button = document.getElementById(id);
+      if (!button) continue;
+      button.classList.toggle("has-update", !!updateHint);
+      button.dataset.updateHint = updateHint;
+      button.title = [button.title.split("\n")[0] || label, updateHint]
+        .filter(Boolean)
+        .join("\n");
+      if (updateHint) button.setAttribute("aria-description", updateHint);
+      else button.removeAttribute("aria-description");
+    }
+  }
   async function api(action?: string) {
     const response = await request(
       "/api/update",
@@ -21,7 +40,7 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
     return value;
   }
   function error(message) {
-    automatic = false;
+    installRequested = false;
     working = false;
     clearTimeout(timer);
     $("updateStatus").textContent = message;
@@ -29,6 +48,15 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
     $("installUpdate").disabled = false;
   }
   async function paint(value) {
+    if (disposed) return;
+    const available =
+      value.updateAvailable ??
+      (!!value.latest &&
+        !["current", "installed", "restart"].includes(value.status));
+    updateHint = available
+      ? `可更新至 ${value.latest || "新版本"}，${value.cached || value.status === "ready" ? "已缓存，点击更新并重启以安装" : value.status === "downloading" ? "正在后台下载缓存，安装需手动确认" : "等待下载缓存，安装需手动确认"}`
+      : "";
+    refreshHints();
     $("currentVersion").textContent = value.current || "—";
     $("latestVersion").textContent = value.latest
       ? "最新版本 " + value.latest
@@ -47,12 +75,12 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
     $("installUpdate").disabled = working;
     $("installUpdate").textContent =
       value.status === "installed" ? "重启应用" : "更新并重启";
-    if (value.status === "error") {
-      automatic = false;
+    if (["current", "error"].includes(value.status)) {
+      installRequested = false;
       working = false;
     }
     if (
-      automatic &&
+      installRequested &&
       ["ready", "installed"].includes(value.status) &&
       !working
     ) {
@@ -77,7 +105,7 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
     clearTimeout(timer);
     if (
       busy.includes(value.status) ||
-      (automatic && value.status === "installed")
+      (installRequested && value.status === "installed")
     )
       timer = setTimeout(() => show(), 700);
   }
@@ -90,7 +118,7 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
   }
   $("checkUpdate").onclick = async () => {
     try {
-      automatic = false;
+      installRequested = false;
       await paint(await api("check"));
     } catch (e) {
       error(e.message);
@@ -98,7 +126,7 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
   };
   $("installUpdate").onclick = async () => {
     try {
-      automatic = true;
+      installRequested = true;
       await beforeInstall();
       const value = await api();
       if (["ready", "installed"].includes(value.status)) await paint(value);
@@ -107,5 +135,24 @@ export function mountUpdates({ beforeInstall, request = fetch }) {
       error(e.message);
     }
   };
-  return { show };
+  async function online() {
+    if (disposed) return;
+    try {
+      await paint(await api("startup"));
+    } catch (e) {
+      error(e.message);
+    }
+  }
+  function start() {
+    if (started) return;
+    started = true;
+    window.addEventListener("online", online);
+    void show();
+  }
+  function stop() {
+    disposed = true;
+    clearTimeout(timer);
+    window.removeEventListener("online", online);
+  }
+  return { show, start, stop, refreshHints };
 }

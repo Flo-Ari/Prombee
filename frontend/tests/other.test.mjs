@@ -97,3 +97,36 @@ test("Markdown preference auto-saves independently and the manual save button is
   assert.equal(changed, false);
   assert.equal(ui.recognizeMarkdown(), false);
 });
+
+test("application jump defaults on, persists without a target, and never interrupts copying until selected", async () => {
+  const $ = setup();
+  let stored = { enabled: true, target: null },
+    jumps = 0;
+  const ui = mountOtherSettings({
+    request: async (url, options) => {
+      if (options) {
+        const payload = JSON.parse(options.body);
+        if (payload.action === "save")
+          stored = { enabled: payload.enabled, target: payload.target };
+        if (payload.action === "jump") jumps++;
+      }
+      return {
+        ok: true,
+        json: async () => ({ ...stored, windows: [], applications: [] }),
+      };
+    },
+  });
+  await ui.ready;
+  assert.equal($("copyJumpEnabled").checked, true);
+  await ui.afterCopy();
+  assert.equal(jumps, 0);
+  await ui.show();
+  await $("copyJumpEnabled").onchange();
+  assert.equal(stored.enabled, true);
+  assert.equal(stored.target, null);
+  await ui.afterCopy();
+  assert.equal(jumps, 0);
+  $("copyJumpEnabled").checked = false;
+  await $("copyJumpEnabled").onchange();
+  assert.equal(stored.enabled, false);
+});

@@ -67,14 +67,23 @@ export function mountDropdowns(root = document) {
       button.disabled =
         option.disabled || option.parentElement.disabled === true;
       button.dataset.value = option.value;
-      button.setAttribute("aria-selected", String(option.selected));
+      button.setAttribute(
+        "aria-selected",
+        String(
+          option.selected &&
+            !(
+              control.select.id === "listType" &&
+              !option.value.startsWith("all-")
+            ),
+        ),
+      );
       button.onmousedown = (e) => e.preventDefault();
       button.onclick = () => {
         control.select.value = option.value;
-        control.paint();
         control.select.dispatchEvent(
           new window.Event("change", { bubbles: true }),
         );
+        control.paint();
         close();
         control.trigger.focus();
       };
@@ -118,15 +127,51 @@ export function mountDropdowns(root = document) {
     popup.role = "listbox";
     popup.id = (select.id || "select-" + controls.size) + "-popup";
     trigger.setAttribute("aria-controls", popup.id);
-    const control = { select, trigger, popup, label, paint: () => {} };
+    const control = {
+      select,
+      trigger,
+      popup,
+      label,
+      paint: () => {},
+      measure: () => {},
+      outlineObserver: null,
+    };
     controls.set(select, control);
     const paint = () => {
       label.textContent = select.selectedOptions[0]?.textContent || "";
       if (select.id === "font") label.style.fontFamily = select.value;
+      trigger.classList.toggle(
+        "list-state",
+        select.id === "listType" && select.value.startsWith("all-"),
+      );
       trigger.title = label.textContent;
       trigger.disabled = select.disabled;
+      control.measure();
     };
     control.paint = paint;
+    if (select.id === "copyJumpTarget") {
+      const paintOutline = () => {
+        const { width, height } = trigger.getBoundingClientRect();
+        if (!width || !height) return;
+        for (const [theme, color] of [
+          ["light", "#a6b6ce"],
+          ["dark", "#455c79"],
+        ]) {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect x=".6" y=".6" width="${width - 1.2}" height="${height - 1.2}" rx="6" fill="none" stroke="${color}" stroke-width="1" stroke-dasharray="18 6"/></svg>`;
+          trigger.style.setProperty(
+            `--jump-outline-${theme}`,
+            `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+          );
+        }
+      };
+      control.measure = paintOutline;
+      if (window.ResizeObserver) {
+        control.outlineObserver = new window.ResizeObserver(paintOutline);
+        control.outlineObserver.observe(trigger);
+      }
+      paintOutline();
+    }
+
     select.addEventListener("change", paint);
     new window.MutationObserver(paint).observe(select, {
       childList: true,
@@ -141,7 +186,7 @@ export function mountDropdowns(root = document) {
         delta = 0;
       const available = () =>
         [...select.options].filter(
-          (o) => !o.disabled && !o.parentElement.disabled,
+          (o) => !o.disabled && !o.parentElement.disabled && !o.dataset.action,
         );
       shell.addEventListener("pointerleave", () => {
         if (document.body.inert) return;
