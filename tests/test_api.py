@@ -41,7 +41,7 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(path.parent, Path(directory) / 'recovery')
                 self.assertEqual(source.read_bytes(), before)
                 from prombee.services.library import decode_workspace
-                self.assertEqual(decode_workspace(path.read_text(), app.state.services.library.seed)['state'], state)
+                self.assertEqual(decode_workspace(path.read_text(encoding='utf-8'), app.state.services.library.seed)['state'], state)
                 second = client.post('/api/recovery', json={'state':state})
                 self.assertNotEqual(second.json()['path'], str(path))
                 self.assertEqual(client.post('/api/recovery', json={'state':{}}).status_code, 400)

@@ -39,7 +39,7 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(len(list(self.data.glob('临时词集*.txt'))), 1)
 
     def test_temporary_sets_are_unique_persistent_and_need_no_picker(self):
-        temporary = Path(self.temp.name) / 'portable' / 'data'
+        temporary = (Path(self.temp.name) / 'portable' / 'data').resolve()
         lib = Library(ROOT, self.data, valid, temporary_dir=temporary)
         first = lib.action({'action': 'createTemporarySet'})
         first_id = first['active']
